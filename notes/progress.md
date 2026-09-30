@@ -53,8 +53,8 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 
 ## Balance (tools/balance.mjs, 150 careers × up to 10 jobs)
 - Start with £2,500 (enough to survive two busted jobs; was £1,000).
-- Scripted "careful" policy: ~41% B or better, ~7% S (perfect); 12/200 careers end inside 10 jobs (52 at £1,000).
-- Reckless (hire one stranger, no prep): ~68% F.
+- Scripted "careful" policy: ~47% B or better, ~6% S (perfect); ~17/200 careers end inside 10 jobs (52 at £1,000 start).
+- Reckless (hire one stranger, no prep): ~60% F, ~81% D or F.
 - Chaos (first 5 jobs): every job has a hazard, ~36% have the security cat, ~30% spring a surprise; ~55–63% of
   pear-shaped jobs cost a dog; ~0.8 arrests and ~0.1 permanent losses per job.
 - Pinned in `tests/balance.test.mjs` (careful B+ ≥ 30%, reckless D/F ≥ 60%, S achievable but < 20%) and
@@ -104,6 +104,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - UI: scene modal with the dog's portrait and choice buttons (cost shown, disabled if unaffordable); 📖 Story / 🔥 Fired up / 😟 Distracted / ⚠️ Trouble / 🏠 Away chips; 🔥/😟/⚠️ on plan assignees; a 🌟 promotion line in the aftermath.
 - Probe: `node tools/drama.mjs [careers]`. Careful 12-job careers: ~0.36 arcs per job, ~0.9 home-grown rares and ~0.12 legendaries per career; the balance probe's careful player pays when it has £800 to spare, the reckless one always takes the free option.
 - Debug: `spawn('arc', kind)`, `live()` (the real state, for scripted set-ups); `getState().arcs` / `.drama`. Tests: `tests/drama.test.mjs`; smoke 1g answers a scene with a real tap and checks a promotion.
+
+## Skill coverage
+- Every skill has 4+ approaches across 3+ kinds of step (nose, aim, locks and wheels gained entry/exit/vault/getaway options), 10 talents and 3+ breeds that lean towards it (`tests/skills.test.mjs`).
+- The pub spreads new faces across the skills (`refreshPub`): each face's speciality is weighted against what you can already see around you, against what you've been shown least over the whole game (`state.faces`), and slightly towards what the job uses; 70% get a breed known for it. The pub starts at 5 dogs. Result: every skill is a speciality in 40–60% of first pubs (disguise 36% → 57%), and you see ~8.4 of 10 specialities after one Ask Around.
+- `specialty(dog)` in dogs.js is the best *known* skill (what cards show).
+- Profile header compacts for long names; the talents row shows the best three (two beside a signature) plus "+N more", so any legendary fits 375×667.
 
 ## Heist playback
 - The log grows downwards; each new beat scrolls the page to the end so it sits just above the sticky controls (smoke checks this after 12 real taps on Next).

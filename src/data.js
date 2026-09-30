@@ -329,12 +329,15 @@ export const APPROACHES = {
   e_vent: { label: 'Crawl in through the air vents', skill: 'agility', mod: 1, noise: 0, failNoise: 2, clues: 0, needIntel: 'blueprints', ok: '{d} wriggles through the vents and out a grille.', fail: '{d} gets stuck in a vent. The banging echoes.' },
   e_delivery: { label: 'Pose as a sausage delivery', skill: 'disguise', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '"Sausages for Mr... Sausage?" It works. Somehow.', fail: 'Nobody ordered sausages. Suspicion is high.' },
   e_ram: { label: 'Ram-raid the front window', skill: 'wheels', mod: -2, noise: 5, failNoise: 6, clues: 2, needKit: 'van', ok: '{d} puts the van through the front window. Subtle as a brick.', fail: '{d} misses the window and hits a lamppost. Very loud.' },
+  e_sniffkey: { label: 'Sniff out the spare key', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: '{d} sniffs every flowerpot on the street. Third one: a spare key.', fail: '{d} digs up the whole flowerbed. No key. Lots of mess.' },
+  e_rod: { label: 'Hook the window latch with a fishing rod', skill: 'aim', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'One cast from across the yard. The latch flips. {d} blows on the reel.', fail: '{d} hooks the burglar alarm instead. Reels it in, too.' },
   e_insider: { label: 'Inside dog props the door', skill: 'sneak', mod: -3, noise: 0, failNoise: 1, clues: 0, needInsider: true, ok: 'The inside dog props the fire door with a chew toy. Walk right in.', fail: 'The inside dog gets called to the manager\'s office at the worst moment.' },
   // ---- Obstacles
   o_sneakpast: { label: 'Sneak past on the patrol gap', skill: 'sneak', mod: 0, noise: 0, failNoise: 3, clues: 0, intelBonus: 'guard_rota', ok: '{d} slips by in the gap between patrols.', fail: 'A guard turns round. Torchlight, right in the face.' },
   o_squeaky: { label: 'Lob a squeaky toy down the corridor', skill: 'aim', mod: -2, noise: 0, failNoise: 2, clues: 1, needKit: 'squeaky', ok: 'SQUEAK. Every guard in the building chases it. Can\'t help themselves.', fail: 'The toy bounces off a guard\'s head. He is not amused.' },
   o_knockout: { label: 'Have a quiet word (loudly)', skill: 'muscle', mod: 0, noise: 2, failNoise: 3, clues: 1, ok: '{d} has a word. The guards have a lie down.', fail: 'The guards have a word back. A loud one.' },
   o_relief: { label: 'Pose as the relief shift', skill: 'disguise', mod: -1, noise: 0, failNoise: 2, clues: 0, needKit: 'uniforms', ok: '"Shift change, lads. Off you pop." And off they pop.', fail: '"We don\'t have a shift change at two a.m." Oops.' },
+  o_sniffguards: { label: 'Sniff out where the guards are', skill: 'nose', mod: 0, noise: 0, failNoise: 2, clues: 0, intelBonus: 'guard_rota', ok: '{d} follows the smell of cheese sandwiches and steers everyone round them.', fail: '{d} follows the smell of cheese sandwiches straight into the break room.' },
   o_bribed: { label: 'Wave at the guard you bribed', skill: 'charm', mod: -4, noise: 0, failNoise: 2, clues: 0, needBribe: true, ok: 'The bribed guard is looking very hard at a crossword.', fail: 'The bribed guard has had second thoughts.' },
   o_loop: { label: 'Loop the camera feed', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'The monitors show an empty corridor. On repeat.', fail: 'The feed glitches. The control room goes, "Hang on..."' },
   o_shoot: { label: 'Pop the lenses with a slingshot', skill: 'aim', mod: -1, noise: 1, failNoise: 2, clues: 1, kitBonus: 'slingshot', ok: 'Ping. Ping. Ping. Every camera, blind.', fail: 'Ping. Miss. Ping. Miss. The camera swivels round.' },
@@ -355,6 +358,7 @@ export const APPROACHES = {
   v_drill: { label: 'Drill the hinges', skill: 'muscle', mod: -1, noise: 3, failNoise: 4, clues: 1, needKit: 'drill', ok: 'Sparks fly. The door falls off with a clang.', fail: 'The drill bit snaps. The whine could wake the dead.' },
   v_keypad: { label: 'Hack the keypad', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'Beep boop beep. Access granted.', fail: 'ACCESS DENIED. ACCESS DENIED. ACCESS DENIED.' },
   v_combo: { label: 'Punch in the combination', skill: 'locks', mod: -4, noise: 0, failNoise: 1, clues: 0, needIntel: 'combo', ok: 'The numbers from the intel. First try.', fail: 'Someone copied the numbers down wrong.' },
+  v_sniff: { label: 'Sniff out the most-pressed buttons', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Four buttons smell of the manager\'s biscuits. {d} tries them in order. Click.', fail: 'Every button smells of biscuits. The manager has a problem.' },
   v_swap: { label: 'Swap the goods for fakes', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: -1, swap: true, ok: '{d} swaps the real goods for convincing fakes. They\'ll never know.', fail: '{d} knocks the fakes over. Crash.' },
   v_smash: { label: 'Smash and grab', skill: 'muscle', mod: -2, noise: 4, failNoise: 4, clues: 2, ok: 'SMASH. Grab. Done.', fail: 'The glass doesn\'t smash. {d} bounces off it.' },
   v_pickcase: { label: 'Pick the case locks', skill: 'locks', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'lockpicks', ok: 'Tiny locks, tiny picks. Open.', fail: 'The case has a tilt sensor. It tilts.' },
@@ -365,6 +369,8 @@ export const APPROACHES = {
   x_chute: { label: 'Down the laundry chute', skill: 'agility', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: 'Wheee! Straight into a laundry cart.', fail: 'Wheee— stuck. Halfway down. With the swag.' },
   x_front: { label: 'Out the front, bold as brass', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 1, ok: 'Right out the front door, tipping their hats to the night guard.', fail: 'The night guard recognises them from the telly.' },
   x_wall: { label: 'Through the wall', skill: 'muscle', mod: 0, noise: 3, failNoise: 4, clues: 2, needKit: 'drill', ok: 'Through the wall and into the alley. Brick dust everywhere.', fail: 'The wall is load-bearing. Half the ceiling comes with them.' },
+  x_trolley: { label: 'Down the loading ramp on a trolley', skill: 'wheels', mod: 1, noise: 1, failNoise: 3, clues: 1, ok: '{d} steers a loaded trolley down the ramp like it\'s a sports car.', fail: 'The trolley has a wonky wheel. It goes left. Into a shelf.' },
+  x_fireexit: { label: 'Pick the chained fire exit', skill: 'locks', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'lockpicks', ok: 'The padlock on the fire exit lasts four seconds. {d} is almost insulted.', fail: 'The padlock holds. The chain rattles. Loudly.' },
   x_roof: { label: 'Up to the roof and zip-line off', skill: 'agility', mod: 0, noise: 0, failNoise: 2, clues: 0, needKit: 'grapple', ok: 'Zzzzzip. Across the rooftops and gone.', fail: 'Zzzzip— SNAP. Someone forgot to tie the knot.' },
   // ---- Getaway
   g_hotwire: { label: 'Hot-wire a motor on the street', skill: 'tech', mod: 1, noise: 1, failNoise: 2, clues: 1, ok: 'Two wires, one spark, and they\'re away.', fail: 'The car alarm goes off. The whole street wakes up.' },
@@ -372,6 +378,8 @@ export const APPROACHES = {
   g_moped: { label: 'Mopeds through the alleys', skill: 'wheels', mod: 0, noise: 0, failNoise: 2, clues: 0, needKit: 'moped', ok: 'A swarm of mopeds vanishes into the back alleys.', fail: 'A moped runs out of petrol. Right outside a police box.' },
   g_crowd: { label: 'Melt into the crowd', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 0, crowd: true, ok: 'Just another bunch of blokes in flat caps.', fail: 'There is no crowd. There is them, and a policeman.' },
   g_barge: { label: 'Slow canal barge', skill: 'wheels', mod: -1, noise: 0, failNoise: 1, clues: -1, slow: true, ok: 'Chug... chug... chug. Nobody suspects a barge.', fail: 'The barge is overtaken by a jogger. Then a police boat.' },
+  g_sniff: { label: 'Follow your nose through the back alleys', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: '{d} leads them home by the smell of the chip shop. Nobody follows.', fail: '{d} leads them home by the smell of the chip shop. So do the police.' },
+  g_tyres: { label: 'Pop the patrol car\'s tyres and stroll off', skill: 'aim', mod: 1, noise: 1, failNoise: 2, clues: 1, kitBonus: 'slingshot', ok: 'Pfft. Pfft. The patrol car isn\'t going anywhere, and neither is the copper in it.', fail: 'Missed. The copper looks up from his sandwich.' },
   g_walk: { label: 'Walk. Casual. Whistle', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
   // ---- Signature moves: secret options only a rare or legendary specialist can open (see SIGNATURES)
   s_phantom: { label: 'Just... appear inside', skill: 'sneak', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'phantom', ok: 'Nobody saw {d} come in. Nobody ever does.', fail: '{d} appears inside. Right in front of a guard.' },
@@ -410,7 +418,7 @@ export const SIGNATURES = {
 };
 
 export const OBSTACLES = {
-  guards: { label: 'The Guards', icon: '👮', options: ['o_sneakpast', 'o_squeaky', 'o_knockout', 'o_relief', 'o_bribed'] },
+  guards: { label: 'The Guards', icon: '👮', options: ['o_sneakpast', 'o_squeaky', 'o_knockout', 'o_relief', 'o_sniffguards', 'o_bribed'] },
   cameras: { label: 'The Cameras', icon: '📹', options: ['o_loop', 'o_shoot', 'o_blindspot', 'o_hats'] },
   lasers: { label: 'Laser Grid', icon: '🟥', options: ['o_limbo', 'o_short', 'o_mirror'] },
   cat: { label: 'Mr. Whiskers, Security Cat', icon: '🐈', options: ['o_laser', 'o_tuna', 'o_tiptoe', 'o_stare'], hazard: true },
@@ -418,14 +426,14 @@ export const OBSTACLES = {
 };
 
 export const VAULTS = {
-  safe: { label: 'The Safe', icon: '🗄️', options: ['v_crack', 'v_drill', 'v_keypad', 'v_combo'] },
+  safe: { label: 'The Safe', icon: '🗄️', options: ['v_crack', 'v_drill', 'v_keypad', 'v_sniff', 'v_combo'] },
   case: { label: 'The Display Case', icon: '💎', options: ['v_swap', 'v_smash', 'v_pickcase'] },
-  strongroom: { label: 'The Strongroom', icon: '🏦', options: ['v_timelock', 'v_drill', 'v_manager', 'v_combo'] },
+  strongroom: { label: 'The Strongroom', icon: '🏦', options: ['v_timelock', 'v_drill', 'v_manager', 'v_sniff', 'v_combo'] },
 };
 
-export const ENTRY_POOL = ['e_pick', 'e_charm', 'e_staff', 'e_skylight', 'e_sewer', 'e_vent', 'e_delivery', 'e_ram', 'e_insider'];
-export const EXIT_POOL = ['x_same', 'x_chute', 'x_front', 'x_wall', 'x_roof'];
-export const GETAWAY_POOL = ['g_hotwire', 'g_van', 'g_moped', 'g_crowd', 'g_barge', 'g_walk'];
+export const ENTRY_POOL = ['e_pick', 'e_charm', 'e_staff', 'e_skylight', 'e_sewer', 'e_vent', 'e_delivery', 'e_ram', 'e_sniffkey', 'e_rod', 'e_insider'];
+export const EXIT_POOL = ['x_same', 'x_chute', 'x_front', 'x_wall', 'x_trolley', 'x_fireexit', 'x_roof'];
+export const GETAWAY_POOL = ['g_hotwire', 'g_van', 'g_moped', 'g_crowd', 'g_barge', 'g_sniff', 'g_tyres', 'g_walk'];
 
 // Loot kinds: cash fences easily; art is hard to shift; oddities are dog-themed
 // collector pieces. bulk = carry slots.

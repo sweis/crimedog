@@ -152,6 +152,11 @@ export function skillOf(dog, skill) {
   return v;
 }
 
+// The best skill the player knows about (never leaks hidden stats), or null.
+export function specialty(dog) {
+  return topSkills(dog, SKILLS.length).find(([sk]) => dog.known.skills[sk])?.[0] ?? null;
+}
+
 export function topSkills(dog, n = 3) {
   return SKILLS.map((s) => [s, skillOf(dog, s)]).sort((a, b) => b[1] - a[1]).slice(0, n);
 }

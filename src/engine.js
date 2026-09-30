@@ -2,8 +2,8 @@
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation } from './util.js';
-import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion } from './dogs.js';
+import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
@@ -77,7 +77,7 @@ function pruneStrangers(state, keep) {
 
 export function refreshPub(state, rng = rngOf(state)) {
   const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier - 1 : 0);
-  const n = Math.min(6, 4 + Math.floor(state.rep / 35));
+  const n = Math.min(6, 5 + Math.floor(state.rep / 40));
   const pub = [];
   // Some regulars come back.
   const regulars = Object.values(state.dogs).filter((d) => d.status === 'free' && !isVisitor(d) && !state.crew.includes(d.id) && !(d.undercover && d.known.undercover));
@@ -85,17 +85,37 @@ export function refreshPub(state, rng = rngOf(state)) {
     if (pub.length >= Math.floor(n / 2)) break;
     if (d.met || rng.chance(0.3)) pub.push(d.id);
   }
+  // New faces spread across the skills: each leans towards a speciality nobody
+  // around you has yet (and ones this job can use), so every kind turns up.
+  // Counts what you've been shown lately: known specialities of everyone still about.
+  const have = {};
+  for (const d of Object.values(state.dogs)) {
+    const sk = ['free', 'crew'].includes(d.status) && specialty(d);
+    if (sk) have[sk] = (have[sk] || 0) + 1;
+  }
+  const need = new Set(state.job ? visibleStages(state.job).flatMap((st) => st.options.map((ap) => APPROACHES[ap].skill)) : []);
+  // Over the whole game, specialities you've seen least come round first.
+  state.faces ||= {};
+  const least = Math.min(...SKILLS.map((sk) => state.faces[sk] || 0));
+  const newFace = () => {
+    const primary = rng.weighted(SKILLS.map((sk) => [sk, (need.has(sk) ? 1.5 : 1) / ((1 + 4 * (have[sk] || 0)) ** 2 * (1 + 2 * ((state.faces[sk] || 0) - least)))]));
+    have[primary] = (have[primary] || 0) + 1;
+    state.faces[primary] = (state.faces[primary] || 0) + 1;
+    // Usually a breed known for it (poodles and pugs for disguise, hounds for noses...).
+    const breed = rng.chance(0.7) ? rng.pick(Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary))) : undefined;
+    return { primary, breed };
+  };
   let copperPlanted = false;
   while (pub.length < n) {
     const undercover = !copperPlanted && state.heat >= 25 && rng.chance((state.heat - 15) / 150);
     if (undercover) copperPlanted = true;
-    const d = genDog(state, rng, { quality, undercover });
+    const d = genDog(state, rng, { quality, undercover, ...newFace() });
     state.dogs[d.id] = d;
     pub.push(d.id);
   }
   // There's always some wide-eyed rookie who'll work for peanuts.
   if (!pub.some((id) => state.dogs[id].fee <= 60)) {
-    const r = genDog(state, rng, { quality: 0 });
+    const r = genDog(state, rng, { quality: 0, ...newFace() });
     r.archetype = 'rookie';
     r.catchphrase = 'Is this... is this a real heist? Like, a proper one?';
     r.fee = 40;

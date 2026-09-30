@@ -3,7 +3,7 @@
 import * as E from './engine.js';
 import { esc, money, count } from './util.js';
 import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES } from './data.js';
-import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor } from './dogs.js';
+import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
@@ -226,9 +226,8 @@ function pips(v, known, max = 7) {
 
 // Best skill the player actually knows about (never leaks hidden stats).
 function specialtyText(d) {
-  const known = topSkills(d, 10).find(([sk]) => d.known.skills[sk]);
-  if (!known) return '❓ Unknown';
-  return `${SKILL_INFO[known[0]].icon} ${SKILL_INFO[known[0]].label}`;
+  const sk = specialty(d);
+  return sk ? `${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}` : '❓ Unknown';
 }
 
 // A skill's value if you've seen the dog use it, otherwise '?'.
@@ -740,7 +739,11 @@ function dogModal(G, d) {
   const knownT = d.talents.filter((t) => d.known.talents.includes(t));
   const unknownT = d.talents.length - knownT.length;
   const sig = d.signature ? `<span class="chip sig-chip" title="${esc(SIGNATURES[d.signature].blurb)}">✨ ${esc(SIGNATURES[d.signature].name)}</span>` : '';
-  const talents = sig + knownT.map((t) => `<span class="chip info" title="${esc(TALENTS[t].blurb)}">${esc(TALENTS[t].name)} ${SKILL_INFO[TALENTS[t].skill].icon}+${TALENTS[t].bonus}</span>`).join('')
+  // Best three known talents; the rest fold into a "+N" chip so the profile fits a phone.
+  const shownT = knownT.slice().sort((x, y) => TALENTS[y].bonus - TALENTS[x].bonus).slice(0, d.signature ? 2 : 3);
+  const moreT = knownT.filter((t) => !shownT.includes(t));
+  const talents = sig + shownT.map((t) => `<span class="chip info" title="${esc(TALENTS[t].blurb)}">${esc(TALENTS[t].name)} ${SKILL_INFO[TALENTS[t].skill].icon}+${TALENTS[t].bonus}</span>`).join('')
+    + (moreT.length ? `<span class="chip info" title="${esc(moreT.map((t) => TALENTS[t].name).join(', '))}">+${moreT.length} more</span>` : '')
     + (unknownT ? `<span class="chip">❓ ${unknownT} unknown</span>` : '');
   const quirks = d.known.quirks.map((q) => `<span class="chip ${QUIRKS[q].good === true ? 'good' : QUIRKS[q].good === false ? 'bad' : ''}" title="${esc(QUIRKS[q].blurb)}">${esc(QUIRKS[q].name)}</span>`).join('')
     || '<span class="muted">No quirks known yet.</span>';
@@ -773,8 +776,8 @@ function dogModal(G, d) {
   }
 
   return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
-    <div class="grow"><h2 class="dm-name">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-    <div class="dm-sub">${esc(b.label)} · ${esc(relationLabel(d))} · ${count(d.jobs, 'job')} · ${esc(where)}</div></div></div>
+    <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
+    <div class="dm-sub">${[b.label, relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map(esc).join(' · ')}</div></div></div>
     <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
