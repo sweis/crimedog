@@ -68,24 +68,27 @@ export async function cardPNG(dog) {
   }
 }
 
-export async function shareCard(dog) {
-  const blob = await cardPNG(dog);
+// Try the native share sheet; the caller shows the PNG in a modal either way,
+// so players inside sandboxed viewers can long-press to save it.
+export async function shareBlob(dog, blob) {
   const name = `crimedog-${dog.first.toLowerCase()}.png`;
   const file = new File([blob], name, { type: 'image/png' });
-  const text = `${displayName(dog)} — "${dog.catchphrase}" #Crimedog`;
+  const text = `${displayName(dog)}: "${dog.catchphrase}" #Crimedog`;
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: displayName(dog), text });
       return 'shared';
     } catch (e) {
-      if (e && e.name === 'AbortError') return 'cancelled';
+      return e && e.name === 'AbortError' ? 'cancelled' : 'failed';
     }
   }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  return 'downloaded';
+  return 'unsupported';
+}
+
+export function canShareFiles() {
+  try {
+    return !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'x.png', { type: 'image/png' })] }));
+  } catch {
+    return false;
+  }
 }

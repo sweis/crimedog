@@ -204,6 +204,12 @@ console.log('3. Stills sweep over every screen');
   }
   await page.evaluate(() => { window.cd.setSeed(5); window.cd.cam('hero-close'); });
   await shot(page, 'cam-hero-close');
+  await tap(page, '.modal [data-act="share"]');
+  await page.waitForSelector('[data-card-preview]');
+  await page.waitForTimeout(300);
+  const w = await page.$eval('[data-card-preview]', (img) => img.decode().then(() => img.naturalWidth));
+  check(w === 600, `share card renders a 600px PNG (${w})`);
+  await shot(page, 'share-card');
   check(errors.length === 0, `no console errors in sweep (${errors.join(' | ')})`);
   await ctx.close();
 }

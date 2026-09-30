@@ -5,6 +5,7 @@ import { SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES,
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills } from './dogs.js';
 import { visibleStages, totalLootValue } from './heists.js';
 import { odds, oddsKnown, approachAvailable, ALARM_MAX } from './sim.js';
+import { canShareFiles } from './card.js';
 
 export const SCREENS = ['title', 'intro', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
 export const PLAN_TABS = [
@@ -480,6 +481,7 @@ function renderModal(G) {
   let inner = '';
   if (m.type === 'dog') inner = dogModal(G, G.state.dogs[m.id]);
   else if (m.type === 'pick') inner = pickModal(G, m.purpose);
+  else if (m.type === 'card') inner = cardModal(G, G.state.dogs[m.id]);
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><button class="close" data-act="close-modal" aria-label="Close">✕</button>${inner}</div></div>`;
 }
 
@@ -514,6 +516,15 @@ function dogModal(G, d) {
     <h3>Talents</h3>${talents}
     <h3 class="mt">Character</h3>${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}${quirks}
     <div class="stack mt">${actions.join('')}</div>`;
+}
+
+function cardModal(G, d) {
+  if (!G.card || G.card.id !== d.id) return '';
+  const name = `crimedog-${d.first.toLowerCase()}.png`;
+  return `<h2>${esc(shortName(d))}'s card</h2>
+    <img class="card-preview" src="${G.card.url}" alt="Character card for ${esc(displayName(d))}" data-card-preview>
+    <p class="muted center">Long-press or right-click the card to save it.</p>
+    <div class="btn-row">${canShareFiles() ? '<button class="btn" data-act="share-native">📤 Share</button>' : ''}<a class="btn ghost" href="${G.card.url}" download="${esc(name)}">💾 Save</a></div>`;
 }
 
 function pickModal(G, purpose) {

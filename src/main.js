@@ -2,7 +2,7 @@
 import * as E from './engine.js';
 import { render, currentScreen } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
-import { shareCard } from './card.js';
+import { cardPNG, shareBlob } from './card.js';
 
 const SAVE_KEY = 'crimedog.save.v1';
 const params = new URLSearchParams(location.search);
@@ -142,13 +142,23 @@ const A = {
     run(E.farm, id);
   },
   async 'share'(el) {
+    const dog = G.state.dogs[el.dataset.id];
     try {
-      const how = await shareCard(G.state.dogs[el.dataset.id]);
-      toast(how === 'shared' ? 'Shared!' : how === 'downloaded' ? 'Card saved.' : '');
+      const blob = await cardPNG(dog);
+      if (G.card?.url) URL.revokeObjectURL(G.card.url);
+      G.card = { id: dog.id, blob, url: URL.createObjectURL(blob) };
+      G.ui.modal = { type: 'card', id: dog.id };
+      G.render();
     } catch (e) {
-      toast('Couldn\'t make the card.', true);
+      toast('Couldn\'t draw the card.', true);
       logError(e);
     }
+  },
+  async 'share-native'() {
+    if (!G.card) return;
+    const how = await shareBlob(G.state.dogs[G.card.id], G.card.blob);
+    if (how === 'shared') toast('Shared.');
+    else if (how !== 'cancelled') toast('Sharing isn\'t available here. Long-press the card to save it.', true);
   },
   'plan-ap'(el) {
     const st = el.dataset.stage;
