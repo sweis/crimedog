@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "serve": "node tools/serve.mjs",
-    "test": "node --test tests/",
+    "test": "node --test tests/*.test.mjs",
     "smoke": "node tools/smoke.mjs",
-    "check": "node --test tests/ && node tools/smoke.mjs"
+    "check": "node --test tests/*.test.mjs && node tools/smoke.mjs"
   }
 }

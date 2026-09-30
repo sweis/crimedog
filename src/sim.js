@@ -36,7 +36,7 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
 }
 
 export function baseOdds(skill, diff) {
-  return clamp(0.5 + 0.12 * (skill - diff), 0.05, 0.95);
+  return clamp(0.55 + 0.12 * (skill - diff), 0.05, 0.95);
 }
 
 function clamp(v, a, b) {
@@ -359,6 +359,12 @@ export function simulate(state, job, rng) {
     // Both attempts failed.
     switch (stage.kind) {
       case 'entry':
+        if (ctx.alarm < 6 && rng.chance(0.5)) {
+          beat({ kind: 'chaos', stage: stage.id, text: 'Sod finesse. They put a bin through a back window and climb in. Loud, but they\'re in.' });
+          ctx.clues += 1;
+          addAlarm(3, stage.id);
+          break;
+        }
         beat({ kind: 'fail', stage: stage.id, text: 'They can\'t get in. "Abort! ABORT!" Everyone legs it.' });
         ctx.aborted = true;
         if (ctx.alarm >= 4) escapeCheck(dog, stage.id);

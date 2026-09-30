@@ -36,7 +36,7 @@ export function genJob(state, rng) {
   const tier = jobTier(state);
   const venueType = rng.pick(Object.keys(VENUES));
   const V = VENUES[venueType];
-  const base = 2 + tier;
+  const base = 1 + tier;
   const mult = 1 + (tier - 1) * 0.7;
 
   // Loot
