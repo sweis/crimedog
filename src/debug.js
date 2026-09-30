@@ -34,14 +34,17 @@ export function snapshot(G) {
     job: s?.job ? {
       id: s.job.id, name: s.job.name, tier: s.job.tier, daysLeft: s.job.daysLeft, time: s.job.time, hour: s.job.hour, alert: s.job.alert,
       stages: s.job.stages.map((st) => ({ id: st.id, hidden: !!st.hidden, options: st.options.length })),
-      intel: s.job.intel, plan: s.job.plan, loot: s.job.loot.map((l) => ({ name: l.name, value: l.value })),
+      intel: s.job.intel, plan: s.job.plan, loot: s.job.loot.map((l) => ({ name: l.name, value: l.value })), patron: s.job.patron, owner: s.job.owner,
     } : null,
     crew: s ? s.crew.map((id) => ({ id, name: s.dogs[id].first, undercover: s.dogs[id].undercover })) : [],
     pub: s ? s.pub.length : 0,
     dogs: s ? Object.keys(s.dogs).length : 0,
     kit: s?.kit,
+    offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner })) ?? [],
+    groups: s?.groups ? Object.fromEntries(Object.entries(s.groups).map(([k, g]) => [k, { standing: g.standing, met: g.met, debt: g.debt?.amount ?? 0 }])) : null,
+    story: s?.story?.length ?? 0,
     heist: r ? { beat: G.ui.heist.i, beats: r.beats.length, playing: G.ui.heist.playing, alarm: r.beats[Math.min(G.ui.heist.i, r.beats.length - 1)].alarm, outcome: r.outcome } : null,
-    after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received } : null,
+    after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received, relations: s.after.relations } : null,
     over: s?.over ?? null,
     stats: s?.stats,
     frameMs: +G.stats.frameMs.toFixed(2),
@@ -58,6 +61,12 @@ export function snapshot(G) {
   };
 }
 
+// Dev shortcut: planning screens need a job, so take the first offer on the board.
+function ensurePlan(G) {
+  const s = G.state;
+  if (s?.phase === 'select') { s.story = []; E.acceptOffer(s, s.offers[0].id); }
+}
+
 export function installDebug(G) {
   const cd = {
     screens: () => SCREENS.slice(),
@@ -65,6 +74,13 @@ export function installDebug(G) {
     teleport(spot) {
       if (!G.state && !['title', 'intro'].includes(spot)) cd.setSeed(G.state?.seed ?? 1);
       const s = G.state;
+      if (spot === 'select') {
+        if (s.phase !== 'select' && s.phase !== 'over') {
+          if (s.phase === 'heist') { G.ui.heist.i = s.result.beats.length - 1; E.resolveHeist(s); }
+          if (s.phase === 'aftermath') { s.after.step = 'grade'; s.after.grade ||= E.gradeJob(s); }
+          E.nextJob(s);
+        }
+      } else if (!['title', 'intro', 'over'].includes(spot)) ensurePlan(G);
       if (spot === 'heist' || spot === 'aftermath') {
         if (s.phase === 'plan') {
           if (!s.crew.length) E.hire(s, s.pub.find((id) => s.dogs[id].fee <= s.cash) || s.pub[0]);
@@ -108,6 +124,7 @@ export function installDebug(G) {
       const s = G.state;
       if (!s) return null;
       if (kind === 'dog') {
+        if (at === 'crew') ensurePlan(G);
         const rng = E.rngOf(s);
         const d = genDog(s, rng, { undercover: at === 'copper', quality: 1 });
         s.dogs[d.id] = d;
@@ -118,6 +135,7 @@ export function installDebug(G) {
       }
       if (kind === 'cash') { s.cash += Number(at) || 1000; G.commit(); return s.cash; }
       if (kind === 'kit') { const ids = at ? [at] : Object.keys(KIT); for (const k of ids) s.kit[k] = (s.kit[k] || 0) + 1; G.commit(); return s.kit; }
+      if (kind === 'rep') { s.rep = Number(at) || 60; G.commit(); return s.rep; }
       if (kind === 'intel') { for (const k of Object.keys(s.job.intel)) { s.job.intel[k] = true; } for (const st of s.job.stages) st.hidden = false; G.commit(); return s.job.intel; }
       return null;
     },
@@ -130,6 +148,7 @@ export function installDebug(G) {
     win() {
       const s = G.state;
       if (!s) return;
+      ensurePlan(G);
       if (!s.crew.length) { s.cash += 2000; E.hire(s, s.pub[0]); }
       s.job.buyer = true;
       s.result = {
@@ -139,7 +158,8 @@ export function installDebug(G) {
       };
       s.phase = 'heist';
       E.resolveHeist(s);
-      E.fence(s, 'collector');
+      if (s.after.step === 'deliver') E.deliver(s);
+      if (s.after.step === 'fence') E.fence(s, 'collector');
       E.payCrew(s, 30);
       G.commit();
       return s.after.grade.letter;
@@ -155,6 +175,7 @@ export function installDebug(G) {
       G.ui.modal = null;
       if (name === 'overview') { if (G.state?.phase === 'plan') G.ui.screen = 'job'; }
       else if (name === 'hero-close') {
+        ensurePlan(G);
         const s = G.state;
         const id = s.crew[0] || s.pub[0];
         G.ui.modal = { type: 'dog', id };

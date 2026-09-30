@@ -90,7 +90,11 @@ console.log('1. Cold boot, real touch play-through');
   await tap(page, '[data-act="new-game"]');
   await shot(page, '02-intro');
   await tap(page, '[data-act="start"]');
-  check(await page.locator('main[data-screen="job"]').count() === 1, 'job screen after intro');
+  check(await page.locator('main[data-screen="select"]').count() === 1, 'job board after intro');
+  check(await page.locator('.offer').count() >= 2, 'at least two leads on the board');
+  await shot(page, '02b-job-board');
+  await tap(page, '[data-act="take-offer"]');
+  check(await page.locator('main[data-screen="job"]').count() === 1, 'taking an offer opens the job');
   await shot(page, '03-job');
   await tap(page, '.nav [data-to="pub"]');
   await shot(page, '04-pub');
@@ -133,16 +137,147 @@ console.log('1. Cold boot, real touch play-through');
   check(await page.locator('main[data-screen="aftermath"]').count() === 1, 'aftermath screen');
   await shot(page, '11-aftermath');
   if (await page.locator('[data-act="fence"]:not([disabled])').count()) await tap(page, '[data-act="fence"]:not([disabled])');
-  await tap(page, '[data-act="pay"][data-pct="30"]');
+  // A £0 take only offers "nothing to split"; otherwise pay a fair cut.
+  await tap(page, (await page.locator('[data-act="pay"][data-pct="30"]').count()) ? '[data-act="pay"][data-pct="30"]' : '[data-act="pay"]');
   check(await page.locator('[data-grade]').count() === 1, 'graded');
   await shot(page, '12-grade');
   await tap(page, '[data-act="next-job"]');
-  check(await page.locator('main[data-screen="job"], main[data-screen="over"]').count() === 1, 'next job or game over');
+  check(await page.locator('main[data-screen="select"], main[data-screen="over"]').count() === 1, 'back to the job board (or game over)');
   // Reload: save persists
   await page.reload();
   await page.waitForFunction(() => window.__crimedogBooted);
   check(await page.locator('[data-act="continue"]').count() === 1, 'continue offered after reload');
   check(errors.length === 0, `no console errors on cold path (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1b. short viewport modal
+console.log('1b. Profile close button stays reachable with browser toolbars showing');
+{
+  const ctx = await browser.newContext({ ...phone, viewport: { width: 375, height: 560 } });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}?dev=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.teleport('pub'); });
+  await tap(page, 'main .dog-card');
+  await page.waitForTimeout(300);
+  const at = async () => page.evaluate(() => { const r = document.querySelector('.modal .close').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, vh: innerHeight }; });
+  const a = await at();
+  check(a.top >= 24 && a.bottom <= a.vh, `close button on screen at open (top ${a.top})`);
+  await page.evaluate(() => { const m = document.querySelector('.modal'); m.scrollTop = m.scrollHeight; });
+  await page.waitForTimeout(150);
+  const b = await at();
+  check(b.top >= 24 && b.bottom <= b.vh, `close button still on screen after scrolling (top ${b.top})`);
+  await shot(page, 'modal-short-viewport');
+  const box = await page.locator('.modal .close').boundingBox();
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(150);
+  check((await page.locator('.modal').count()) === 0, 'tapping ✕ closes the profile');
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1c. profile fits without scrolling
+console.log('1c. Crew profile fits on phone screens with actions visible');
+for (const [w, h] of [[390, 844], [375, 667]]) {
+  const ctx = await browser.newContext({ ...phone, viewport: { width: w, height: h } });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}?dev=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.teleport('pub'); });
+  await tap(page, 'main .dog-card');
+  await page.waitForTimeout(300);
+  const measure = () => page.evaluate(() => {
+    const m = document.querySelector('.modal');
+    const btns = [...m.querySelectorAll('.dm-actions .btn')].map((b) => ({ r: b.getBoundingClientRect(), over: b.scrollWidth > b.clientWidth + 1 }));
+    return { scroll: m.scrollHeight - m.clientHeight, bottom: Math.max(...btns.map((b) => b.r.bottom)), overflow: btns.some((b) => b.over), vh: innerHeight };
+  });
+  const a = await measure();
+  check(a.scroll <= 1 && a.bottom <= a.vh && !a.overflow, `${w}x${h}: new face fits, actions on screen (scroll ${a.scroll}, bottom ${Math.round(a.bottom)}/${a.vh})`);
+  await tap(page, '.modal [data-act="surveil"]');
+  await page.waitForTimeout(300);
+  const b = await measure();
+  const toastHitsActions = await page.evaluate(() => {
+    const t = document.querySelector('#toast .t');
+    if (!t) return false;
+    const tr = t.getBoundingClientRect();
+    return [...document.querySelectorAll('.dm-actions .btn')].some((el) => { const r = el.getBoundingClientRect(); return !(tr.bottom < r.top || tr.top > r.bottom || tr.right < r.left || tr.left > r.right); });
+  });
+  check(!toastHitsActions, `${w}x${h}: toast does not cover the profile's buttons`);
+  check(b.scroll <= 1 && b.bottom <= b.vh && !b.overflow, `${w}x${h}: tailed dog (more traits) still fits (scroll ${b.scroll})`);
+  if (w === 375) await shot(page, 'profile-375x667');
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1d. hire from a plan step
+console.log('1d. Hiring from a planning step returns to that step');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?dev=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.spawn('cash', 5000); window.cd.spawn('dog', 'crew'); window.cd.teleport('plan'); });
+  const stageId = await page.evaluate(() => window.cd.getState().job.stages.filter((st) => !st.hidden)[2].id);
+  const crewBefore = (await page.evaluate(() => window.cd.getState().crew)).length;
+  await tap(page, `.stage[data-stage="${stageId}"] [data-act="hire-for"]`);
+  check(await page.locator('main[data-screen="pub"] .hire-banner').count() === 1, 'plan step opens the pub in hiring-for mode');
+  check((await page.locator('.hire-banner').innerText()).includes('step 3'), 'banner names the step');
+  await shot(page, 'hire-for-step');
+  await tap(page, 'main .dog-card');
+  check((await page.locator('.modal [data-act="hire"]').innerText()).includes('step 3'), 'hire button says which step');
+  await tap(page, '.modal [data-act="hire"]');
+  await page.waitForTimeout(250);
+  const st = await page.evaluate(() => window.cd.getState());
+  const hired = st.crew[st.crew.length - 1].id;
+  check(st.screen === 'plan' && st.crew.length === crewBefore + 1, `back on the plan with a new hire (${st.screen}, crew ${st.crew.length})`);
+  check(st.job.plan[stageId]?.dog === hired && !!st.job.plan[stageId]?.approach, 'new hire is assigned to that step');
+  const inView = await page.evaluate((id) => { const r = document.querySelector(`.stage[data-stage="${id}"]`).getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, stageId);
+  check(inView, 'plan is scrolled to the step');
+  await shot(page, 'hire-for-step-returned');
+  // Back without hiring also returns to the step
+  await tap(page, `.stage[data-stage="${stageId}"] [data-act="hire-for"]`);
+  await tap(page, '[data-act="hire-back"]');
+  const back = await page.evaluate(() => window.cd.getState().screen);
+  check(back === 'plan', 'back button returns to the plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1e. groups: story, deal, relations
+console.log('1e. Groups offer jobs once you have a name');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?dev=1&seed=5`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; });
+  const early = await page.evaluate(() => window.cd.getState().offers);
+  check(early.every((o) => o.source === 'own'), 'a new career only has your own leads');
+  // Build a reputation and come back to the board until an outfit calls.
+  let st;
+  for (let k = 0; k < 8; k++) {
+    st = await page.evaluate(() => { window.cd.spawn('rep', 80); window.cd.teleport('job'); window.cd.teleport('select'); return window.cd.getState(); });
+    if (st.offers.some((o) => o.source !== 'own')) break;
+  }
+  check(st.offers.some((o) => o.source !== 'own'), `outfits make offers at high rep (${st.offers.map((o) => o.source).join(', ')})`);
+  check(await page.locator('.modal.story').count() === 1, 'first contact shows a story scene');
+  await shot(page, 'group-story');
+  while (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+  await shot(page, 'group-board');
+  const offerId = st.offers.find((o) => o.source !== 'own').id;
+  await tap(page, `[data-act="take-offer"][data-id="${offerId}"]`);
+  check(await page.locator('.deal-card').count() === 1, 'job screen shows the deal');
+  await shot(page, 'group-deal');
+  const grade = await page.evaluate(() => window.cd.win());
+  const rel = await page.evaluate(() => window.cd.getState().after.relations);
+  check(rel.some((r) => r.delta > 0), `a finished job warms the patron (${grade})`);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(150);
+  await shot(page, 'group-relations');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }
 
@@ -187,12 +322,13 @@ console.log('3. Stills sweep over every screen');
   await page.waitForFunction(() => window.cd);
   await page.evaluate(() => document.getElementById('diag').hidden = true);
   const screens = await page.evaluate(() => window.cd.screens());
-  const order = ['title', 'intro', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
+  const order = ['title', 'intro', 'select', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
   check(JSON.stringify(screens.slice().sort()) === JSON.stringify(order.slice().sort()), 'registry matches sweep order');
   for (const s of order) {
     const got = await page.evaluate((sc) => {
       if (sc === 'title') { window.cd.clearAll(); }
       else if (sc === 'intro') { window.cd.setSeed(2024); window.cd.teleport('intro'); }
+      else if (sc === 'select') { window.cd.teleport('select'); }
       else if (sc === 'plan') { window.cd.spawn('dog', 'crew'); window.cd.teleport('plan'); }
       else if (sc === 'heist') { window.cd.teleport('heist'); window.cd.step(6); }
       else window.cd.teleport(sc);

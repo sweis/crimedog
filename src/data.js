@@ -175,6 +175,8 @@ export const BREEDS = {
   labrador: { label: 'Labrador', faction: 'indie', ears: 'floppy', snout: 1.0, coats: ['#e8c07a', '#262120', '#6a3f22'], bias: ['charm', 'muscle', 'nose'] },
   chihuahua: { label: 'Chihuahua', faction: 'indie', ears: 'bat', snout: 0.6, coats: ['#e2b37e', '#2a2420', '#f2e7d8'], small: true, bias: ['sneak', 'tech', 'agility'] },
   collie: { label: 'Border Collie', faction: 'indie', ears: 'fold', snout: 1.1, coats: ['#1f1d1c'], mask: '#fbf8f2', maskStyle: 'blaze', bias: ['tech', 'nose', 'agility'] },
+  italiangreyhound: { label: 'Italian Greyhound', faction: 'family', ears: 'fold', snout: 1.45, narrow: true, coats: ['#9aa0ab', '#c9b7a0', '#5b5f6b', '#e6ddd0'], bias: ['wheels', 'charm', 'agility'] },
+  shiba: { label: 'Shiba Inu', faction: 'syndicate', ears: 'pointy', snout: 0.9, coats: ['#d9853b', '#c97a3a', '#2b2522', '#e9d7b8'], mask: '#fbf3e6', maskStyle: 'muzzle', bias: ['sneak', 'aim', 'tech'] },
   spaniel: { label: 'Spaniel', faction: 'indie', ears: 'long', snout: 1.0, coats: ['#a8552a', '#f3ebe0'], patch: '#6a2f16', bias: ['aim', 'nose', 'charm'] },
 };
 
@@ -185,6 +187,8 @@ export const FACTIONS = {
   whippet: { label: 'The Whippet Wheelmen', voice: 'cockney', blurb: 'Fastest drivers in Dogsbury.' },
   terrier: { label: 'The Terrier Lads', voice: 'cockney', blurb: 'Small, scrappy, never let go.' },
   hounds: { label: 'The Hounds of Bonechapel', voice: 'neutral', blurb: 'Noses for hire. Mouths shut.' },
+  family: { label: 'The Greyhound Family', voice: 'family', blurb: 'Sharp suits, long memories. They call it respect.' },
+  syndicate: { label: 'The Shiba Syndicate', voice: 'syndicate', blurb: 'Quiet, tidy, and they never forget a debt.' },
   indie: { label: 'Freelancer', voice: 'neutral', blurb: 'Answers to nobody.' },
 };
 
@@ -217,6 +221,20 @@ export const VOICES = {
     caught: ['I want my lawyer.', 'No comment.'],
     talk: ['Okay! Okay. I\'ll tell you what I know.'],
   },
+  family: {
+    hire: ['The Family says you\'re good for it. I\'m in.', 'Sure. Consider it a favour.', 'Business is business.'],
+    ok: ['Just business.', 'Clean. The Don likes clean.', 'Consider it handled.', 'Like I was never there.'],
+    fail: ['This is a disrespect!', 'Somebody\'s gonna answer for this.', 'This was not the arrangement!'],
+    caught: ['I got nothing to say. I got a good memory, though.', 'Call my lawyer. He\'s family.'],
+    talk: ['Okay, okay! But you never heard it from me.'],
+  },
+  syndicate: {
+    hire: ['A fair price. I accept.', 'Your work is tidy. We value tidy.', 'Agreed.'],
+    ok: ['Precisely.', 'As planned.', 'Tidy.', 'Silence is the best signature.'],
+    fail: ['Unacceptable.', 'This will be remembered.', 'A mistake. Mine.'],
+    caught: ['...', 'I have nothing to say to you, Inspector.'],
+    talk: ['I have shamed myself. Very well.'],
+  },
   mumble: {
     hire: ['Mrrmph. Hrrf wuf.', 'Nnnrrgh. Aye-hrrf.'],
     ok: ['Hnnrf! Mrrm\'d it.', 'Hrrf-hrrf.'],
@@ -230,12 +248,16 @@ export const NAMES = {
   cockney: ['Barry', 'Terry', 'Reggie', 'Ronnie', 'Del', 'Kev', 'Sid', 'Dot', 'Sharon', 'Tracy', 'Arfur', 'Lenny', 'Vinnie', 'Tommy', 'Stan', 'Mabel', 'Ernie', 'Queenie', 'Dougie', 'Frankie', 'Winnie', 'Nobby', 'Chalky', 'Gordon'],
   posh: ['Percival', 'Cedric', 'Rupert', 'Monty', 'Tarquin', 'Jemima', 'Arabella', 'Pandora', 'Hugo', 'Basil', 'Beatrice', 'Ptolemy', 'Clementine', 'Algernon', 'Felicity', 'Rollo'],
   ze: ['Klaus', 'Dieter', 'Gunther', 'Heidi', 'Ingrid', 'Fritz', 'Hans', 'Wolfgang', 'Lotte', 'Jurgen', 'Greta', 'Otto'],
+  family: ['Vincent', 'Frankie', 'Tony', 'Lou', 'Nicky', 'Gina', 'Rosa', 'Sonny', 'Benny', 'Carla', 'Paulie', 'Connie'],
+  syndicate: ['Maple', 'Ginger', 'Sesame', 'Pepper', 'Chestnut', 'Toffee', 'Cinder', 'Ember', 'Russet', 'Hazel', 'Kit', 'Ash'],
   neutral: ['Max', 'Bruno', 'Rex', 'Lulu', 'Pearl', 'Ruby', 'Butch', 'Spike', 'Bernard', 'Winston', 'Gladys', 'Mo', 'Pixie', 'Duke', 'Sadie', 'Rocco', 'Bonnie', 'Jack', 'Nell', 'Otis'],
 };
 export const SURNAMES = {
   cockney: ['Barkley', 'Pawson', 'Kibbleton', 'Growler', 'Fetcham', 'Muttson', 'Collarbone', 'Biscuitt', 'Chewson', 'Scratchley', 'Leadbetter', 'Howlett', 'Snoutley', 'Gravy'],
   posh: ['Woofington', 'Fluffington-Smythe', 'Poodleston', 'Pawsworth-Grey', 'de Barkley', 'Snootington', 'Waggstaff', 'Furrington', 'Houndsworth'],
   ze: ['von Sniffen', 'Schnauzmann', 'Droolberg', 'Barkhausen', 'Wuffmeister', 'Knochenbauer', 'Pfotenhauer'],
+  family: ['Longshanks', 'Sleekcoat', 'Velvetpaw', 'Slimleg', 'Silverstreak', 'Narrowmore', 'Finewhisker'],
+  syndicate: ['Curltail', 'Foxface', 'Stillwater', 'Quietstep', 'Redcoat', 'Nightpaw', 'Sharpear'],
   neutral: ['Bonewright', 'Snufflebottom', 'Barkworth', 'Tailor', 'Houndsworth', 'Muttley-Jones', 'Pawley', 'Wagner-Smith', 'Chewbury', 'Fetch'],
 };
 export const NICKNAMES = [
@@ -479,3 +501,79 @@ export const INTRO = [
   'Somewhere in the fog, the Inspector is watching too. Every clue brings them closer. Every grass in the pound is a thread to your door.',
   'Keep your cash up, your rep solid, and your name out of the Inspector\'s notebook.',
 ];
+
+// ------------------------------------------------------------------ groups
+// The outfits that run the city. Each has a boss, a reputation threshold before
+// they'll deal with you, rivals, what they like to buy, and what they do to
+// people who cross them. Their members also turn up in the pub (FACTIONS).
+export const GROUPS = {
+  firm: {
+    name: 'The Bulldog Firm', short: 'the Firm', emblem: '🥩', minRep: 30, rivals: ['poodle'], serious: false,
+    boss: 'Brick Bone', bossTitle: 'Guv\'nor of the Bulldog Firm',
+    bossDog: { breed: 'bulldog', faction: 'firm', look: { coat: '#c69064', hat: 'flatcap', eyes: 'none', neck: 'chain', outfit: '#4b2e2e', brow: 'stern', seed: 31 } },
+    wants: ['oddity', 'cash'],
+    intro: 'Brick Bone rolls into the Dog & Duck like weather. He sits in your chair. "Heard you\'re handy. I\'ve got work for handy. Do it right, you\'re one of the family. Do it wrong, you\'re sausages."',
+    pitch: ['"In and out, no fuss, and I get my share. Simple."', '"Them posh poodles have had it too good for too long."', '"Nothing fancy. Just nick it and bring it round the back."'],
+    thanks: ['"Lovely. That\'s what I like to see."', '"You\'re alright, you are."'],
+    angry: ['"You\'ve made me look a mug. Nobody makes me look a mug."', '"You\'d better keep looking over your shoulder, sunshine."'],
+    hostile: { effect: 'crew', text: 'Brick Bone\'s lads had a quiet word with {dog} in the car park. {dog} is not keen on working for you now.' },
+  },
+  ze: {
+    name: 'Ze Germans', short: 'Ze Germans', emblem: '⚙️', minRep: 35, rivals: [], serious: false,
+    boss: 'Herr Direktor Barkhausen', bossTitle: 'Chairman of Ze Germans',
+    bossDog: { breed: 'shepherd', faction: 'ze', look: { coat: '#b8793a', hat: 'peaked', eyes: 'sunglasses', neck: 'none', outfit: '#1d1d22', brow: 'stern', seed: 32 } },
+    wants: ['jewel', 'cash'],
+    intro: 'A typed contract arrives in triplicate. Clause 1: Ze job. Clause 2: Ze fee. Clause 3: Failure is not in ze contract. It is signed, stamped, and smells faintly of sausage.',
+    pitch: ['"Ze terms are precise. We expect ze same of you."', '"Efficiency. Discretion. Delivery. In zat order."', '"We have calculated your odds. Zey are acceptable."'],
+    thanks: ['"Ze contract is fulfilled. Sehr gut."', '"Precisely as calculated."'],
+    angry: ['"You have broken ze contract. Zis is noted."', '"Unacceptable. We will be less... cooperative."'],
+    hostile: { effect: 'alert', text: 'Ze Germans sold your description to every security firm in town. Your next job will be tighter.' },
+  },
+  poodle: {
+    name: 'The Poodle Set', short: 'the Poodle Set', emblem: '🎩', minRep: 40, rivals: ['firm'], serious: false,
+    boss: 'Lady Arabella Fluffington-Smythe', bossTitle: 'Chair of the Poodle Set',
+    bossDog: { breed: 'poodle', faction: 'poodle', look: { coat: '#f4f1ea', hat: 'none', eyes: 'monocle', neck: 'pearls', outfit: '#5a2b3a', brow: 'raised', seed: 33 } },
+    wants: ['art', 'jewel'],
+    intro: 'A card on thick cream paper, edged in gold: "Lady Arabella Fluffington-Smythe requests the pleasure of your discretion." On the back, in pencil: "We collect things. You acquire them. Tea on Thursday."',
+    pitch: ['"One simply must have it for the collection, darling."', '"Those vulgar Bulldogs wouldn\'t know art if it bit them."', '"Do be careful. It\'s priceless. Well, it has a price. We\'ll pay it."'],
+    thanks: ['"Exquisite. You may call me Arabella. Occasionally."', '"How frightfully competent of you."'],
+    angry: ['"How terribly disappointing. You won\'t be invited again."', '"One is not amused. One is never amused, but especially not now."'],
+    hostile: { effect: 'rep', text: 'The Poodle Set have been telling everyone at the Club that you\'re "trade". Your name is worth a little less.' },
+  },
+  family: {
+    name: 'The Greyhound Family', short: 'the Family', emblem: '🌹', minRep: 45, rivals: ['syndicate'], serious: true,
+    boss: 'Don Velvet Longshanks', bossTitle: 'Head of the Greyhound Family',
+    bossDog: { breed: 'italiangreyhound', faction: 'family', look: { coat: '#9aa0ab', hat: 'trilby', eyes: 'none', neck: 'bowtie', outfit: '#1f2430', brow: 'stern', seed: 34 } },
+    wants: ['jewel', 'art', 'cash'],
+    intro: 'A long black car idles outside the Dog & Duck. The back window slides down. "The Don has been hearing your name," says a voice. "He\'d like to do you a favour. And one day, you\'ll do him one."',
+    pitch: ['"The Don is asking. Nicely. This time."', '"Those Shibas think they own this town. Remind them."', '"Consider it an opportunity. The Don doesn\'t offer twice."'],
+    thanks: ['"The Don is pleased. That\'s good for your health."', '"You did right by the Family. The Family remembers."'],
+    angry: ['"You disrespected the Family. That\'s a debt now."', '"The Don is disappointed. You don\'t want the Don disappointed."'],
+    hostile: { effect: 'heat', text: 'Somebody from the Family had a word in the Inspector\'s ear. Your file just got thicker.' },
+    debtText: 'The Don sends his regards, and his accountant. You owe the Family {amount}. They\'d like it back, or a favour.',
+    pressure: 'You\'ve kept the Don waiting. An anonymous caller tells the Inspector exactly where you drink.',
+  },
+  syndicate: {
+    name: 'The Shiba Syndicate', short: 'the Syndicate', emblem: '🏮', minRep: 55, rivals: ['family'], serious: true,
+    boss: 'Madam Sesame Curltail', bossTitle: 'Chairwoman of the Shiba Syndicate',
+    bossDog: { breed: 'shiba', faction: 'syndicate', look: { coat: '#d9853b', hat: 'none', eyes: 'sunglasses', neck: 'scarf', outfit: '#e9e4da', brow: 'stern', seed: 35 } },
+    wants: ['jewel', 'oddity', 'art'],
+    intro: 'A folded note on your table, weighted by one perfect biscuit. "Your work is tidy. We value tidy. We also value promises kept. — S.C." Nobody saw who left it.',
+    pitch: ['"A simple request. We expect a simple result."', '"The Greyhounds have grown careless. Help them learn."', '"We pay well for silence and precision."'],
+    thanks: ['"Tidy. We will remember this, favourably."', '"A promise kept. Good."'],
+    angry: ['"A promise broken is a debt. Debts are paid."', '"You have embarrassed us. We do not forget."'],
+    hostile: { effect: 'cash', text: 'Your safe was opened last night. Nothing was broken. Nothing was left behind, either. The Syndicate took {amount}.' },
+    debtText: 'A single biscuit, snapped in half, on your pillow. You owe the Syndicate {amount}. Pay it, or earn it back.',
+    pressure: 'Madam Curltail\'s patience has run out. Your safe is lighter, and the Inspector got a very tidy anonymous letter.',
+  },
+};
+
+// Venues some of the groups own. Robbing them makes enemies.
+export const VENUE_OWNERS = {
+  casino: ['family', 'syndicate'],
+  jeweller: ['syndicate'],
+  mansion: ['family'],
+  butcher: ['firm'],
+  auction: ['poodle'],
+  show: ['poodle'],
+};

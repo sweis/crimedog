@@ -17,10 +17,12 @@
 | `src/dogs.js` | Dog generation, derived skills, procedural SVG portraits |
 | `src/heists.js` | Job generation: venue → ordered stages (entry, obstacles, hidden hazards, vault, exit, getaway), each with 3–5 approaches |
 | `src/sim.js` | Pure heist resolution → list of beats + outcome (pear-shaped improvisation, chaos, alarms, captures, betrayals, undercover coppers, interrogation) |
+| `src/groups.js` | The city's outfits: standing, job offers (own leads, cuts, commissions, rival hits, markers), settling results, debts, hostile moves |
 | `src/engine.js` | Game state + all player actions (hire, case, surveil, insider, bribe, plan, pull, fence, pay, lawyer, farm, next job, game over) |
 | `src/ui.js` | Screens as `(state, ui) → HTML`; blueprint SVG for heist playback |
 | `src/main.js` | Boot, save/load (localStorage, try/catch), input routing, fixed-step frame loop |
 | `src/debug.js` | `window.cd` hooks + overlay |
+| `src/art.js` | Seeded SVG scenery: night-time facades per venue type (job board) and the title skyline |
 | `src/card.js` | Shareable character card (SVG → PNG, Web Share API or download) |
 
 All randomness goes through a seeded RNG stored in the save, so a seed + inputs replays identically.
@@ -33,6 +35,7 @@ The 3D-specific items in CLAUDE.md §2.2 are adapted: `teleport` targets named s
 report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLost` is always false.
 
 ## Game loop (one heist ≈ 5–10 min)
+0. **Job board** — pick your next job: your own small leads, or offers from groups once your rep clears their bar (Firm 30, Ze 35, Poodles 40, Greyhound Family 45, Shiba Syndicate 55). Debts show here with a pay-off button; groups that are owed put up a marker job.
 1. **Job** — a generated venue with loot, a 5-day window, day/night choice.
 2. **Prep** (each costs money and/or a day): hire at the pub or from your black book, buy kit, case the joint
    (reveals intel & hidden hazards; clumsy casers get spotted → +difficulty), have dogs followed (reveals
@@ -57,6 +60,20 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
   non-blank. Captures in `notes/captures/`.
 - Not verified: real phones (iOS Safari / Android Chrome), Web Share on device, human playtest for fun/pacing,
   long careers by a human past tier 3.
+
+## Groups & story (job selection)
+- Five groups (`GROUPS` in data.js): Bulldog Firm, Ze Germans, Poodle Set, Greyhound Family (Italian Greyhounds), Shiba Syndicate (Shiba Inu). Rivals: Family↔Syndicate, Firm↔Poodles.
+- Deals: cut (they take % of the fence, share intel), commission (they pay directly for one wanted item — delivered in the aftermath before fencing), rival hit (target owned by their rival). Family/Syndicate may front cash.
+- Venues can be owned (`VENUE_OWNERS`); robbing an owner's venue costs standing (−25 if they can tell it was you, −8 otherwise).
+- Failing the Family/Syndicate → debt; marker jobs clear it; unpaid debts escalate (Family tips off the Inspector, Syndicate raids your cash). Enemies (≤ −40) act between jobs.
+- Story scenes: first contact, debts, pressure and hostile moves queue in `state.story` and show on the job board.
+- Save format bumped to v2 (older saves are ignored).
+
+## Graphics pass (depth & texture)
+- Portraits: outlines, shared lighting overlay (highlight/shade), fur strokes, layered eyes, lapels, hat sheen, pinstripe backdrop. Contact sheet: `tools/portraits.html` (dev server).
+- Chrome: self-hosted fonts in `assets/fonts/` (Alfa Slab One display, Roboto Slab headings, Libre Baskerville italic quotes, UnifrakturMaguntia masthead; OFL/Apache licences alongside), paper grain + rain textures as inline SVG, bevelled brass/red buttons, deeper card shadows, lit nav tab.
+- Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
+- Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
 ## Next
 - Human playtest of the first five minutes; tune copy and pacing from that.

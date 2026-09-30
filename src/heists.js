@@ -1,6 +1,6 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
-import { VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES } from './data.js';
+import { INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES } from './data.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank'],
@@ -32,12 +32,15 @@ export function jobTier(state) {
   return Math.min(3, 1 + Math.floor(state.stats.jobs / 3) + (state.rep >= 60 ? 1 : 0));
 }
 
-export function genJob(state, rng) {
-  const tier = jobTier(state);
-  const venueType = rng.pick(Object.keys(VENUES));
+// opts: tier, venueType, owner (group id or null), lootMult (small jobs < 1)
+export function genJob(state, rng, opts = {}) {
+  const tier = opts.tier ?? jobTier(state);
+  const venueType = opts.venueType ?? rng.pick(Object.keys(VENUES));
   const V = VENUES[venueType];
   const base = 1 + tier;
-  const mult = 1 + (tier - 1) * 0.7;
+  const mult = (1 + (tier - 1) * 0.7) * (opts.lootMult ?? 1);
+  const owners = VENUE_OWNERS[venueType] || [];
+  const owner = opts.owner !== undefined ? opts.owner : owners.length && rng.chance(0.45) ? rng.pick(owners) : null;
 
   // Loot
   const nLoot = rng.int(2, Math.min(4, V.loot.length));
@@ -55,9 +58,14 @@ export function genJob(state, rng) {
   const nObs = tier === 1 ? 1 : tier === 2 ? rng.int(1, 2) : 2;
   const obstacles = rng.sample(V.obstacles, Math.min(nObs, V.obstacles.length));
   const hazards = {};
-  const hazardPool = ['cat', 'plates', 'silent', 'stakeout'];
-  const nHaz = Math.min(hazardPool.length, rng.int(tier === 1 ? 0 : 1, tier));
-  for (const h of rng.sample(hazardPool, nHaz)) hazards[h] = true;
+  // Every job hides at least one nasty surprise; the security cat is the most common.
+  const pool = [['cat', 3], ['plates', 2], ['silent', 2], ['stakeout', 1]];
+  const nHaz = tier === 1 ? 1 : tier === 2 ? rng.int(1, 2) : rng.int(2, 3);
+  for (let k = 0; k < nHaz && pool.length; k++) {
+    const h = rng.weighted(pool);
+    hazards[h] = true;
+    pool.splice(pool.findIndex(([x]) => x === h), 1);
+  }
   const stakeoutTime = rng.pick(['night', 'day']);
   const vaultType = rng.pick(V.vaults);
 
@@ -93,13 +101,16 @@ export function genJob(state, rng) {
 
   const heat = state.heat;
   return {
-    id: `j${state.stats.jobs + 1}-${rng.int(100, 999)}`,
+    id: `j${state.stats.jobs + 1}-${state.nextId++}`,
     name: jobName(rng, venueType, star),
     venueType,
-    venueName: rng.pick(V.names),
+    // Brick Bone's own vault only turns up when his Firm owns the place.
+    venueName: rng.pick(V.names.filter((n) => owner === 'firm' || !n.includes('Brick Bone'))),
     district: rng.pick(DISTRICTS),
     tier,
     base,
+    owner,
+    patron: null,
     loot,
     stages,
     intel,
@@ -131,4 +142,13 @@ export function visibleStages(job) {
 
 export function totalLootValue(job) {
   return job.loot.reduce((s, l) => s + l.value, 0);
+}
+
+export function revealIntel(job, k) {
+  job.intel[k] = true;
+  const h = INTEL[k]?.hazard;
+  if (h) {
+    const st = job.stages.find((s) => s.hazard === h);
+    if (st) st.hidden = false;
+  }
 }
