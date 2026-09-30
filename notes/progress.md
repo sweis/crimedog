@@ -6,6 +6,9 @@
 - Tests: `npm test` (engine/content/balance, node --test) and `npm run smoke` (Playwright: cold boot
   play-through with real touch taps, 10 s dev boot, stills sweep over every screen). `npm run check` runs both.
 - Balance probe: `node tools/balance.mjs [careers]`.
+- Hosted build: `tools/artifact.html` is a head-less page fragment published with `styles.css` + `src/*.js`
+  as a private claude.ai artifact (https://claude.ai/artifact/67hUULmWTEsCNWrUs5UqH1). Downloads/Web Share
+  are blocked there, so the share card also shows as an in-page image (long-press to save).
 
 ## Architecture
 | File | What |
