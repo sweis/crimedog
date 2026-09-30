@@ -87,6 +87,18 @@ Jobs come in different shapes, each with its own steps and options, so no two fe
 Some jobs can't take an inside dog (a con has no inside; some places don't hire new staff). Some have a specialist step that only one skill can
 handle, and only a real expert (4+) does it well; when that happens, someone up to it is always in the pub, for a price.
 
+### Casing, roles and special kit
+
+Casing a job turns up intel by skill: a good nose finds what can be smelled, a hacker finds the systems, a sneak watches the patrols, a charmer
+chats up the staff. Get spotted doing it and security goes on alert, and the game says so and why.
+
+Some crew are **Leaders** or **Wildcards**, whatever their skills. A leader doesn't need a step of their own: they steady the whole crew, keep
+the greedy ones from running and the nervous ones from talking, and rally everyone when it goes pear-shaped. A wildcard brings random boons and
+random trouble, and is at their best when the plan falls apart.
+
+Some jobs hold **special kit** worth more than the loot: a master key card, a laser detector, a police scanner, a skeleton key, a pouch of catnip,
+a little black ledger of everyone's secrets. It's never for sale; win it on the right job and it makes later jobs easier.
+
 ### Rare and legendary crew
 
 Now and then a rare or legendary criminal drifts into the pub for a single job, then moves on. They cost far more, their skills are common knowledge, and

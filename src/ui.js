@@ -5,7 +5,7 @@ import { esc, money, count } from './util.js';
 import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES } from './data.js';
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty, roleLevel } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
-import { odds, oddsKnown, approachAvailable, stageOptions, canDo, ALARM_MAX } from './sim.js';
+import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
 import { ARCS, sceneChoices } from './drama.js';
 import { venueSVG, skylineSVG } from './art.js';
@@ -140,6 +140,7 @@ function jobTraits(job) {
   if (sp) chips.push(`<span class="chip warn">${SKILL_INFO[sp.needs.skill].icon} ${SKILL_INFO[sp.needs.skill].label} ${sp.needs.min}+</span>`);
   if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
   if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
+  if (job.prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
   return chips.join('');
 }
 
@@ -206,7 +207,8 @@ function jobScreen(G) {
     <div class="dm-chips">${jobTraits(job)}</div>
     ${JOB_TYPES[job.type]?.blurb ? `<p class="muted mt">${esc(JOB_TYPES[job.type].blurb)}</p>` : ''}
     <h3 class="mt">The Goods</h3>
-    <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">🎯 ${GROUPS[job.patron.group].emblem}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}</ul>
+    <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">🎯 ${GROUPS[job.patron.group].emblem}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}
+    ${job.prize ? `<li><span>🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span><span class="v">Yours to keep</span></li>` : ''}</ul>
     <div class="row spread mt"><div><b>Days left</b><div class="days mt">${days}</div></div>
     <div class="seg" role="group" aria-label="Time of the job">${timeSeg(job)}</div></div>
     ${stake}
@@ -337,14 +339,23 @@ function crewScreen(G) {
   ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}`;
 }
 
+// Where a piece of special kit can be won: venues and kinds of job.
+const fromText = (k) => k.from.map((f) => VENUE_LABELS[f] || JOB_TYPES[f]?.label).join(', ');
+
 function kitScreen(G) {
   const s = G.state;
+  const specials = Object.entries(KIT).filter(([, k]) => k.special);
   return `<h2>Kit Shop</h2>
-  <section class="card">${Object.entries(KIT).map(([id, k]) => {
+  <section class="card">${Object.entries(KIT).filter(([, k]) => !k.special).map(([id, k]) => {
     const own = s.kit[id] || 0;
     const canBuy = s.cash >= k.price && (k.consumable || !own);
     return `<div class="kit"><div class="ico">${k.icon}</div><div class="grow"><b>${esc(k.name)}</b> ${own ? `<span class="own">✓ ${k.consumable ? `×${own}` : 'owned'}</span>` : ''}<div class="muted">${esc(k.blurb)}</div></div>
       <button class="btn small" data-act="buy" data-kit="${id}" ${canBuy ? '' : 'disabled'}>${money(k.price)}</button></div>`;
+  }).join('')}</section>
+  <h2 class="mt">Found on Jobs</h2>
+  <section class="card">${specials.map(([id, k]) => {
+    const own = s.kit[id] || 0;
+    return `<div class="kit ${own ? '' : 'locked'}"><div class="ico">${own ? k.icon : '🔒'}</div><div class="grow"><b>${esc(k.name)}</b> ${own ? `<span class="own">✓ ${k.uses ? `×${own}` : 'yours'}</span>` : ''}<div class="muted">${esc(k.blurb)}</div>${own ? '' : `<div class="muted">🎁 ${esc(fromText(k))}</div>`}</div></div>`;
   }).join('')}</section>`;
 }
 
@@ -417,6 +428,7 @@ function planScreen(G) {
       if (owner) tags.push(`✨ ${shortName(owner)} only`);
       if (!av.ok) tags.push(`🔒 ${av.reason}`);
       if (a.kitBonus && s.kit[a.kitBonus]) tags.push(`+${KIT[a.kitBonus].name}`);
+      for (const k of specialKitFor(s.kit, job, st, a)) tags.push(`${KIT[k].icon} ${KIT[k].name}`);
       if (a.intelBonus && job.intel[a.intelBonus]) tags.push(`+${INTEL[a.intelBonus].label}`);
       if (a.noise >= 3) tags.push('🔊 Loud');
       else if (a.noise > 0) tags.push('🔉 Noisy');
@@ -623,6 +635,7 @@ function aftermathScreen(G) {
   for (const l of r.lost || []) lines.push(`🚜 <b>${esc(shortName(s.dogs[l.id]))}</b> has gone to live on a farm. For good.`);
   for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
+  if (a.prize) lines.push(`🎁 Kept: ${KIT[a.prize].icon} <b>${esc(KIT[a.prize].name)}</b>. ${esc(KIT[a.prize].blurb)}`);
   for (const p of a.promoted || []) {
     const d = s.dogs[p.id];
     lines.push(`🌟 <b>${esc(shortName(d))}</b> has made a name for themselves: <span class="rar ${p.to}">${RARITY[p.to].icon} ${RARITY[p.to].label}</span> ✨ ${esc(SIGNATURES[d.signature].name)}`);

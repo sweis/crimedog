@@ -269,6 +269,7 @@ p { margin: 0 0 8px; }
 .plan-step { background-color: var(--paper); background-image: var(--grain); color: var(--ink); border-radius: var(--radius); padding: 12px; margin-bottom: 12px; box-shadow: var(--shadow); border: 1px solid var(--paper-edge); }
 .plan-step.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
+.kit.locked { opacity: .7; }
 .alert-note { background: #f7d8d3; border: 1px solid #e7a79c; color: #8a2419; border-radius: 10px; padding: 8px 10px; font-size: 13px; }
 .stage-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .stage-head .n { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a4652, #16151a); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: var(--font-title); font-weight: 800; font-size: 13px; flex: none; box-shadow: 0 2px 3px rgba(0, 0, 0, .35); }

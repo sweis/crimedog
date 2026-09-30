@@ -57,8 +57,19 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
   }
   if (stage.kind === 'vault' && job.hazards.silent && job.intel.hz_silent) d += 1;
   if (stage.id === 'obs_guards' && job.insider) d -= 1;
+  d += specialKitBonus(kit, job, stage, a);
   return d;
 }
+
+// Special kit won on earlier jobs: which pieces help on this step, and by how much.
+export function specialKitFor(kit, job, stage, a) {
+  return Object.keys(kit).filter((k) => {
+    const e = KIT[k]?.effect;
+    if (!e || !(kit[k] > 0)) return false;
+    return e.stage === stage.id || e.kind === stage.kind || e.skill === a.skill || !!e.types?.includes(job.type);
+  });
+}
+const specialKitBonus = (kit, job, stage, a) => specialKitFor(kit, job, stage, a).reduce((sum, k) => sum + KIT[k].effect.diff, 0);
 
 export function baseOdds(skill, diff) {
   return clamp(0.6 + 0.11 * (skill - diff), 0.05, 0.95);
@@ -348,6 +359,7 @@ export function simulate(state, job, rng) {
       useKit('smoke');
     }
     if (job.safehouse) p += 0.05;
+    if (ctx.kitLeft.scanner > 0) p += KIT.scanner.escape;
     if (ctx.coppers) p -= 0.1;
     p = clamp(p, 0.08, 0.92);
     if (rng.chance(p)) {

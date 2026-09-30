@@ -289,6 +289,7 @@ export function dismissStory(state) {
 export function buy(state, kitId) {
   const k = KIT[kitId];
   if (!k) return fail('No such kit.');
+  if (k.special) return fail('Not for sale. You\'ll have to find one on a job.');
   if (!k.consumable && state.kit[kitId] > 0) return fail('You already have one.');
   if (!spend(state, k.price)) return fail('Can\'t afford it.');
   state.kit[kitId] = (state.kit[kitId] || 0) + 1;
@@ -631,6 +632,12 @@ export function resolveHeist(state) {
     state.stats.promoted = (state.stats.promoted || 0) + 1;
     news(state, `${displayName(d)} has made a name for themselves: ${d.rarity}, ✨ ${SIGNATURES[d.signature].name}.`);
   }
+  // Special kit found on the job is yours to keep, if they got into the goods.
+  const prize = job.prize && r.secured.length ? job.prize : null;
+  if (prize) {
+    state.kit[prize] = KIT[prize].uses || 1;
+    news(state, `You kept the ${KIT[prize].name} from ${job.name}.`);
+  }
   addHeat(state, r.heatGain);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
@@ -639,6 +646,7 @@ export function resolveHeist(state) {
   state.after.headline = headline(state);
   state.after.improved = improved;
   state.after.promoted = promoted;
+  state.after.prize = prize;
   state.phase = 'aftermath';
   return done('The dust settles.');
 }

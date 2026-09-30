@@ -418,6 +418,38 @@ console.log('1j. Roles: a leader and a wildcard show on the crew and the plan');
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1k. special kit
+console.log('1k. Special kit: shown in the shop, offered on jobs, kept after a win');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=51`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(51); window.cd.teleport('kit'); });
+  check(await page.locator('main .kit.locked').count() === 6, 'the shop lists 6 pieces found only on jobs');
+  await page.evaluate(() => document.querySelector('main h2.mt').scrollIntoView({ block: 'start' }));
+  await shot(page, 'special-kit-shop');
+  await page.evaluate(async () => {
+    const { genJob } = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.offers[0].job = genJob(s, makeRng({ s: 9 }), { type: 'breakin', venueType: 'museum' });
+    s.offers[0].job.prize = 'detector';
+    window.cd.teleport('select');
+  });
+  check(/Laser Detector/.test(await page.locator('main .offer').first().textContent()), 'the job board shows the prize');
+  await tap(page, 'main .offer [data-act="take-offer"]');
+  await page.evaluate(() => { window.cd.win(); window.cd.teleport('aftermath'); window.scrollTo(0, 0); });
+  const kept = await page.evaluate(() => ({ kit: window.cd.getState().kit.detector, text: document.querySelector('main .events')?.textContent || '' }));
+  check(kept.kit === 1 && /Kept/.test(kept.text), `a win keeps the Laser Detector (${kept.kit})`);
+  await shot(page, 'special-kit-kept');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

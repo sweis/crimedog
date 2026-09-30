@@ -168,7 +168,10 @@ export function installDebug(G) {
       const s = G.state;
       if (!s) return;
       ensurePlan(G);
-      if (!s.crew.length) { s.cash += 2000; E.hire(s, s.pub[0]); }
+      if (!s.crew.length) {
+        s.cash += 2000;
+        s.pub.find((id) => E.hire(s, id).ok); // the first who'll come
+      }
       s.job.buyer = true;
       s.result = blankResult(s.crew, {
         beats: [{ kind: 'intro', stage: null, text: 'A perfect night.', alarm: 0, clues: 0 }, { kind: 'end', stage: null, text: 'They won\'t even know they\'ve been robbed.', alarm: 0, clues: 0 }],

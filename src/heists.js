@@ -1,6 +1,6 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
-import { INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MARKS } from './data.js';
+import { INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MARKS, KIT } from './data.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank'],
@@ -164,7 +164,7 @@ export function genJob(state, rng, opts = {}) {
   const T = JOB_TYPES[type];
   const venueType = opts.venueType ?? rng.pick(T.venues);
   const V = VENUES[venueType];
-  const base = 1 + tier;
+  const base = 2 + tier;
   const mult = (1 + (tier - 1) * 0.7) * (opts.lootMult ?? 1);
   const owners = VENUE_OWNERS[venueType] || [];
   const owner = opts.owner !== undefined ? opts.owner : owners.length && rng.chance(0.45) ? rng.pick(owners) : null;
@@ -206,6 +206,12 @@ export function genJob(state, rng, opts = {}) {
     stages.splice(at, 0, { id: 'specialist', kind: 'obstacle', label: sp.label, icon: sp.icon, options: sp.options.slice(), needs: { skill: sp.skill, min: sp.min } });
   }
 
+  // Your master key card opens a way into any building.
+  if (state.kit?.keycard > 0 && ['breakin', 'swap'].includes(type)) stages[0].options.splice(stages[0].options.length - (insider ? 1 : 0), 0, 'e_keycard');
+  // Some jobs have special kit worth keeping, besides the loot.
+  const prizes = Object.keys(KIT).filter((k) => KIT[k].special && (KIT[k].from.includes(type) || KIT[k].from.includes(venueType)) && !(state.kit?.[k] > 0));
+  const prize = prizes.length && rng.chance(0.4) ? rng.pick(prizes) : null;
+
   // Intel available to discover
   const has = (id) => stages.some((st) => st.id === id);
   const intel = {};
@@ -245,6 +251,7 @@ export function genJob(state, rng, opts = {}) {
     hazards,
     stakeoutTime,
     noInsider: !insider,
+    prize,
     alert: 0,
     daysLeft: 5,
     insider: null,

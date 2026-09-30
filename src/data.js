@@ -312,6 +312,14 @@ export const KIT = {
   van: { name: 'Getaway Van', price: 500, icon: '🚐', consumable: false, blurb: 'Ram raids, +3 carry, +2 getaway. Burned if the alarm goes.' },
   moped: { name: 'Mopeds', price: 200, icon: '🛵', consumable: false, blurb: 'Nippy alley getaway.' },
   bags: { name: 'Big Swag Bags', price: 30, icon: '💰', consumable: true, blurb: '+2 carry. Used up.' },
+  // ---- Special kit: never for sale. Won on particular jobs (`from`: venues or kinds of
+  // job) and kept for later ones. `effect` makes matching steps easier.
+  keycard: { name: 'Master Key Card', icon: '💳', price: 0, special: true, consumable: true, uses: 3, from: ['bank', 'casino', 'hack'], blurb: 'A quiet way in on break-ins. Three swipes.' },
+  detector: { name: 'Laser Detector', icon: '📡', price: 0, special: true, from: ['museum', 'auction'], effect: { stage: 'obs_lasers', diff: -2 }, blurb: 'Laser grids: -2 difficulty.' },
+  scanner: { name: 'Police Scanner', icon: '📻', price: 0, special: true, from: ['van', 'hack'], effect: { kind: 'getaway', diff: -1 }, escape: 0.1, blurb: 'Getaways -1; better odds of slipping the Old Bill.' },
+  skeleton: { name: 'Skeleton Key', icon: '🗝️', price: 0, special: true, from: ['mansion', 'butcher', 'swap'], effect: { skill: 'locks', diff: -1 }, blurb: 'Every locks step: -1 difficulty.' },
+  catnip: { name: 'Catnip Pouch', icon: '🌿', price: 0, special: true, from: ['show', 'con', 'smash'], effect: { stage: 'haz_cat', diff: -3 }, blurb: 'Security cats: -3 difficulty.' },
+  ledger: { name: 'The Little Black Ledger', icon: '📒', price: 0, special: true, from: ['fraud', 'con', 'auction'], effect: { types: ['con', 'fraud', 'hack'], diff: -1 }, blurb: 'Everyone\'s secrets. Cons, frauds and wire jobs: -1 difficulty.' },
   replica: { name: 'Replica', price: 150, icon: '🏺', consumable: true, blurb: 'A convincing fake. Needed to swap the goods.' },
   smoke: { name: 'Smoke Bombs', price: 90, icon: '💨', consumable: true, blurb: 'Better odds of escaping capture. Used up.' },
 };
@@ -332,6 +340,7 @@ export const APPROACHES = {
   e_ram: { label: 'Ram-raid the front window', skill: 'wheels', mod: -2, noise: 5, failNoise: 6, clues: 2, needKit: 'van', ok: '{d} puts the van through the front window. Subtle as a brick.', fail: '{d} misses the window and hits a lamppost. Very loud.' },
   e_sniffkey: { label: 'Sniff out the spare key', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: '{d} sniffs every flowerpot on the street. Third one: a spare key.', fail: '{d} digs up the whole flowerbed. No key. Lots of mess.' },
   e_rod: { label: 'Hook the window latch with a fishing rod', skill: 'aim', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'One cast from across the yard. The latch flips. {d} blows on the reel.', fail: '{d} hooks the burglar alarm instead. Reels it in, too.' },
+  e_keycard: { label: 'Swipe the master key card', skill: 'sneak', mod: -3, noise: 0, failNoise: 1, clues: 0, needKit: 'keycard', ok: 'Beep. Green light. The door just... opens.', fail: 'Beep. Red light. They\'ve changed the codes.' },
   e_insider: { label: 'Inside dog props the door', skill: 'sneak', mod: -3, noise: 0, failNoise: 1, clues: 0, needInsider: true, ok: 'The inside dog props the fire door with a chew toy. Walk right in.', fail: 'The inside dog gets called to the manager\'s office at the worst moment.' },
   // ---- Obstacles
   o_sneakpast: { label: 'Sneak past on the patrol gap', skill: 'sneak', mod: 0, noise: 0, failNoise: 3, clues: 0, intelBonus: 'guard_rota', ok: '{d} slips by in the gap between patrols.', fail: 'A guard turns round. Torchlight, right in the face.' },
