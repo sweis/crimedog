@@ -99,7 +99,7 @@ function returnToPlan(stageId) {
   G.ui.modal = null;
   G.ui.screen = 'plan';
   G.commit();
-  const el = stageId && document.querySelector(`.stage[data-stage="${stageId}"]`);
+  const el = stageId && document.querySelector(`.plan-step[data-stage="${stageId}"]`);
   if (el) {
     el.scrollIntoView({ block: 'center' });
     el.classList.add('flash');

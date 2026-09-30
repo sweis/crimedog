@@ -354,7 +354,7 @@ function planScreen(G) {
   if (unknownIntel) h += `<p><span class="chip warn">❓ ${unknownIntel} intel unknown</span></p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
-    h += `<section class="stage" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3></div><div class="opts">`;
+    h += `<section class="plan-step" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3></div><div class="opts">`;
     for (const ap of st.options) {
       const a = APPROACHES[ap];
       const av = approachAvailable(s, job, ap);
