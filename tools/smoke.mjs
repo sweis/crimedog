@@ -203,6 +203,42 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1d. hire from a plan step
+console.log('1d. Hiring from a planning step returns to that step');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?dev=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.spawn('cash', 5000); window.cd.spawn('dog', 'crew'); window.cd.teleport('plan'); });
+  const stageId = await page.evaluate(() => window.cd.getState().job.stages.filter((st) => !st.hidden)[2].id);
+  const crewBefore = (await page.evaluate(() => window.cd.getState().crew)).length;
+  await tap(page, `.stage[data-stage="${stageId}"] [data-act="hire-for"]`);
+  check(await page.locator('main[data-screen="pub"] .hire-banner').count() === 1, 'plan step opens the pub in hiring-for mode');
+  check((await page.locator('.hire-banner').innerText()).includes('step 3'), 'banner names the step');
+  await shot(page, 'hire-for-step');
+  await tap(page, 'main .dog-card');
+  check((await page.locator('.modal [data-act="hire"]').innerText()).includes('step 3'), 'hire button says which step');
+  await tap(page, '.modal [data-act="hire"]');
+  await page.waitForTimeout(250);
+  const st = await page.evaluate(() => window.cd.getState());
+  const hired = st.crew[st.crew.length - 1].id;
+  check(st.screen === 'plan' && st.crew.length === crewBefore + 1, `back on the plan with a new hire (${st.screen}, crew ${st.crew.length})`);
+  check(st.job.plan[stageId]?.dog === hired && !!st.job.plan[stageId]?.approach, 'new hire is assigned to that step');
+  const inView = await page.evaluate((id) => { const r = document.querySelector(`.stage[data-stage="${id}"]`).getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, stageId);
+  check(inView, 'plan is scrolled to the step');
+  await shot(page, 'hire-for-step-returned');
+  // Back without hiring also returns to the step
+  await tap(page, `.stage[data-stage="${stageId}"] [data-act="hire-for"]`);
+  await tap(page, '[data-act="hire-back"]');
+  const back = await page.evaluate(() => window.cd.getState().screen);
+  check(back === 'plan', 'back button returns to the plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 2. dev boot
 console.log('2. Dev boot: sim time advances');
 {

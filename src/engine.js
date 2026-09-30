@@ -344,6 +344,30 @@ export function setPlan(state, stageId, patch) {
   return done('Plan updated.');
 }
 
+// Put a crew member on a step. Keeps the step's chosen approach; if none is
+// chosen yet (or it's unavailable), picks the one this dog looks best at.
+export function assignToStage(state, stageId, dogId) {
+  const job = state.job;
+  const stage = job.stages.find((s) => s.id === stageId);
+  const d = state.dogs[dogId];
+  if (!stage || stage.hidden || !d) return fail('No such step.');
+  if (!state.crew.includes(dogId)) return fail('Not on the crew.');
+  let approach = job.plan[stageId]?.approach;
+  if (!approach || !approachAvailable(state, job, approach).ok) {
+    let best = null;
+    for (const ap of stage.options) {
+      if (!approachAvailable(state, job, ap).ok) continue;
+      const known = d.known.skills[APPROACHES[ap].skill];
+      const o = odds(state, job, stage, ap, d);
+      const score = known ? o.p : o.p * 0.5 + 0.1;
+      if (!best || score > best.score) best = { ap, score };
+    }
+    approach = best?.ap;
+  }
+  job.plan[stageId] = { approach, dog: dogId };
+  return done(`${shortName(d)} is on ${stage.label}.`);
+}
+
 // Fill any gaps in the plan with the best-looking choice using *known* info,
 // falling back to anyone for unknowns.
 export function autoPlan(state) {

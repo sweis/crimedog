@@ -172,6 +172,7 @@ function dogCard(G, d, opts = {}) {
     <div class="grow"><div class="name">${esc(displayName(d))}</div>
       <div class="faction">${esc(FACTIONS[d.faction].label)}</div>
       <div class="sub">${esc(b.label)} · ${specialtyText(d)} · ${esc(relationLabel(d))}</div>
+      ${opts.skill ? `<span class="chip ${d.known.skills[opts.skill] ? 'info' : ''}">${SKILL_INFO[opts.skill].icon} ${SKILL_INFO[opts.skill].label} ${d.known.skills[opts.skill] ? skillOf(d, opts.skill) : '?'}</span>` : ''}
       ${flags.join(' ')}</div>
     <div class="center">${right}</div></button>`;
 }
@@ -179,6 +180,21 @@ function dogCard(G, d, opts = {}) {
 function pubScreen(G) {
   const s = G.state;
   const pub = s.pub.map((id) => s.dogs[id]).filter((d) => d.status === 'free');
+  const hf = hiringFor(G);
+  if (hf) {
+    // Best known fit for the step first; unknowns after.
+    const fit = (d) => (hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1);
+    const sort = (list) => list.slice().sort((a, b) => fit(b) - fit(a));
+    const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id));
+    const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}</b> for “${esc(APPROACHES[hf.approach].label)}”.` : 'No approach picked yet, so anyone will do.';
+    return `<section class="card dark hire-banner"><div class="muted">Hiring for step ${hf.n}</div><h2>${hf.stage.icon} ${esc(hf.stage.label)}</h2>
+      <p>${need} Whoever you hire goes straight onto this step.</p>
+      <button class="btn ghost small" data-act="hire-back">← Back to the plan</button></section>
+      ${book.length ? `<h2>Your Little Black Book</h2>${sort(book).map((d) => dogCard(G, d, { fee: true, skill: hf.skill })).join('')}` : ''}
+      <h2 class="mt">At the Dog &amp; Duck</h2>
+      ${sort(pub).map((d) => dogCard(G, d, { fee: true, skill: hf.skill })).join('') || '<p class="muted">The pub is empty. Ask around.</p>'}
+      <div class="btn-row"><button class="btn ghost" data-act="ask-around" ${s.job.daysLeft ? '' : 'disabled'}>🗣️ Ask around for new faces (1 day)</button></div>`;
+  }
   return `<h2>The Dog &amp; Duck</h2>
   <p class="muted">Smoke, darts, and dogs looking for work. Tap someone to size them up.</p>
   ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty. Ask around.</p>'}
@@ -234,6 +250,22 @@ function fixerScreen(G) {
 }
 
 // ------------------------------------------------------------------ plan
+function hireTile(st, skill) {
+  return `<button class="assignee hire-tile" data-act="hire-for" data-stage="${st.id}" aria-label="Hire someone for ${esc(st.label)}"><span class="plus">＋</span>Hire<br><small>${SKILL_INFO[skill].icon} ${SKILL_INFO[skill].label}</small></button>`;
+}
+
+// Which step (and skill) the pub is hiring for, if we came from the plan.
+export function hiringFor(G) {
+  const hf = G.ui.hireFor;
+  if (!hf || !G.state || G.state.phase !== 'plan') return null;
+  const stages = visibleStages(G.state.job);
+  const idx = stages.findIndex((st) => st.id === hf.stage);
+  if (idx < 0) return null;
+  const st = stages[idx];
+  const ap = G.state.job.plan[st.id]?.approach;
+  return { stage: st, n: idx + 1, approach: ap || null, skill: ap ? APPROACHES[ap].skill : null };
+}
+
 function planScreen(G) {
   const s = G.state;
   const job = s.job;
@@ -263,9 +295,10 @@ function planScreen(G) {
       h += `<button class="opt ${p.approach === ap ? 'on' : ''}" data-act="plan-ap" data-stage="${st.id}" data-ap="${ap}" ${av.ok ? '' : 'disabled'}><span class="ski">${SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
     }
     h += '</div>';
+    if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
     if (p.approach) {
       const skill = APPROACHES[p.approach].skill;
-      h += `<div class="assignees">${crew.map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${d.known.skills[skill] ? skillOf(d, skill) : '?'}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}</div>`;
+      h += `<div class="assignees">${crew.map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${d.known.skills[skill] ? skillOf(d, skill) : '?'}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
       if (p.dog) {
         const d = s.dogs[p.dog];
         const o = odds(s, job, st, p.approach, d);
@@ -544,7 +577,8 @@ function dogModal(G, d) {
   // Actions: one primary, then compact secondaries.
   const primary = [];
   const minor = [];
-  if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">Hire · ${money(d.fee)}</button>`);
+  const hf = hiringFor(G);
+  if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(d.fee)}</button>`);
   if (planning && inCrew) primary.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
   if (d.status === 'pound') primary.push(`<button class="btn" data-act="lawyer" data-id="${d.id}">⚖️ Hire a brief · £150</button>`);
   if (planning && ['free', 'crew'].includes(d.status) && !(d.known.loyalty && (d.cleared || d.known.undercover))) minor.push(`<button class="btn ghost small" data-act="surveil" data-id="${d.id}" ${s.job.daysLeft ? '' : 'disabled'} aria-label="Have them followed, £80, 1 day">🕵️ Tail<small>£80 · 1 day</small></button>`);

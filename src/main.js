@@ -1,6 +1,6 @@
 // Boot, save/load, input routing and the frame loop.
 import * as E from './engine.js';
-import { render, currentScreen } from './ui.js';
+import { render, currentScreen, hiringFor } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
 import { cardPNG, shareBlob } from './card.js';
 
@@ -87,9 +87,23 @@ G.advanceBeat = (doRender = true) => {
 };
 
 // ------------------------------------------------------------------ actions
+// Back to the plan, scrolled to (and briefly highlighting) the step we hired for.
+function returnToPlan(stageId) {
+  G.ui.hireFor = null;
+  G.ui.modal = null;
+  G.ui.screen = 'plan';
+  G.commit();
+  const el = stageId && document.querySelector(`.stage[data-stage="${stageId}"]`);
+  if (el) {
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+  } else window.scrollTo(0, 0);
+}
+
 const A = {
   'go'(el) {
     G.clearToasts();
+    G.ui.hireFor = null;
     G.ui.screen = el.dataset.to;
     G.ui.modal = null;
     G.commit();
@@ -130,7 +144,28 @@ const A = {
   'laylow'() { run(E.layLow); },
   'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.render(); },
   'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.render(); },
-  'hire'(el) { run(E.hire, el.dataset.id); },
+  'hire'(el) {
+    const id = el.dataset.id;
+    const hf = hiringFor(G);
+    const r = E.hire(G.state, id);
+    if (!r.ok || !hf) {
+      toast(r.msg, !r.ok);
+      G.commit();
+      return;
+    }
+    E.assignToStage(G.state, hf.stage.id, id);
+    toast(`${r.msg} On step ${hf.n}: ${hf.stage.label}.`);
+    returnToPlan(hf.stage.id);
+  },
+  'hire-for'(el) {
+    G.clearToasts();
+    G.ui.hireFor = { stage: el.dataset.stage };
+    G.ui.screen = 'pub';
+    G.ui.modal = null;
+    G.commit();
+    window.scrollTo(0, 0);
+  },
+  'hire-back'() { returnToPlan(G.ui.hireFor?.stage); },
   'dismiss'(el) { run(E.dismiss, el.dataset.id); },
   'surveil'(el) { run(E.surveil, el.dataset.id); },
   'lawyer'(el) { run(E.lawyer, el.dataset.id); },

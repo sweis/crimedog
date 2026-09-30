@@ -431,3 +431,13 @@ p { margin: 0 0 8px; }
 .dm-confirm { font-size: 14px; color: var(--ink); }
 /* With a sheet open, toasts drop in from the top so they never cover its buttons. */
 .modal-open #toast { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); }
+
+/* ---------- hiring from the plan */
+.hire-tile { border-style: dashed; border-color: var(--brass-dark); background: rgba(255, 255, 255, .25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-weight: 700; color: var(--ink); }
+.hire-tile .plus { font-size: 22px; line-height: 1; color: var(--brass-dark); }
+.hire-tile small { font-weight: 600; font-size: 10px; color: var(--ink-soft); }
+.hire-link { margin-top: 8px; background: none; border: 1px dashed var(--brass-dark); border-radius: 10px; padding: 8px 12px; min-height: 40px; width: 100%; color: var(--ink); font-weight: 700; text-align: left; }
+.hire-banner h2 { color: var(--paper); margin-top: 2px; }
+.hire-banner p { font-size: 14px; }
+.stage.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }

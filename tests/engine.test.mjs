@@ -115,3 +115,23 @@ test('game over triggers', () => {
   const t = E.newGame(3); t.rep = 0; E.checkGameOver(t); assert.equal(t.over.reason, 'nobody');
   const u = E.newGame(3); u.cash = 0; E.checkGameOver(u); assert.equal(u.over.reason, 'broke');
 });
+
+test('assignToStage keeps the chosen approach or picks one the dog can do', () => {
+  const s = E.newGame(21);
+  const id = s.pub[0];
+  const outsider = s.pub[1];
+  assert.ok(E.hire(s, id).ok);
+  const [st1, st2] = visibleStages(s.job);
+  // No approach chosen yet: one gets picked, and it's available.
+  assert.ok(E.assignToStage(s, st1.id, id).ok);
+  const p1 = s.job.plan[st1.id];
+  assert.equal(p1.dog, id);
+  assert.ok(p1.approach && st1.options.includes(p1.approach));
+  // Approach already chosen: it's kept.
+  const ap = st2.options.find((a) => !APPROACHES[a].needKit && !APPROACHES[a].needIntel && !APPROACHES[a].needInsider && !APPROACHES[a].needBribe);
+  E.setPlan(s, st2.id, { approach: ap });
+  E.assignToStage(s, st2.id, id);
+  assert.deepEqual(s.job.plan[st2.id], { approach: ap, dog: id });
+  // Not on the crew: refused.
+  assert.equal(E.assignToStage(s, st1.id, outsider).ok, false);
+});
