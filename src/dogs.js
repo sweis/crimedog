@@ -1,0 +1,297 @@
+// Dog (crew member) generation, derived stats, and procedural SVG portraits.
+import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES } from './data.js';
+
+const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence']];
+
+export function genDog(state, rng, opts = {}) {
+  const breedId = opts.breed || rng.pick(Object.keys(BREEDS));
+  const breed = BREEDS[breedId];
+  const faction = breed.faction;
+  let voice = FACTIONS[faction].voice;
+  const nameKey = voice === 'neutral' ? rng.pick(['neutral', 'neutral', 'cockney', 'posh']) : voice;
+  const first = rng.pick(NAMES[nameKey]);
+  const last = rng.pick(SURNAMES[nameKey]);
+  const nick = rng.chance(0.6) ? rng.pick(NICKNAMES) : null;
+
+  // Skills: 0-1 baseline, breed-biased primary/secondary.
+  const quality = opts.quality ?? 0; // 0..3, from rep / tier
+  const skills = Object.fromEntries(SKILLS.map((s) => [s, rng.chance(0.35) ? 1 : 0]));
+  const primary = rng.chance(0.75) ? rng.pick(breed.bias) : rng.pick(SKILLS);
+  const secondaryPool = SKILLS.filter((s) => s !== primary);
+  const biasRest = breed.bias.filter((s) => s !== primary);
+  const secondary = biasRest.length && rng.chance(0.5) ? rng.pick(biasRest) : rng.pick(secondaryPool);
+  skills[primary] = Math.min(5, rng.int(2, 3) + (rng.chance(0.25 + quality * 0.2) ? 1 : 0) + (quality >= 2 && rng.chance(0.3) ? 1 : 0));
+  skills[secondary] = Math.max(skills[secondary], rng.int(1, 2) + (rng.chance(0.2 + quality * 0.1) ? 1 : 0));
+  if (opts.undercover) {
+    // Too good to be true.
+    skills[primary] = 5;
+    skills[secondary] = Math.max(skills[secondary], 3);
+  }
+
+  // Talents: mostly aligned with what they're good at.
+  const nTalents = rng.int(2, 3) + (quality >= 2 ? 1 : 0);
+  const talents = [];
+  const all = Object.values(TALENTS);
+  while (talents.length < nTalents) {
+    const pool = rng.chance(0.7) ? all.filter((t) => t.skill === primary || t.skill === secondary) : all;
+    const t = rng.pick(pool);
+    if (!talents.includes(t.id)) talents.push(t.id);
+  }
+
+  // Quirks.
+  const quirks = [];
+  const nQuirks = rng.int(1, 2);
+  const quirkIds = Object.keys(QUIRKS);
+  let guard = 0;
+  while (quirks.length < nQuirks && guard++ < 50) {
+    const q = rng.pick(quirkIds);
+    if (quirks.includes(q)) continue;
+    if (QUIRK_CLASHES.some(([a, b]) => (q === a && quirks.includes(b)) || (q === b && quirks.includes(a)))) continue;
+    quirks.push(q);
+  }
+  if (quirks.includes('mumbles')) voice = 'mumble';
+
+  let loyalty = rng.int(20, 90);
+  const nerve = rng.int(20, 90);
+  let greed = rng.int(10, 80);
+  if (quirks.includes('goodboy')) loyalty = Math.max(loyalty, 80);
+  if (quirks.includes('greedy')) greed = Math.min(100, greed + 30);
+
+  const archetype = rng.pick(ARCHETYPES);
+  const dog = {
+    id: `d${state.nextId++}`,
+    first, last, nick,
+    breed: breedId,
+    faction,
+    voice,
+    skills,
+    talents,
+    quirks,
+    loyalty,
+    nerve,
+    greed,
+    undercover: !!opts.undercover,
+    archetype: archetype.id,
+    catchphrase: archetype.line,
+    status: 'free', // free | crew | pound | farm | gone
+    sentence: 0,
+    relation: 0,
+    jobs: 0,
+    wins: 0,
+    minRep: 0,
+    fee: 0,
+    look: genLook(rng, breedId, faction),
+    known: { skills: { [primary]: true }, talents: [], quirks: [], loyalty: false, nerve: false, greed: false, undercover: false },
+    notes: [],
+  };
+  dog.fee = feeFor(dog, opts.undercover);
+  const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
+  dog.minRep = power >= 14 ? 40 : power >= 12 ? 20 : 0;
+  if (opts.undercover) dog.minRep = 0;
+  return dog;
+}
+
+function genLook(rng, breedId, faction) {
+  const breed = BREEDS[breedId];
+  const hats = {
+    ze: ['peaked', 'none', 'none', 'beanie'],
+    firm: ['flatcap', 'flatcap', 'none', 'beanie'],
+    poodle: ['tophat', 'bowler', 'none', 'none'],
+    whippet: ['flatcap', 'none', 'beanie', 'none'],
+    terrier: ['flatcap', 'beanie', 'none', 'none'],
+    hounds: ['bowler', 'flatcap', 'none', 'trilby'],
+    indie: ['none', 'trilby', 'beanie', 'flatcap', 'bowler', 'none'],
+  }[faction];
+  const eyes = faction === 'poodle' ? ['monocle', 'none', 'none'] : faction === 'ze' ? ['sunglasses', 'none'] : ['none', 'none', 'none', 'sunglasses'];
+  const necks = faction === 'poodle' ? ['bowtie', 'scarf', 'pearls'] : faction === 'firm' ? ['chain', 'none', 'bandana'] : ['none', 'scarf', 'bandana', 'chain', 'bowtie', 'none'];
+  const outfits = {
+    ze: ['#1d1d22', '#2b2b33'], firm: ['#3a4f7a', '#4b2e2e', '#2e4a3a'], poodle: ['#6b5a3e', '#34405a', '#5a2b3a'],
+    whippet: ['#8a2b2b', '#2b4a6b'], terrier: ['#4a4a2b', '#6b3a2b'], hounds: ['#b39a6b', '#8a7a5a'], indie: ['#3d3d4d', '#5a4030', '#2e4f4f', '#6b2e4a'],
+  }[faction];
+  return {
+    coat: rng.pick(breed.coats),
+    hat: rng.pick(hats),
+    eyes: rng.pick(eyes),
+    neck: rng.pick(necks),
+    outfit: rng.pick(outfits),
+    brow: rng.pick(['stern', 'neutral', 'raised', 'stern']),
+    seed: rng.int(1, 1e6),
+  };
+}
+
+export function skillOf(dog, skill) {
+  let v = dog.skills[skill] || 0;
+  for (const t of dog.talents) if (TALENTS[t].skill === skill) v += TALENTS[t].bonus;
+  return v;
+}
+
+export function topSkills(dog, n = 3) {
+  return SKILLS.map((s) => [s, skillOf(dog, s)]).sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+
+export function hasSpecial(dog, special) {
+  return dog.talents.some((t) => TALENTS[t].special === special);
+}
+
+export function feeFor(dog, cheap) {
+  const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
+  const base = 30 + power * 18 + (dog.relation > 30 ? -20 : 0);
+  return Math.max(30, Math.round((cheap ? base * 0.6 : base) / 10) * 10);
+}
+
+export function displayName(dog) {
+  return dog.nick ? `${dog.first} "${dog.nick}" ${dog.last}` : `${dog.first} ${dog.last}`;
+}
+export function shortName(dog) {
+  return dog.nick ? dog.nick.replace(/^The /, '') : dog.first;
+}
+
+export function relationLabel(dog) {
+  if (dog.status === 'gone' && dog.undercover && dog.known.undercover) return 'Copper in disguise';
+  if (dog.status === 'farm') return 'Gone to live on a farm';
+  if (dog.status === 'gone') return 'Did a runner';
+  const r = dog.relation;
+  if (dog.jobs === 0 && r === 0) return 'Unknown quantity';
+  if (r >= 60) return 'Trusted associate';
+  if (r >= 30) return 'Solid';
+  if (r >= 5) return 'Known face';
+  if (r > -20) return 'Wary';
+  return 'Holds a grudge';
+}
+
+export function band(v) {
+  return v >= 75 ? 'Very high' : v >= 55 ? 'High' : v >= 40 ? 'Middling' : v >= 25 ? 'Low' : 'Very low';
+}
+
+// ---------------------------------------------------------------- portraits
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v) => Math.max(0, Math.min(255, Math.round(v + amt * 255)));
+  const r = c((n >> 16) & 255), g = c((n >> 8) & 255), b = c(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+function lum(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.3 * ((n >> 16) & 255) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255)) / 255;
+}
+
+export function portraitSVG(dog, opts = {}) {
+  const b = BREEDS[dog.breed];
+  const L = dog.look;
+  const coat = L.coat;
+  const dark = shade(coat, -0.18);
+  const ink = '#1b1b22';
+  const narrow = b.narrow ? 0.85 : 1;
+  const small = b.small ? 0.92 : 1;
+  const hx = 50, hy = 50, rx = 25 * narrow * small, ry = 27 * small;
+  const snout = b.snout;
+  const sy = hy + 12 + 5 * (snout - 1), srx = 12 * (b.narrow ? 0.8 : 1) + (b.jowls ? 3 : 0), sry = 7 + 5 * snout;
+  let s = '';
+  const bg = opts.bg === false ? '' : `<rect width="100" height="100" rx="${opts.round ? 50 : 14}" fill="${opts.bg || '#e9dcc3'}"/>`;
+  s += bg;
+  // Body / outfit
+  s += `<path d="M14 100 Q16 80 36 76 L64 76 Q84 80 86 100 Z" fill="${L.outfit}"/>`;
+  s += `<path d="M42 76 L50 90 L58 76 Z" fill="${shade(L.outfit, 0.25)}"/>`;
+  // Ears behind
+  const ear = shade(coat, -0.12);
+  if (b.ears === 'pointy') {
+    s += `<path d="M${hx - rx + 4} ${hy - 6} L${hx - rx + 2} ${hy - 38} L${hx - 6} ${hy - 22} Z" fill="${ear}"/><path d="M${hx + rx - 4} ${hy - 6} L${hx + rx - 2} ${hy - 38} L${hx + 6} ${hy - 22} Z" fill="${ear}"/>`;
+    s += `<path d="M${hx - rx + 7} ${hy - 12} L${hx - rx + 6} ${hy - 30} L${hx - 10} ${hy - 20} Z" fill="#e8a7a0"/><path d="M${hx + rx - 7} ${hy - 12} L${hx + rx - 6} ${hy - 30} L${hx + 10} ${hy - 20} Z" fill="#e8a7a0"/>`;
+  } else if (b.ears === 'bat') {
+    s += `<path d="M${hx - rx + 6} ${hy - 2} L${hx - rx - 8} ${hy - 40} L${hx - 4} ${hy - 20} Z" fill="${ear}"/><path d="M${hx + rx - 6} ${hy - 2} L${hx + rx + 8} ${hy - 40} L${hx + 4} ${hy - 20} Z" fill="${ear}"/>`;
+    s += `<path d="M${hx - rx + 6} ${hy - 8} L${hx - rx - 3} ${hy - 32} L${hx - 8} ${hy - 18} Z" fill="#eab0a8"/><path d="M${hx + rx - 6} ${hy - 8} L${hx + rx + 3} ${hy - 32} L${hx + 8} ${hy - 18} Z" fill="#eab0a8"/>`;
+  } else if (b.ears === 'puff') {
+    s += `<circle cx="${hx}" cy="${hy - 26}" r="13" fill="${coat}"/><circle cx="${hx - 9}" cy="${hy - 22}" r="9" fill="${coat}"/><circle cx="${hx + 9}" cy="${hy - 22}" r="9" fill="${coat}"/>`;
+  }
+  // Head
+  s += `<ellipse cx="${hx}" cy="${hy}" rx="${rx}" ry="${ry}" fill="${coat}"/>`;
+  // Markings
+  if (b.mask && b.maskStyle === 'blaze') {
+    s += `<path d="M${hx - 4} ${hy - 26} Q${hx} ${hy - 30} ${hx + 4} ${hy - 26} L${hx + 7} ${hy + 4} L${hx - 7} ${hy + 4} Z" fill="${b.mask}"/>`;
+  } else if (b.mask && !b.maskStyle) {
+    // saddle / cap
+    s += `<path d="M${hx - rx + 3} ${hy - 4} Q${hx} ${hy - ry - 6} ${hx + rx - 3} ${hy - 4} Q${hx} ${hy - 12} ${hx - rx + 3} ${hy - 4} Z" fill="${b.mask}" opacity="0.9"/>`;
+  } else if (b.mask && b.maskStyle === 'points') {
+    s += `<circle cx="${hx - 10}" cy="${hy - 10}" r="3" fill="${b.mask}"/><circle cx="${hx + 10}" cy="${hy - 10}" r="3" fill="${b.mask}"/>`;
+  }
+  if (b.patch) {
+    s += `<ellipse cx="${hx + 10}" cy="${hy - 3}" rx="10" ry="11" fill="${b.patch}"/>`;
+  }
+  if (b.spots) {
+    let seed = L.seed;
+    for (let i = 0; i < 9; i++) {
+      seed = (seed * 9301 + 49297) % 233280;
+      const a = (seed / 233280) * Math.PI * 2;
+      seed = (seed * 9301 + 49297) % 233280;
+      const r = 6 + (seed / 233280) * 16;
+      s += `<circle cx="${(hx + Math.cos(a) * r).toFixed(1)}" cy="${(hy - 6 + Math.sin(a) * r * 0.9).toFixed(1)}" r="${2 + (i % 3)}" fill="${b.spots}"/>`;
+    }
+  }
+  // Ears in front (floppy / long / rose / fold)
+  if (b.ears === 'floppy' || b.ears === 'long') {
+    const len = b.ears === 'long' ? 24 : 16;
+    const ec = b.patch && b.ears === 'floppy' ? b.patch : shade(coat, -0.2);
+    s += `<ellipse cx="${hx - rx + 2}" cy="${hy + len / 2 - 6}" rx="8" ry="${len}" fill="${ec}" transform="rotate(12 ${hx - rx + 2} ${hy - 6})"/>`;
+    s += `<ellipse cx="${hx + rx - 2}" cy="${hy + len / 2 - 6}" rx="8" ry="${len}" fill="${ec}" transform="rotate(-12 ${hx + rx - 2} ${hy - 6})"/>`;
+  } else if (b.ears === 'rose') {
+    s += `<path d="M${hx - rx + 6} ${hy - 18} L${hx - rx - 6} ${hy - 22} L${hx - rx + 2} ${hy - 6} Z" fill="${dark}"/><path d="M${hx + rx - 6} ${hy - 18} L${hx + rx + 6} ${hy - 22} L${hx + rx - 2} ${hy - 6} Z" fill="${dark}"/>`;
+  } else if (b.ears === 'fold') {
+    s += `<path d="M${hx - rx + 5} ${hy - 16} L${hx - rx + 2} ${hy - 30} L${hx - 8} ${hy - 22} Z" fill="${dark}"/><path d="M${hx - rx + 2} ${hy - 30} L${hx - 8} ${hy - 22} L${hx - rx + 6} ${hy - 12} Z" fill="${shade(coat, -0.28)}"/>`;
+    s += `<path d="M${hx + rx - 5} ${hy - 16} L${hx + rx - 2} ${hy - 30} L${hx + 8} ${hy - 22} Z" fill="${dark}"/><path d="M${hx + rx - 2} ${hy - 30} L${hx + 8} ${hy - 22} L${hx + rx - 6} ${hy - 12} Z" fill="${shade(coat, -0.28)}"/>`;
+  } else if (b.ears === 'puff') {
+    for (const side of [-1, 1]) {
+      const cx = hx + side * (rx + 1);
+      s += `<circle cx="${cx}" cy="${hy + 6}" r="10" fill="${coat}"/><circle cx="${cx}" cy="${hy + 16}" r="9" fill="${coat}"/><circle cx="${cx - side * 2}" cy="${hy - 2}" r="7" fill="${coat}"/>`;
+    }
+  }
+  // Snout
+  const muzzleCol = b.mask && (b.maskStyle === 'muzzle' || b.maskStyle === 'points') ? b.mask : b.mask && b.maskStyle === 'blaze' ? b.mask : shade(coat, lum(coat) > 0.6 ? -0.06 : 0.12);
+  if (b.jowls) {
+    s += `<ellipse cx="${hx - 9}" cy="${sy + 5}" rx="10" ry="8" fill="${muzzleCol}"/><ellipse cx="${hx + 9}" cy="${sy + 5}" rx="10" ry="8" fill="${muzzleCol}"/>`;
+  }
+  s += `<ellipse cx="${hx}" cy="${sy}" rx="${srx}" ry="${sry}" fill="${muzzleCol}"/>`;
+  const ny = sy - sry + 5;
+  s += `<ellipse cx="${hx}" cy="${ny}" rx="${5.5}" ry="4" fill="${ink}"/><ellipse cx="${hx - 1.5}" cy="${ny - 1.2}" rx="1.6" ry="1" fill="#fff" opacity="0.6"/>`;
+  s += `<path d="M${hx} ${ny + 3} L${hx} ${ny + 7} M${hx - 6} ${ny + 8} Q${hx - 3} ${ny + 11} ${hx} ${ny + 7} Q${hx + 3} ${ny + 11} ${hx + 6} ${ny + 8}" stroke="${ink}" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
+  // Eyes
+  const ey = hy - 6;
+  const ex = 10 * narrow;
+  if (L.eyes === 'sunglasses') {
+    s += `<rect x="${hx - ex - 7}" y="${ey - 5}" width="13" height="9" rx="3" fill="${ink}"/><rect x="${hx + ex - 6}" y="${ey - 5}" width="13" height="9" rx="3" fill="${ink}"/><path d="M${hx - ex + 6} ${ey - 2} L${hx + ex - 6} ${ey - 2}" stroke="${ink}" stroke-width="2"/><path d="M${hx - ex - 4} ${ey - 3} L${hx - ex} ${ey - 3}" stroke="#fff" stroke-width="1" opacity="0.6"/>`;
+  } else {
+    s += `<circle cx="${hx - ex}" cy="${ey}" r="3.6" fill="${ink}"/><circle cx="${hx + ex}" cy="${ey}" r="3.6" fill="${ink}"/><circle cx="${hx - ex + 1.2}" cy="${ey - 1.2}" r="1.1" fill="#fff"/><circle cx="${hx + ex + 1.2}" cy="${ey - 1.2}" r="1.1" fill="#fff"/>`;
+    const browCol = lum(coat) > 0.5 ? shade(coat, -0.4) : shade(coat, 0.35);
+    const bd = L.brow === 'stern' ? [2, -2] : L.brow === 'raised' ? [-2, -2] : [0, 0];
+    s += `<path d="M${hx - ex - 5} ${ey - 7 + bd[1]} L${hx - ex + 4} ${ey - 7 + bd[0]}" stroke="${browCol}" stroke-width="2.2" stroke-linecap="round"/><path d="M${hx + ex + 5} ${ey - 7 + (L.brow === 'raised' ? -4 : bd[1])} L${hx + ex - 4} ${ey - 7 + bd[0]}" stroke="${browCol}" stroke-width="2.2" stroke-linecap="round"/>`;
+    if (L.eyes === 'monocle') {
+      s += `<circle cx="${hx + ex}" cy="${ey}" r="6" fill="none" stroke="#d4a93a" stroke-width="1.8"/><path d="M${hx + ex + 5} ${ey + 4} Q${hx + ex + 9} ${ey + 20} ${hx + ex + 4} ${ey + 30}" stroke="#d4a93a" stroke-width="0.9" fill="none"/>`;
+    }
+  }
+  // Neckwear
+  if (L.neck === 'chain') s += `<path d="M36 80 Q50 92 64 80" stroke="#e0b63c" stroke-width="3" fill="none" stroke-dasharray="3 1.5"/>`;
+  else if (L.neck === 'scarf') s += `<path d="M34 76 Q50 86 66 76 L66 82 Q50 92 34 82 Z" fill="#b8372e"/><path d="M58 82 L62 98 L68 96 L63 80 Z" fill="#9c2e27"/>`;
+  else if (L.neck === 'bowtie') s += `<path d="M50 84 L41 79 L41 89 Z M50 84 L59 79 L59 89 Z" fill="#b8372e"/><circle cx="50" cy="84" r="2.4" fill="#8e2721"/>`;
+  else if (L.neck === 'bandana') s += `<path d="M36 78 Q50 84 64 78 L50 94 Z" fill="#2f5d9a"/><circle cx="46" cy="83" r="1" fill="#fff"/><circle cx="53" cy="85" r="1" fill="#fff"/>`;
+  else if (L.neck === 'pearls') s += `<path d="M36 79 Q50 90 64 79" stroke="#f7f3ea" stroke-width="3.5" fill="none" stroke-dasharray="0.1 4.2" stroke-linecap="round"/>`;
+  // Hats
+  const top = hy - ry;
+  if (L.hat === 'flatcap') {
+    s += `<path d="M${hx - rx + 1} ${top + 14} Q${hx} ${top - 8} ${hx + rx - 1} ${top + 14} Z" fill="#6d6452"/><path d="M${hx - 14} ${top + 13} Q${hx + 8} ${top + 6} ${hx + rx + 6} ${top + 16} Q${hx + 8} ${top + 19} ${hx - 14} ${top + 16} Z" fill="#5b5344"/><path d="M${hx - rx + 5} ${top + 8} L${hx + rx - 5} ${top + 8}" stroke="#7e7462" stroke-width="1" stroke-dasharray="2 2"/>`;
+  } else if (L.hat === 'bowler') {
+    s += `<ellipse cx="${hx}" cy="${top + 10}" rx="${rx + 4}" ry="4" fill="#1a1a1f"/><path d="M${hx - 15} ${top + 10} Q${hx - 15} ${top - 12} ${hx} ${top - 12} Q${hx + 15} ${top - 12} ${hx + 15} ${top + 10} Z" fill="#23232a"/><path d="M${hx - 15} ${top + 6} L${hx + 15} ${top + 6}" stroke="#44444f" stroke-width="2"/>`;
+  } else if (L.hat === 'tophat') {
+    s += `<rect x="${hx - 12}" y="${top - 22}" width="24" height="30" rx="2" fill="#1a1a1f"/><rect x="${hx - 12}" y="${top + 1}" width="24" height="5" fill="#8e2721"/><ellipse cx="${hx}" cy="${top + 9}" rx="${rx}" ry="4" fill="#1a1a1f"/>`;
+  } else if (L.hat === 'beanie') {
+    s += `<path d="M${hx - rx + 2} ${top + 12} Q${hx} ${top - 14} ${hx + rx - 2} ${top + 12} Z" fill="#2f5d9a"/><rect x="${hx - rx + 1}" y="${top + 8}" width="${rx * 2 - 2}" height="7" rx="3" fill="#264d80"/><circle cx="${hx}" cy="${top - 4}" r="4" fill="#e8e1d2"/>`;
+  } else if (L.hat === 'peaked') {
+    s += `<path d="M${hx - rx + 1} ${top + 12} Q${hx} ${top - 12} ${hx + rx - 1} ${top + 12} Z" fill="#2a2d33"/><path d="M${hx - rx + 2} ${top + 12} Q${hx} ${top + 22} ${hx + rx - 2} ${top + 12} Z" fill="#111317"/><circle cx="${hx}" cy="${top + 4}" r="2.4" fill="#c9a43a"/>`;
+  } else if (L.hat === 'trilby') {
+    s += `<ellipse cx="${hx}" cy="${top + 10}" rx="${rx + 7}" ry="4.5" fill="#4a3b2e"/><path d="M${hx - 14} ${top + 10} L${hx - 12} ${top - 8} Q${hx} ${top - 3} ${hx + 12} ${top - 8} L${hx + 14} ${top + 10} Z" fill="#5a4838"/><rect x="${hx - 14}" y="${top + 3}" width="28" height="4" fill="#2a211a"/>`;
+  }
+  const size = opts.size || 96;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${escapeAttr(dog.first)} the ${escapeAttr(b.label)}">${s}</svg>`;
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+}

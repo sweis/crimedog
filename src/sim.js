@@ -1,0 +1,512 @@
+// Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
+// an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS } from './data.js';
+import { skillOf, hasSpecial, shortName } from './dogs.js';
+
+export const ALARM_MAX = 10;
+
+export function approachAvailable(state, job, approachId, kitLeft) {
+  const a = APPROACHES[approachId];
+  const kit = kitLeft || state.kit;
+  if (a.needKit && !(kit[a.needKit] > 0)) return { ok: false, reason: `Needs ${KIT[a.needKit].name}` };
+  if (a.needIntel && !job.intel[a.needIntel]) return { ok: false, reason: 'Needs intel' };
+  if (a.needInsider && !job.insider) return { ok: false, reason: 'Needs an inside dog' };
+  if (a.needBribe && !job.bribed) return { ok: false, reason: 'Needs a bribed guard' };
+  return { ok: true };
+}
+
+export function difficulty(state, job, stage, approachId, kitLeft) {
+  const a = APPROACHES[approachId];
+  const kit = kitLeft || state.kit;
+  let d = job.base + a.mod + job.alert;
+  if (a.kitBonus && kit[a.kitBonus] > 0) d -= 2;
+  if (a.intelBonus && job.intel[a.intelBonus]) d -= 2;
+  const night = job.time === 'night';
+  if (night && (a.skill === 'sneak' || a.skill === 'agility')) d -= 1;
+  if (!night && (a.skill === 'charm' || a.skill === 'disguise')) d -= 1;
+  if (!night && a.skill === 'sneak') d += 1;
+  if (a.crowd) d += night ? 2 : -1;
+  if (stage.kind === 'getaway') {
+    if (job.intel.escape_routes) d -= 1;
+    if (job.hazards.stakeout && job.time === job.stakeoutTime) d += 2;
+  }
+  if (stage.kind === 'vault' && job.hazards.silent && job.intel.hz_silent) d += 1;
+  if (stage.id === 'obs_guards' && job.insider) d -= 1;
+  return d;
+}
+
+export function baseOdds(skill, diff) {
+  return clamp(0.5 + 0.12 * (skill - diff), 0.05, 0.95);
+}
+
+function clamp(v, a, b) {
+  return Math.max(a, Math.min(b, v));
+}
+
+export function crewOf(plan) {
+  return [...new Set(Object.values(plan).map((p) => p && p.dog).filter(Boolean))];
+}
+
+// Probability a dog pulls off an approach. ctx carries in-heist conditions.
+export function odds(state, job, stage, approachId, dog, ctx = {}) {
+  const a = APPROACHES[approachId];
+  let skill = skillOf(dog, a.skill);
+  if (job.time === 'night' && hasSpecial(dog, 'night')) skill += 1;
+  const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0);
+  let p = baseOdds(skill, diff);
+  const alarm = ctx.alarm || 0;
+  const crew = ctx.crew || crewOf(job.plan).map((id) => state.dogs[id]).filter(Boolean);
+  const q = dog.quirks;
+  if (alarm >= 4) {
+    if (q.includes('nervous')) p -= 0.15;
+    if (q.includes('steel')) p += 0.1;
+    if (hasSpecial(dog, 'cool') || hasSpecial(dog, 'nerve')) p += 0.05;
+  }
+  if (q.includes('pack') && crew.some((c) => c.id !== dog.id && c.faction === dog.faction)) p += 0.1;
+  if (q.includes('lonewolf')) p += crew.length <= 2 ? 0.1 : crew.length >= 4 ? -0.1 : 0;
+  if (q.includes('napper') && ['exit', 'getaway'].includes(stage.kind)) p -= 0.1;
+  if (q.includes('glory')) p += 0.08;
+  const load = Object.values(job.plan).filter((p2) => p2 && p2.dog === dog.id).length;
+  if (load > 2) p -= 0.05 * (load - 2);
+  p += ctx.bonus || 0;
+  return { p: clamp(p, 0.03, 0.97), skill, diff };
+}
+
+// Does the player know enough to see the odds?
+export function oddsKnown(dog, approachId) {
+  return !!dog.known.skills[APPROACHES[approachId].skill];
+}
+
+export function carryCapacity(crew, kit) {
+  let c = 2;
+  for (const d of crew) c += Math.floor(skillOf(d, 'muscle') / 2) + (hasSpecial(d, 'carry') ? 2 : 0);
+  if (kit.bags > 0) c += 2;
+  if (kit.van > 0) c += 3;
+  return c;
+}
+
+export function simulate(state, job, rng) {
+  const plan = job.plan;
+  const crewIds = crewOf(plan);
+  const crew = crewIds.map((id) => state.dogs[id]);
+  const beats = [];
+  const ctx = {
+    alarm: 0,
+    alarmMax: 0,
+    clues: 0,
+    coppers: false,
+    ringing: false,
+    pearShaped: false,
+    aborted: false,
+    vaultDone: false,
+    swap: false,
+    tipped: [],
+    exposed: [],
+    captured: [],
+    runners: [],
+    secured: [],
+    dropped: [],
+    kitLeft: { ...state.kit },
+    kitUsed: {},
+    luckUsed: new Set(),
+    lookoutUsed: false,
+    nextBonus: 0,
+    learned: {},
+    acted: new Set(),
+  };
+  // Tipped undercover dogs stay "active" during the job; they only reveal themselves after.
+  const active = () => crew.filter((d) => !ctx.exposed.includes(d.id) && !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id));
+  const learn = (dog, kind, v) => {
+    const L = (ctx.learned[dog.id] ||= { skills: [], talents: [], quirks: [], loyalty: false, undercover: false });
+    if (kind === 'loyalty' || kind === 'undercover') L[kind] = true;
+    else if (!L[kind].includes(v)) L[kind].push(v);
+  };
+  const say = (dog, kind) => {
+    const lines = VOICES[dog.voice]?.[kind];
+    return lines ? rng.pick(lines) : null;
+  };
+  const beat = (b) => {
+    beats.push({ alarm: ctx.alarm, clues: ctx.clues, ...b });
+  };
+  const addAlarm = (n, stageId) => {
+    if (n <= 0) return;
+    const before = ctx.alarm;
+    ctx.alarm = Math.min(ALARM_MAX, ctx.alarm + n);
+    ctx.alarmMax = Math.max(ctx.alarmMax, ctx.alarm);
+    if (before < 6 && ctx.alarm >= 6) {
+      const look = active().find((d) => hasSpecial(d, 'lookout'));
+      if (look && !ctx.lookoutUsed) {
+        ctx.lookoutUsed = true;
+        ctx.alarm = Math.max(0, ctx.alarm - 2);
+        learn(look, 'talents', 'lookout');
+        beat({ kind: 'good', stage: stageId, dog: look.id, text: `${shortName(look)} spots trouble coming and gets everyone into cover just in time.` });
+        return;
+      }
+    }
+    if (!ctx.ringing && ctx.alarm >= 6) {
+      ctx.ringing = true;
+      beat({ kind: 'alarm', stage: stageId, text: 'BRRRRING! The alarm is going off!' });
+    }
+    if (!ctx.coppers && ctx.alarm >= ALARM_MAX) {
+      ctx.coppers = true;
+      beat({ kind: 'alarm', stage: stageId, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
+    }
+  };
+  const hourLabel = `${String(job.hour).padStart(2, '0')}:00`;
+
+  beat({ kind: 'intro', stage: null, text: `${hourLabel}. ${job.venueName}, ${job.district}. The crew is in position.` });
+
+  // Undercover coppers in the crew.
+  for (const u of crew.filter((d) => d.undercover)) {
+    const sniffer = crew.find((d) => d.id !== u.id && hasSpecial(d, 'sniff') && !d.undercover);
+    if (sniffer && rng.chance(0.65)) {
+      ctx.exposed.push(u.id);
+      learn(u, 'undercover');
+      learn(sniffer, 'talents', 'snifftest');
+      beat({ kind: 'good', stage: null, dog: sniffer.id, text: `${shortName(sniffer)} sniffs ${shortName(u)}'s collar. "Cheap aftershave. Police issue." ${shortName(u)} is a plant! Sent packing before the job starts.` });
+    } else {
+      ctx.tipped.push(u.id);
+    }
+  }
+  if (ctx.tipped.length) {
+    beat({ kind: 'omen', stage: null, text: 'Something feels off. The street is too quiet. Was that a van with a ladder on it?' });
+    addAlarm(3, null);
+  }
+
+  const fatigue = {};
+  const attempt = (stage, approachId, dog, extra, tag) => {
+    const a = APPROACHES[approachId];
+    if (a.needKit && KIT[a.needKit].consumable) {
+      ctx.kitLeft[a.needKit]--;
+      ctx.kitUsed[a.needKit] = (ctx.kitUsed[a.needKit] || 0) + 1;
+    }
+    ctx.acted.add(dog.id);
+    fatigue[dog.id] = (fatigue[dog.id] || 0) + 1;
+    const o = odds(state, job, stage, approachId, dog, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra: (extra || 0) + (ctx.coppers ? 2 : 0), bonus: ctx.nextBonus });
+    ctx.nextBonus = 0;
+    let p = o.p;
+    if (hasSpecial(dog, 'wild')) {
+      p = clamp(p + rng.float(-0.2, 0.2), 0.03, 0.97);
+      learn(dog, 'talents', 'zoomies');
+    }
+    learn(dog, 'skills', a.skill);
+    let ok;
+    let roll;
+    let text;
+    if (dog.quirks.includes('squirrel') && rng.chance(0.12)) {
+      learn(dog, 'quirks', 'squirrel');
+      ok = false;
+      roll = 1;
+      text = `${shortName(dog)} was about to "${a.label.toLowerCase()}" when— SQUIRREL! Gone. Just gone.`;
+    } else {
+      roll = rng.next();
+      ok = roll < p;
+      if (!ok && (dog.quirks.includes('lucky') || hasSpecial(dog, 'lucky')) && !ctx.luckUsed.has(dog.id)) {
+        ctx.luckUsed.add(dog.id);
+        if (dog.quirks.includes('lucky')) learn(dog, 'quirks', 'lucky');
+        else learn(dog, 'talents', 'trickshot');
+        roll = rng.next();
+        ok = roll < p;
+        beat({ kind: 'luck', stage: stage.id, dog: dog.id, text: `${shortName(dog)} fumbles... and gets a lucky second go.` });
+      }
+      text = (ok ? a.ok : a.fail).replace(/\{d\}/g, shortName(dog));
+    }
+    // Talents that helped
+    for (const t of dog.talents) {
+      if (skillTalent(t, a.skill)) learn(dog, 'talents', t);
+    }
+    // Noise & clues
+    let noise = ok ? a.noise : a.failNoise;
+    if (ok && a.skill === 'muscle' && hasSpecial(dog, 'loud')) noise += 1;
+    if (ok && (hasSpecial(dog, 'hothead') || dog.quirks.includes('postmen')) && stage.kind === 'obstacle') {
+      noise += 1;
+      if (dog.quirks.includes('postmen')) learn(dog, 'quirks', 'postmen');
+    }
+    let clues = ok ? a.clues : 1;
+    if (dog.quirks.includes('sheds')) { clues += 1; learn(dog, 'quirks', 'sheds'); }
+    if (dog.quirks.includes('glory')) { clues += 1; learn(dog, 'quirks', 'glory'); }
+    if (hasSpecial(dog, 'clean')) clues -= 1;
+    if (job.time === 'day' && ['charm', 'disguise'].includes(a.skill)) clues += 1; // witnesses
+    ctx.clues += Math.max(0, clues);
+    if (dog.quirks.includes('nervous') && ctx.alarm >= 4) learn(dog, 'quirks', 'nervous');
+    if (dog.quirks.includes('steel') && ctx.alarm >= 4) learn(dog, 'quirks', 'steel');
+    if (dog.quirks.includes('pack')) learn(dog, 'quirks', 'pack');
+    const line = rng.chance(0.55) ? say(dog, ok ? 'ok' : 'fail') : null;
+    if (ok) ctx.lastOk = approachId;
+    beat({ kind: ok ? 'ok' : 'fail', stage: stage.id, dog: dog.id, approach: approachId, tag, p, roll, text, line });
+    addAlarm(noise, stage.id);
+    return ok;
+  };
+
+  const bestFor = (stage, exclude = [], extra = 0) => {
+    let best = null;
+    for (const ap of stage.options) {
+      if (exclude.includes(ap)) continue;
+      if (!approachAvailable(state, job, ap, ctx.kitLeft).ok) continue;
+      for (const d of active()) {
+        const o = odds(state, job, stage, ap, d, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra });
+        if (!best || o.p > best.p) best = { approach: ap, dog: d, p: o.p };
+      }
+    }
+    return best;
+  };
+
+  const escapeCheck = (dog, stageId) => {
+    let p = 0.5 + 0.07 * Math.max(skillOf(dog, 'agility'), skillOf(dog, 'sneak'), skillOf(dog, 'wheels')) - 0.035 * ctx.alarm;
+    if (hasSpecial(dog, 'escape')) { p += 0.2; learn(dog, 'talents', dog.talents.find((t) => ['getaway', 'parkour'].includes(t))); }
+    if (ctx.kitLeft.smoke > 0) {
+      p += 0.2;
+      ctx.kitLeft.smoke--;
+      ctx.kitUsed.smoke = (ctx.kitUsed.smoke || 0) + 1;
+    }
+    if (job.safehouse) p += 0.05;
+    if (ctx.coppers) p -= 0.1;
+    p = clamp(p, 0.1, 0.95);
+    if (rng.chance(p)) {
+      beat({ kind: 'escape', stage: stageId, dog: dog.id, text: `${shortName(dog)} gives them the slip.` });
+      return true;
+    }
+    ctx.captured.push({ id: dog.id, stage: stageId });
+    beat({ kind: 'caught', stage: stageId, dog: dog.id, text: `${shortName(dog)} is collared by the Old Bill!`, line: say(dog, 'caught') });
+    if (ctx.secured.length && ['exit', 'getaway'].includes(stageId)) {
+      const lost = ctx.secured.splice(rng.int(0, ctx.secured.length - 1), 1)[0];
+      ctx.dropped.push(lost);
+      const item = job.loot.find((l) => l.id === lost);
+      beat({ kind: 'fail', stage: stageId, text: `${item.name} goes with them into the police van.` });
+    }
+    return false;
+  };
+
+  const grabLoot = (stage) => {
+    if (job.hazards.silent && !job.intel.hz_silent) {
+      beat({ kind: 'alarm', stage: stage.id, text: 'Nobody hears it, but a silent alarm has just rung at the police station.' });
+      addAlarm(4, stage.id);
+    }
+    const cap = carryCapacity(active(), ctx.kitLeft);
+    if (ctx.kitLeft.bags > 0) { ctx.kitLeft.bags--; ctx.kitUsed.bags = (ctx.kitUsed.bags || 0) + 1; }
+    let used = 0;
+    const byRatio = job.loot.slice().sort((x, y) => y.value / y.bulk - x.value / x.bulk);
+    const left = [];
+    for (const l of byRatio) {
+      if (used + l.bulk <= cap) { ctx.secured.push(l.id); used += l.bulk; } else left.push(l);
+    }
+    const names = ctx.secured.map((id) => job.loot.find((l) => l.id === id).name);
+    beat({ kind: 'loot', stage: stage.id, text: `In the bag: ${names.join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
+  };
+
+  // ---- Run each stage
+  for (const stage of job.stages) {
+    if (ctx.aborted) break;
+    if (!active().length) break;
+    if (stage.kind === 'vault' && ctx.vaultSkipped) continue;
+    let dog;
+    let approach;
+    let extra = 0;
+    if (stage.hidden) {
+      const b = bestFor(stage, [], 2);
+      if (!b) continue;
+      beat({ kind: 'surprise', stage: stage.id, text: `Surprise! ${stage.label}. Nobody said anything about this!` });
+      ctx.pearShaped = true;
+      dog = b.dog;
+      approach = b.approach;
+      extra = 2;
+    } else {
+      const choice = plan[stage.id] || {};
+      dog = state.dogs[choice.dog];
+      approach = choice.approach;
+      if (!dog || !active().includes(dog)) {
+        const b = bestFor(stage);
+        if (!b) break;
+        if (dog) beat({ kind: 'improv', stage: stage.id, dog: b.dog.id, text: `${shortName(dog)} isn't here. ${shortName(b.dog)} steps up.` });
+        dog = b.dog;
+        if (!approach) approach = b.approach;
+      }
+      if (!approach || !approachAvailable(state, job, approach, ctx.kitLeft).ok) {
+        const b = bestFor(stage);
+        if (!b) break;
+        beat({ kind: 'improv', stage: stage.id, text: `The plan called for ${approach ? APPROACHES[approach].label.toLowerCase() : 'something'}, but that's off the table now.` });
+        approach = b.approach;
+      }
+    }
+    beat({ kind: 'stage', stage: stage.id, dog: dog.id, text: `${stage.icon} ${stage.label}: ${shortName(dog)} — ${APPROACHES[approach].label}.` });
+    let ok = attempt(stage, approach, dog, extra, 'plan');
+    if (!ok) {
+      if (!ctx.pearShaped) {
+        ctx.pearShaped = true;
+        beat({ kind: 'pear', stage: stage.id, text: 'It\'s all gone PEAR-SHAPED!' });
+      }
+      if (rng.chance(0.3)) {
+        const good = rng.chance(0.5);
+        beat({ kind: good ? 'good' : 'chaos', stage: stage.id, text: rng.pick(good ? CHAOS.good : CHAOS.bad) });
+        if (good) { ctx.alarm = Math.max(0, ctx.alarm - 1); ctx.nextBonus = 0.15; } else { addAlarm(1, stage.id); ctx.nextBonus = -0.1; }
+      }
+      const b = bestFor(stage, [approach], extra + 1) || bestFor(stage, [], extra + 1);
+      if (b) {
+        beat({ kind: 'improv', stage: stage.id, dog: b.dog.id, text: `${shortName(b.dog)} improvises: ${APPROACHES[b.approach].label.toLowerCase()}!` });
+        ok = attempt(stage, b.approach, b.dog, extra + 1, 'improv');
+        if (!ok) dog = b.dog;
+      }
+    }
+    if (ok) {
+      if (stage.kind === 'vault') {
+        ctx.vaultDone = true;
+        if (APPROACHES[ctx.lastOk]?.swap) ctx.swap = true;
+        grabLoot(stage);
+        betrayals();
+      }
+      continue;
+    }
+    // Both attempts failed.
+    switch (stage.kind) {
+      case 'entry':
+        beat({ kind: 'fail', stage: stage.id, text: 'They can\'t get in. "Abort! ABORT!" Everyone legs it.' });
+        ctx.aborted = true;
+        if (ctx.alarm >= 4) escapeCheck(dog, stage.id);
+        break;
+      case 'obstacle':
+        beat({ kind: 'fail', stage: stage.id, text: 'No finesse left. They barge straight through.' });
+        addAlarm(2, stage.id);
+        if (rng.chance(0.5)) escapeCheck(dog, stage.id);
+        break;
+      case 'vault':
+        beat({ kind: 'fail', stage: stage.id, text: 'The vault won\'t budge. They\'ll have to leave empty-pawed.' });
+        break;
+      case 'exit':
+        beat({ kind: 'fail', stage: stage.id, text: 'Every exit\'s blocked. Scatter!' });
+        for (const d of active()) escapeCheck(d, stage.id);
+        break;
+      case 'getaway':
+        beat({ kind: 'fail', stage: stage.id, text: 'The getaway\'s blown. Every dog for himself!' });
+        for (const d of active()) escapeCheck(d, stage.id);
+        break;
+    }
+  }
+
+  function betrayals() {
+    for (const d of active()) {
+      if (d.quirks.includes('goodboy') || d.undercover) continue;
+      if (!ctx.secured.length) break;
+      const loyal = d.loyalty + d.relation * 0.5;
+      const p = Math.max(0, (d.greed - loyal) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0);
+      if (rng.chance(p)) {
+        const lootId = ctx.secured.shift();
+        const item = job.loot.find((l) => l.id === lootId);
+        ctx.runners.push({ id: d.id, lootId });
+        learn(d, 'loyalty');
+        beat({ kind: 'betray', stage: 'vault', dog: d.id, text: `${shortName(d)} grabs ${item.name} and legs it out a side door! Didn't even say goodbye.` });
+      }
+    }
+  }
+
+  // Stakeout at the getaway
+  if (!ctx.aborted && job.hazards.stakeout && job.time === job.stakeoutTime) {
+    ctx.clues += 2;
+    beat({ kind: 'omen', stage: 'getaway', text: 'An unmarked car across the road. Someone inside is taking photos...' });
+  }
+
+  // Van burned
+  if (ctx.kitLeft.van > 0 && ctx.alarmMax >= 6 && Object.values(plan).some((p) => p && ['e_ram', 'g_van'].includes(p.approach))) {
+    ctx.kitUsed.van = (ctx.kitUsed.van || 0) + 1;
+    beat({ kind: 'info', stage: 'getaway', text: 'The van\'s been clocked. It goes in the river.' });
+  }
+
+  // Clue adjustments
+  const survivors = active().filter((d) => !ctx.tipped.includes(d.id));
+  if (crew.some((d) => d.quirks.includes('eatsevidence') && ctx.acted.has(d.id))) {
+    const eater = crew.find((d) => d.quirks.includes('eatsevidence'));
+    if (ctx.clues > 0) {
+      ctx.clues -= 1;
+      learn(eater, 'quirks', 'eatsevidence');
+      beat({ kind: 'good', stage: null, dog: eater.id, text: `${shortName(eater)} quietly eats a glove someone dropped. Evidence: gone.` });
+    }
+  }
+  if (job.fakeIds && ctx.clues > 0) ctx.clues -= 1;
+  for (const d of survivors) {
+    if (d.quirks.includes('looselips') && rng.chance(0.5)) {
+      ctx.clues += 1;
+      learn(d, 'quirks', 'looselips');
+      beat({ kind: 'chaos', stage: null, dog: d.id, text: `Later, down the pub, ${shortName(d)} tells everyone about "a hypothetical job". In detail.` });
+    }
+  }
+
+  // Interrogations
+  const interrogations = [];
+  for (const c of ctx.captured) {
+    const d = state.dogs[c.id];
+    if (d.undercover) continue;
+    const loyal = d.loyalty + d.relation * 0.5;
+    let pTalk = clamp((75 - loyal * 0.5 - d.nerve * 0.3) / 100, 0.03, 0.9);
+    if (d.quirks.includes('looselips')) pTalk += 0.3;
+    if (job.fakeIds) pTalk -= 0.15;
+    if (d.quirks.includes('nevergrass')) pTalk = 0;
+    const talked = rng.chance(clamp(pTalk, 0, 0.95));
+    const sentence = rng.int(2, 3) + (ctx.coppers ? 1 : 0);
+    learn(d, 'loyalty');
+    if (d.quirks.includes('mumbles')) {
+      learn(d, 'quirks', 'mumbles');
+      interrogations.push({ id: d.id, talked: false, mumbled: true, sentence });
+      beat({ kind: 'interrogation', stage: null, dog: d.id, text: `The Inspector grills ${shortName(d)} for three hours. He talks the whole time. Nobody understands a single word.`, line: say(d, 'talk') });
+    } else if (talked) {
+      if (d.quirks.includes('looselips')) learn(d, 'quirks', 'looselips');
+      interrogations.push({ id: d.id, talked: true, sentence: Math.max(1, sentence - 1) });
+      beat({ kind: 'interrogation', stage: null, dog: d.id, text: `Under the lamp, ${shortName(d)} cracks. The Inspector's pencil is very busy.`, line: say(d, 'talk') });
+    } else {
+      if (d.quirks.includes('nevergrass')) learn(d, 'quirks', 'nevergrass');
+      interrogations.push({ id: d.id, talked: false, sentence });
+      beat({ kind: 'interrogation', stage: null, dog: d.id, text: `${shortName(d)} stares at the wall for six hours. Not a word. Off to the pound.`, line: say(d, 'caught') });
+    }
+  }
+
+  // The undercover reveal
+  for (const id of ctx.tipped) {
+    const u = state.dogs[id];
+    learn(u, 'undercover');
+    beat({ kind: 'betray', stage: null, dog: id, text: `Turns out ${shortName(u)} was Mr. Orange all along — an undercover copper! Everything goes straight to the Inspector.` });
+  }
+
+  const talkedCount = interrogations.filter((i) => i.talked).length;
+  let heatGain = ctx.clues * 2 + (ctx.ringing ? 4 : 0) + (ctx.coppers ? 5 : 0) + talkedCount * 12 + ctx.tipped.length * 25;
+  if (job.safehouse) heatGain = Math.round(heatGain * 0.6);
+  const escaped = crew.filter((d) => !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id) && !ctx.exposed.includes(d.id) && !ctx.tipped.includes(d.id)).map((d) => d.id);
+
+  let outcome;
+  if (ctx.aborted) outcome = 'aborted';
+  else if (!ctx.secured.length) outcome = 'bust';
+  else if (ctx.alarmMax === 0 && ctx.clues === 0 && !ctx.captured.length) outcome = 'clean';
+  else if (ctx.captured.length || ctx.alarmMax >= 6) outcome = 'messy';
+  else outcome = 'tidy';
+  const endText = {
+    clean: ctx.swap ? 'Not a whisker out of place. They won\'t even know they\'ve been robbed.' : 'In and out. Clean as a whistle.',
+    tidy: 'Done. A few loose ends, but the goods are out.',
+    messy: 'Chaos. Sirens. But they\'ve got something.',
+    bust: 'Nothing to show for it but sore paws.',
+    aborted: 'The job\'s off. Better luck next time.',
+  }[outcome];
+  beat({ kind: 'end', stage: null, text: endText });
+
+  return {
+    beats,
+    outcome,
+    secured: ctx.secured,
+    dropped: ctx.dropped,
+    alarmMax: ctx.alarmMax,
+    clues: ctx.clues,
+    coppers: ctx.coppers,
+    pearShaped: ctx.pearShaped,
+    aborted: ctx.aborted,
+    swap: ctx.swap && outcome === 'clean',
+    captured: interrogations,
+    runners: ctx.runners,
+    exposed: ctx.exposed,
+    tipped: ctx.tipped,
+    escaped,
+    crew: crewIds,
+    kitUsed: ctx.kitUsed,
+    learned: ctx.learned,
+    heatGain,
+  };
+}
+
+function skillTalent(t, skill) {
+  return TALENTS[t] && TALENTS[t].skill === skill;
+}
