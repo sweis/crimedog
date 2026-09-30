@@ -9,6 +9,7 @@ export const ALARM_MAX = 10;
 
 // Signature moves: a rare or legendary dog's secret way through the steps it fits.
 export function signatureFits(sigId, stage) {
+  if (stage.noSig) return false;
   return SIGNATURES[sigId].fits.some((t) => t === stage.kind || t === stage.id || t === `vault:${stage.vaultType}`);
 }
 
@@ -73,7 +74,9 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   const a = APPROACHES[approachId];
   let skill = skillOf(dog, a.skill);
   if (job.time === 'night' && hasSpecial(dog, 'night')) skill += 1;
-  const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0);
+  // A specialist step: anyone short of the mark is out of their depth.
+  const outOfDepth = stage.needs && skill < stage.needs.min ? 3 : 0;
+  const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0) + outOfDepth;
   let p = baseOdds(skill, diff);
   const alarm = ctx.alarm || 0;
   const crew = ctx.crew || crewOf(job.plan).map((id) => state.dogs[id]).filter(Boolean);
@@ -271,7 +274,8 @@ export function simulate(state, job, rng) {
     if (has('sheds') && rng.chance(0.5)) { clues += 1; learn(dog, 'quirks', 'sheds'); }
     if (has('glory')) { clues += 1; learn(dog, 'quirks', 'glory'); }
     if (hasSpecial(dog, 'clean')) clues -= 1;
-    if (job.time === 'day' && ['charm', 'disguise'].includes(a.skill)) clues += 1; // witnesses
+    // Witnesses, in daylight (a con wants to be seen: that's the point).
+    if (job.time === 'day' && job.type !== 'con' && ['charm', 'disguise'].includes(a.skill)) clues += 1;
     ctx.clues += Math.max(0, clues);
     if (has('nervous') && ctx.alarm >= 4) learn(dog, 'quirks', 'nervous');
     if (has('steel') && ctx.alarm >= 4) learn(dog, 'quirks', 'steel');
@@ -451,7 +455,12 @@ export function simulate(state, job, rng) {
     betrayals();
   };
 
-  // Both tries at a step failed.
+  // Both tries at a step failed. Some kinds of job tell it their own way.
+  const FAILED = {
+    con: { entry: 'The mark isn\'t biting. Everyone melts away.', vault: 'At the last moment, the mark keeps hold of it.', exit: 'The mark twigs. Scatter!' },
+    van: { entry: 'The van gets away. The job\'s off.', vault: 'The back doors won\'t budge. Empty-pawed.' },
+    smash: { entry: 'The glass holds. The job\'s off. Leg it!' },
+  }[job.type] || {};
   const botch = (stage) => {
     const id = stage.id;
     const fail = (text) => beat({ kind: 'fail', stage: id, text });
@@ -461,13 +470,14 @@ export function simulate(state, job, rng) {
     };
     switch (stage.kind) {
       case 'entry':
-        if (ctx.alarm < 6 && rng.chance(0.5)) {
+        // Only a building has a back window to put a bin through.
+        if (['breakin', 'swap'].includes(job.type || 'breakin') && ctx.alarm < 6 && rng.chance(0.5)) {
           beat({ kind: 'chaos', stage: id, text: 'Sod finesse. They put a bin through a back window and climb in. Loud, but they\'re in.' });
           ctx.clues += 1;
           addAlarm(3, id);
           return;
         }
-        fail('They can\'t get in. "Abort! ABORT!" Everyone legs it.');
+        fail(FAILED.entry || 'They can\'t get in. "Abort! ABORT!" Everyone legs it.');
         ctx.aborted = true;
         if (ctx.alarm >= 4) for (const d of active()) if (rng.chance(0.5)) escapeCheck(d, id);
         return;
@@ -475,8 +485,8 @@ export function simulate(state, job, rng) {
         fail('No finesse left. They barge straight through.');
         addAlarm(2, id);
         return;
-      case 'vault': return fail('The vault won\'t budge. They\'ll have to leave empty-pawed.');
-      case 'exit': return scatter('Every exit\'s blocked. Scatter!');
+      case 'vault': return fail(FAILED.vault || 'The vault won\'t budge. They\'ll have to leave empty-pawed.');
+      case 'exit': return scatter(FAILED.exit || 'Every exit\'s blocked. Scatter!');
       case 'getaway': return scatter('The getaway\'s blown. Every dog for himself!');
     }
   };

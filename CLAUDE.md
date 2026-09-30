@@ -73,6 +73,18 @@ Failing the Greyhound Family or the Shiba Syndicate puts the mastermind in their
 jobs that pay nothing but clear the debt. Ignore them for too long and they escalate: the debt grows, and they take cash or try to get the mastermind caught by
 tipping off the Inspector. A debt can also be paid off in cash.
 
+### Kinds of job
+
+Jobs come in different shapes, each with its own steps and options, so no two feel the same:
+- **Break-in**: in, past the obstacles, into the vault, out and away.
+- **The Switch**: a break-in where the goods are swapped for a decoy (a replica from the kit shop). Done cleanly, nobody notices.
+- **The Long Con**: a confidence scam in daylight. Introduction, the pitch, the convincer, the hand-over, the blow-off. No doors to force.
+- **Smash & Grab**: loud and fast. Hit the shop, grab the lot, get away.
+- **The Van Job**: stop an armoured van on the road, deal with the guards, crack the back doors.
+
+Some jobs can't take an inside dog (a con has no inside; some places don't hire new staff). Some have a specialist step that only one skill can
+handle, and only a real expert (4+) does it well; when that happens, someone up to it is always in the pub, for a price.
+
 ### Rare and legendary crew
 
 Now and then a rare or legendary criminal drifts into the pub for a single job, then moves on. They cost far more, their skills are common knowledge, and

@@ -46,6 +46,12 @@ export function smartJob(s) {
   // Kit the plan wants
   E.autoPlan(s);
   for (const p of Object.values(job.plan)) { const a = APPROACHES[p.approach]; if (a.kitBonus && !s.kit[a.kitBonus] && s.cash > KIT[a.kitBonus].price + 300) E.buy(s, a.kitBonus); }
+  // Kit a step can't be done without, when someone on the crew could use it.
+  const known = (sk) => E.crewDogs(s).some((d) => d.known.skills[sk] && skillOf(d, sk) >= 3);
+  for (const st of visibleStages(job)) {
+    const want = st.options.map((ap) => APPROACHES[ap]).find((a) => a.needKit && !s.kit[a.needKit] && known(a.skill));
+    if (want && s.cash > KIT[want.needKit].price + 300) E.buy(s, want.needKit);
+  }
   if (s.cash > 800) E.buy(s, 'bags');
   if (s.cash > 1500 && job.daysLeft) E.lineUpBuyer(s);
   if (s.cash > 1500 && s.heat > 20) E.buySafehouse(s);

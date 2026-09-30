@@ -2,7 +2,7 @@
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
 import { esc, money, count } from './util.js';
-import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES } from './data.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES } from './data.js';
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, ALARM_MAX } from './sim.js';
@@ -132,6 +132,17 @@ function dealTerms(G, job) {
   return chips.join('');
 }
 
+// What kind of job it is, and what it'll take.
+function jobTraits(job) {
+  const T = JOB_TYPES[job.type || 'breakin'];
+  const chips = [`<span class="chip dark">${T.icon} ${esc(T.label)}</span>`];
+  const sp = job.stages.find((st) => st.needs);
+  if (sp) chips.push(`<span class="chip warn">${SKILL_INFO[sp.needs.skill].icon} ${SKILL_INFO[sp.needs.skill].label} ${sp.needs.min}+</span>`);
+  if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
+  if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
+  return chips.join('');
+}
+
 function selectScreen(G) {
   const s = G.state;
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
@@ -151,7 +162,7 @@ function selectScreen(G) {
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
       ${o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : ''}
-      ${job.patron || job.owner ? `<div class="dm-chips">${dealTerms(G, job)}</div>` : ''}
+      <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
       <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
   }
   h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button></div>`;
@@ -192,6 +203,8 @@ function jobScreen(G) {
     <div class="row spread"><span class="stamp">${esc(VENUE_LABELS[job.venueType])}</span><span title="Difficulty">${stars}</span></div>
     <div class="job-name mt">${esc(job.name)}</div>
     <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
+    <div class="dm-chips">${jobTraits(job)}</div>
+    ${JOB_TYPES[job.type]?.blurb ? `<p class="muted mt">${esc(JOB_TYPES[job.type].blurb)}</p>` : ''}
     <h3 class="mt">The Goods</h3>
     <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">🎯 ${GROUPS[job.patron.group].emblem}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}</ul>
     <div class="row spread mt"><div><b>Days left</b><div class="days mt">${days}</div></div>
@@ -334,7 +347,7 @@ function fixerScreen(G) {
   const insiderName = job.insider ? shortName(s.dogs[job.insider]) : '';
   return `<h2>The Fixer</h2>
   <section class="card">
-    ${svc('pick', '🧹', 'Plant an inside dog', 'Opens a way in; softer guards.', '£100 · 1 day', insiderName ? `${esc(insiderName)} is inside` : '', !!job.insider || !job.daysLeft, 'data-purpose="insider"')}
+    ${svc('pick', '🧹', 'Plant an inside dog', job.noInsider ? 'Not on this job: nobody new gets in.' : 'Opens a way in; softer guards.', '£100 · 1 day', insiderName ? `${esc(insiderName)} is inside` : '', job.noInsider || !!job.insider || !job.daysLeft, 'data-purpose="insider"')}
     ${hasGuards ? svc('bribe', '💵', 'Bribe a guard', 'Guard looks away. Might backfire.', money(150 * job.tier), job.bribed ? 'Bribed' : '', job.bribed) : ''}
     ${svc('safehouse', '🏚️', 'Safehouse', 'Less heat, better escapes.', '£250', job.safehouse ? 'Sorted' : '', job.safehouse)}
     ${svc('fakeids', '🪪', 'Fake IDs', 'Fewer clues; nicked crew crack less.', '£200', job.fakeIds ? 'Sorted' : '', job.fakeIds)}
@@ -377,7 +390,9 @@ function planScreen(G) {
   if (unknownIntel) h += `<p><span class="chip warn">❓ ${unknownIntel} intel unknown</span></p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
-    h += `<section class="plan-step" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3></div><div class="opts">`;
+    // A specialist step says what it takes, and whether anyone on the crew has it.
+    const needs = st.needs ? `<span class="chip ${crew.some((d) => d.known.skills[st.needs.skill] && skillOf(d, st.needs.skill) >= st.needs.min) ? 'good' : 'bad'}">${SKILL_INFO[st.needs.skill].icon} ${st.needs.min}+ only</span>` : '';
+    h += `<section class="plan-step" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3>${needs}</div><div class="opts">`;
     // Secret options (a star's signature move) go first.
     for (const ap of stageOptions(st, crew).sort((x, y) => !!APPROACHES[y].signature - !!APPROACHES[x].signature)) {
       const a = APPROACHES[ap];

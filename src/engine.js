@@ -123,6 +123,15 @@ export function refreshPub(state, rng = rngOf(state)) {
     state.dogs[r.id] = r;
     pub[pub.length - 1] = r.id;
   }
+  // A job with a specialist step always has someone in the pub who's up to it (at a price).
+  const sp = state.job?.stages.find((st) => st.needs);
+  if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
+    const d = genDog(state, rng, { quality, primary: sp.needs.skill });
+    d.skills[sp.needs.skill] = Math.max(d.skills[sp.needs.skill], sp.needs.min);
+    d.fee = feeFor(d);
+    state.dogs[d.id] = d;
+    pub.push(d.id);
+  }
   const star = starVisit(state, rng);
   if (star) pub.unshift(star.id);
   state.pub = pub;
@@ -354,6 +363,7 @@ export function surveil(state, id) {
 export function plantInsider(state, id) {
   const d = state.dogs[id];
   const job = state.job;
+  if (job.noInsider) return fail('No way to get anyone inside on this one.');
   if (!state.crew.includes(id)) return fail('Pick someone from the crew.');
   if (job.insider) return fail('You already have someone inside.');
   if (state.cash < 100) return fail('Costs £100 for a fake reference.');

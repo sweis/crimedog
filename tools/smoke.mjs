@@ -307,6 +307,53 @@ console.log('1g. Crew drama: a scene on the job board, answered with a real tap'
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1h. kinds of job
+console.log('1h. Kinds of job: a long con on the board, taken and planned with real taps');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=21`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(async () => {
+    const { genJob } = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.setSeed(21);
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.offers[0].job = genJob(s, makeRng({ s: 5 }), { type: 'con', tier: 2 });
+    s.offers[1].job = genJob(s, makeRng({ s: 6 }), { type: 'van', tier: 2 });
+    window.cd.teleport('select');
+  });
+  const chips = await page.locator('main .offer .chip.dark').allTextContents();
+  check(chips.some((c) => /Long Con/.test(c)) && chips.some((c) => /Van Job/.test(c)), `job board shows the kind of job (${chips.join(', ')})`);
+  await shot(page, 'job-types-board');
+  await tap(page, 'main .offer [data-act="take-offer"]');
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    s.cash += 3000;
+    for (const id of s.pub.slice(0, 3)) E.hire(s, id);
+    window.cd.teleport('job');
+  });
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  const steps = await page.locator('main .plan-step h3').allTextContents();
+  check(steps.some((t) => /The Introduction/.test(t)) && steps.some((t) => /The Pitch/.test(t)) && !steps.some((t) => /Getaway/.test(t)), `a con plans its own steps (${steps.join(' | ')})`);
+  const st = await page.evaluate(() => window.cd.getState().job);
+  check(st.type === 'con' && st.noInsider, 'getState: a con, no insiders');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; window.scrollTo(0, 0); });
+  await shot(page, 'job-types-con-plan');
+  if (await page.locator('.plan-step[data-stage="specialist"]').count()) {
+    await page.evaluate(() => document.querySelector('.plan-step[data-stage="specialist"]').scrollIntoView({ block: 'center' }));
+    await shot(page, 'job-types-specialist');
+  }
+  await tap(page, '.nav [data-to="fixer"]');
+  check(await page.locator('main [data-purpose="insider"][disabled]').count() === 1, 'fixer: no inside dog on a con');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

@@ -34,8 +34,8 @@ export function snapshot(G) {
     seed: s?.seed ?? null,
     day: s?.day, cash: s?.cash, rep: s?.rep, heat: s?.heat,
     job: s?.job ? {
-      id: s.job.id, name: s.job.name, tier: s.job.tier, daysLeft: s.job.daysLeft, time: s.job.time, hour: s.job.hour, alert: s.job.alert,
-      stages: s.job.stages.map((st) => ({ id: st.id, hidden: !!st.hidden, options: st.options.length })),
+      id: s.job.id, name: s.job.name, type: s.job.type, noInsider: !!s.job.noInsider, tier: s.job.tier, daysLeft: s.job.daysLeft, time: s.job.time, hour: s.job.hour, alert: s.job.alert,
+      stages: s.job.stages.map((st) => ({ id: st.id, label: st.label, hidden: !!st.hidden, options: st.options.length, needs: st.needs || null })),
       intel: s.job.intel, plan: s.job.plan, loot: s.job.loot.map((l) => ({ name: l.name, value: l.value })), patron: s.job.patron, owner: s.job.owner,
     } : null,
     crew: s ? s.crew.map((id) => ({ id, name: s.dogs[id].first, undercover: s.dogs[id].undercover })) : [],
