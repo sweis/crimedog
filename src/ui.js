@@ -8,7 +8,7 @@ import { odds, oddsKnown, approachAvailable, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUPS } from './data.js';
-import { GROUP_IDS, standingLabel, canDeal, hireBlocked, hireCost } from './groups.js';
+import { GROUP_IDS, standingLabel, canDeal, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
 
 export const SCREENS = ['title', 'intro', 'select', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
 export const PLAN_TABS = [
@@ -152,6 +152,7 @@ function selectScreen(G) {
       <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
   }
   h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button></div>`;
+  if (s.cash < 200 && canBorrow(s)) h += `<div class="btn-row mt"><button class="btn red" data-act="borrow">🌹 Borrow £${LOAN.amount} from the Family · owe £${LOAN.owe}</button></div>`;
   h += `<section class="card dark mt"><h2>The Players</h2>`;
   for (const gid of GROUP_IDS) {
     const Gp = GROUPS[gid];
@@ -536,7 +537,7 @@ function aftermathScreen(G) {
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
   for (const im of a.improved || []) lines.push(`📈 <b>${esc(shortName(s.dogs[im.id]))}</b> is getting better at ${SKILL_INFO[im.skill].icon} ${SKILL_INFO[im.skill].label} (now ${skillOf(s.dogs[im.id], im.skill)}).`);
   lines.push(`🕵️ Heat +${r.heatGain} (alarm peaked at ${r.alarmMax}/10, ${r.clues} clue${r.clues === 1 ? '' : 's'} left behind).`);
-  h += `<div class="stack mt">${lines.map((l) => `<div class="trait">${l}</div>`).join('')}</div></section>`;
+  h += `<div class="events mt">${lines.map((l) => `<p class="event">${l}</p>`).join('')}</div></section>`;
 
   const p = job.patron;
   if (a.step === 'deliver') {

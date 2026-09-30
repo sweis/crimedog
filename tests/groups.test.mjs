@@ -177,3 +177,18 @@ test('walking away from a fronted job hands the money back', () => {
   }
   assert.fail('no fronted offer found');
 });
+
+test('when skint, the Family lends; skint only ends the game once they stop', () => {
+  const s = E.newGame(8);
+  s.cash = 10;
+  assert.equal(E.checkGameOver(s), null, 'a loan is still possible');
+  assert.ok(E.borrow(s).ok);
+  assert.equal(s.cash, 510);
+  assert.equal(s.groups.family.debt.amount, 600);
+  s.cash = 10;
+  E.borrow(s); s.cash = 10; E.borrow(s); // 1200, 1800
+  assert.equal(s.groups.family.debt.amount, 1800);
+  s.cash = 10;
+  assert.equal(E.borrow(s).ok, false, 'capped');
+  assert.equal(E.checkGameOver(s)?.reason, 'broke');
+});

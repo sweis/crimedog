@@ -127,7 +127,7 @@ test('undercover dogs appear only with heat', () => {
 test('game over triggers', () => {
   const s = E.newGame(3); s.heat = 100; E.checkGameOver(s); assert.equal(s.over.reason, 'inspector');
   const t = E.newGame(3); t.rep = 0; E.checkGameOver(t); assert.equal(t.over.reason, 'nobody');
-  const u = E.newGame(3); u.cash = 0; E.checkGameOver(u); assert.equal(u.over.reason, 'broke');
+  const u = E.newGame(3); u.cash = 0; u.groups.family.debt = { amount: 1800, patience: 3 }; E.checkGameOver(u); assert.equal(u.over.reason, 'broke');
 });
 
 test('assignToStage keeps the chosen approach or picks one the dog can do', () => {

@@ -15,7 +15,9 @@ const JOB_WORDS = {
 
 function jobName(rng, venueType, star) {
   const w = rng.pick(JOB_WORDS[venueType]);
-  const starName = star.name.replace(/"/g, '').replace(/^(The|A|An) /, '');
+  const small = new Set(['of', 'the', 'a', 'an', 'and', 'with', 'at', 'in']);
+  const starName = star.name.replace(/"/g, '').replace(/^(The|A|An) /, '')
+    .split(' ').map((w, i) => (i && small.has(w) ? w : w[0].toUpperCase() + w.slice(1))).join(' ');
   const patterns = [
     () => `The ${w} Job`,
     () => `The Case of the ${starName}`,

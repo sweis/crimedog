@@ -51,6 +51,9 @@ export function snapshot(G) {
     frames: G.stats.frames,
     simTime: +G.stats.simTime.toFixed(3),
     renders: G.stats.renders,
+    renderMs: +(G.stats.renderMs || 0).toFixed(2),
+    renderMax: +(G.stats.renderMax || 0).toFixed(2),
+    saveBytes: (() => { try { return (localStorage.getItem('crimedog.save.v2') || '').length; } catch { return -1; } })(),
     domNodes: document.getElementsByTagName('*').length,
     drawCalls: 0, // DOM/SVG renderer: no GL draw calls
     shaderPrograms: 0,

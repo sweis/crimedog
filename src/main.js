@@ -46,7 +46,13 @@ G.commit = () => {
   G.save();
   G.render();
 };
-G.render = () => render(G);
+G.render = () => {
+  const t0 = performance.now();
+  render(G);
+  const ms = performance.now() - t0;
+  G.stats.renderMs = ms;
+  G.stats.renderMax = Math.max(G.stats.renderMax || 0, ms);
+};
 G.clearToasts = () => { document.getElementById('toast').innerHTML = ''; };
 G.showDiag = (on) => {
   document.getElementById('diag').hidden = !on;
@@ -106,6 +112,12 @@ const A = {
     G.ui.hireFor = null;
     G.ui.screen = el.dataset.to;
     G.ui.modal = null;
+    // First look at the plan: have the crew pencil one in, so there's something to tweak.
+    const s = G.state;
+    if (el.dataset.to === 'plan' && s?.phase === 'plan' && s.crew.length && !Object.keys(s.job.plan).length) {
+      E.autoPlan(s);
+      toast('The crew pencilled in a plan. Tweak it.');
+    }
     G.commit();
     window.scrollTo(0, 0);
   },
@@ -129,6 +141,7 @@ const A = {
     window.scrollTo(0, 0);
   },
   'dig-leads'() { run(E.digLeads); },
+  'borrow'() { run(E.borrow); },
   'pay-debt'(el) { run(E.payDebt, el.dataset.g); },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
   'deliver'() { run(E.deliver); },
@@ -224,7 +237,12 @@ const A = {
   },
   'heist-toggle'() { G.ui.heist.playing = !G.ui.heist.playing; G.render(); },
   'heist-step'() { G.ui.heist.playing = false; G.advanceBeat(); },
-  'heist-skip'() { G.ui.heist.i = G.state.result.beats.length - 1; G.ui.heist.playing = false; G.commit(); },
+  'heist-skip'() {
+    G.ui.heist.i = G.state.result.beats.length - 1;
+    G.ui.heist.playing = false;
+    G.commit();
+    document.querySelector('.beat[data-latest]')?.scrollIntoView({ block: 'end' });
+  },
   'resolve'() { run(E.resolveHeist); window.scrollTo(0, 0); },
   'fence'(el) { run(E.fence, el.dataset.f); },
   'pay'(el) { run(E.payCrew, Number(el.dataset.pct)); window.scrollTo(0, 0); },
