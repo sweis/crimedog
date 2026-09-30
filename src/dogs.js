@@ -101,12 +101,15 @@ function genLook(rng, breedId, faction) {
     terrier: ['flatcap', 'beanie', 'none', 'none'],
     hounds: ['bowler', 'flatcap', 'none', 'trilby'],
     indie: ['none', 'trilby', 'beanie', 'flatcap', 'bowler', 'none'],
+    family: ['trilby', 'trilby', 'bowler', 'none'],
+    syndicate: ['none', 'none', 'none', 'beanie'],
   }[faction];
-  const eyes = faction === 'poodle' ? ['monocle', 'none', 'none'] : faction === 'ze' ? ['sunglasses', 'none'] : ['none', 'none', 'none', 'sunglasses'];
-  const necks = faction === 'poodle' ? ['bowtie', 'scarf', 'pearls'] : faction === 'firm' ? ['chain', 'none', 'bandana'] : ['none', 'scarf', 'bandana', 'chain', 'bowtie', 'none'];
+  const eyes = faction === 'poodle' ? ['monocle', 'none', 'none'] : faction === 'ze' || faction === 'syndicate' ? ['sunglasses', 'none'] : ['none', 'none', 'none', 'sunglasses'];
+  const necks = faction === 'poodle' ? ['bowtie', 'scarf', 'pearls'] : faction === 'firm' ? ['chain', 'none', 'bandana'] : faction === 'family' ? ['bowtie', 'none', 'chain'] : faction === 'syndicate' ? ['none', 'scarf'] : ['none', 'scarf', 'bandana', 'chain', 'bowtie', 'none'];
   const outfits = {
     ze: ['#1d1d22', '#2b2b33'], firm: ['#3a4f7a', '#4b2e2e', '#2e4a3a'], poodle: ['#6b5a3e', '#34405a', '#5a2b3a'],
     whippet: ['#8a2b2b', '#2b4a6b'], terrier: ['#4a4a2b', '#6b3a2b'], hounds: ['#b39a6b', '#8a7a5a'], indie: ['#3d3d4d', '#5a4030', '#2e4f4f', '#6b2e4a'],
+    family: ['#1f2430', '#2b2b33', '#3a2f2a'], syndicate: ['#15161b', '#2a2d38', '#e9e4da'],
   }[faction];
   return {
     coat: rng.pick(breed.coats),

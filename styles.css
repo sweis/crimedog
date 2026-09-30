@@ -441,3 +441,28 @@ p { margin: 0 0 8px; }
 .hire-banner p { font-size: 14px; }
 .stage.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
+
+/* ---------- job board & groups */
+.offer-from { display: flex; gap: 10px; align-items: center; }
+.boss-pic { width: 48px; height: 48px; border-radius: 12px; overflow: hidden; flex: none; box-shadow: 0 0 0 2px #1d1b22, 0 3px 8px rgba(0, 0, 0, .35); display: grid; place-items: center; background: var(--paper-2); font-size: 24px; }
+.boss-pic svg { width: 100%; height: 100%; display: block; }
+.boss-pic.sm { width: 32px; height: 32px; border-radius: 8px; }
+.card.dark .boss-pic { box-shadow: 0 0 0 2px var(--brass-dark); }
+.offer .job-name { font-size: 21px; margin-top: 6px; }
+.offer .quote { margin: 8px 0; }
+.offer.marker { border: 2px solid var(--red); box-shadow: var(--shadow), 0 0 18px rgba(194, 59, 46, .35); }
+.debt-card { border: 2px solid var(--red); }
+.player { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px dashed #2d3d66; }
+.player:first-of-type { border-top: 0; }
+.player .muted { font-size: 12.5px; margin-top: 3px; }
+.standing { position: relative; height: 6px; border-radius: 3px; margin-top: 6px; background: linear-gradient(90deg, #c23b2e, #6b6f7e 50%, #2f7d52); opacity: .85; }
+.standing i { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--paper); box-shadow: 0 0 0 1px #0c1427, 0 0 6px rgba(255, 255, 255, .6); }
+.rel { align-items: center; }
+.rel .rel-d { font-weight: 800; }
+.rel.up .rel-d { color: var(--green); }
+.rel.down .rel-d { color: var(--red); }
+.rel .line { font-family: var(--font-quote); font-style: italic; color: var(--ink-soft); font-size: 13.5px; margin-top: 2px; }
+.modal.story { text-align: left; }
+.story-pic { width: 120px; height: 120px; margin: 4px auto 10px; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 3px #1d1b22, 0 8px 20px rgba(0, 0, 0, .4); }
+.story-pic svg { width: 100%; height: 100%; display: block; }
+.story-text { font-family: var(--font-quote); font-style: italic; font-size: 16px; line-height: 1.55; margin: 8px 0 16px; }

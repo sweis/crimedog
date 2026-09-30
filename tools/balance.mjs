@@ -5,6 +5,16 @@ import { APPROACHES, KIT } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
 import { skillOf, topSkills } from '../src/dogs.js';
 
+export function pickOffer(s, policy) {
+  if (s.phase !== 'select') return;
+  // Careful players prefer a patron's deal and steer clear of angering big outfits.
+  const offers = s.offers;
+  const pick = policy === 'smart'
+    ? offers.find((o) => o.source !== 'own' && !o.job.owner) || offers.find((o) => !o.job.owner) || offers[0]
+    : offers[0];
+  E.acceptOffer(s, pick.id);
+}
+
 export function smartJob(s) {
   const job = s.job;
   // Old friends first
@@ -47,11 +57,15 @@ export function career(seed, policy, maxJobs = 10) {
   const s = E.newGame(seed);
   const grades = [];
   for (let j = 0; j < maxJobs && !s.over; j++) {
+    for (const gid of Object.keys(s.groups)) if (s.groups[gid].debt && s.cash > s.groups[gid].debt.amount + 500) E.payDebt(s, gid);
+    s.story = [];
+    pickOffer(s, policy);
     if (policy === 'smart') smartJob(s);
     else if (s.pub.length) { const d = s.dogs[s.pub[0]]; if (d.fee <= s.cash) E.hire(s, d.id); }
     if (!s.crew.length) { E.nextJob(s); continue; }
     E.pullJob(s);
     E.resolveHeist(s);
+    if (s.after.step === 'deliver') E.deliver(s);
     if (s.after.step === 'fence') E.fence(s, s.job.buyer ? 'collector' : 'hal');
     E.payCrew(s, policy === 'smart' && s.cash >= s.after.received * 0.3 ? 30 : 0);
     grades.push(s.after.grade.letter);

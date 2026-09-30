@@ -1,0 +1,225 @@
+// The city's outfits: standing, job offers, deals, debts and grudges. Pure
+// logic over game state (no DOM), driven by engine.js.
+import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
+import { genJob, jobTier, revealIntel, totalLootValue } from './heists.js';
+
+export const GROUP_IDS = Object.keys(GROUPS);
+const OWN_PITCHES = [
+  'A bloke in the pub swears the back door never locks.',
+  'You walked past it twice. Looked soft both times.',
+  'Your old mate heard a whisper about this place.',
+  'The night guard sleeps. A lot. You timed it.',
+  'A cleaner owes you a favour and knows the layout.',
+];
+
+export function initGroups() {
+  return Object.fromEntries(GROUP_IDS.map((g) => [g, { standing: 0, met: false, debt: null, jobs: 0 }]));
+}
+
+export function standingLabel(v) {
+  if (v >= 50) return 'Trusted';
+  if (v >= 20) return 'Friendly';
+  if (v > -20) return 'Neutral';
+  if (v > -50) return 'Hostile';
+  return 'Enemy';
+}
+
+export function adjust(state, gid, delta, why, log) {
+  const g = state.groups[gid];
+  g.standing = Math.max(-100, Math.min(100, g.standing + delta));
+  if (log) log.push({ gid, delta, why, now: g.standing });
+}
+
+// Will this group put work your way?
+export function canDeal(state, gid) {
+  return state.rep >= GROUPS[gid].minRep && state.groups[gid].standing > -50;
+}
+
+// Members of a group won't work for you if you've crossed it; friends get mates' rates.
+export function hireBlocked(state, dog) {
+  const g = state.groups?.[dog.faction];
+  return !!g && g.standing <= -40;
+}
+export function hireCost(state, dog) {
+  const g = state.groups?.[dog.faction];
+  return g && g.standing >= 50 ? Math.max(30, Math.round((dog.fee * 0.8) / 10) * 10) : dog.fee;
+}
+
+function ownedBy(gid) {
+  return Object.entries(VENUE_OWNERS).filter(([, o]) => o.includes(gid)).map(([v]) => v);
+}
+
+export function queueStory(state, gid, kind, vars = {}) {
+  const G = GROUPS[gid];
+  const fill = (t) => t.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+  const byKind = {
+    intro: { title: G.boss, text: G.intro },
+    debt: { title: `You owe ${G.short}`, text: fill(G.debtText || '') },
+    pressure: { title: `${G.name} lose patience`, text: G.pressure || '' },
+    hostile: { title: `${G.name} strike back`, text: fill(G.hostile.text) },
+    cleared: { title: 'Debt settled', text: `${G.boss} considers the matter closed. For now.` },
+  };
+  state.story.push({ gid, kind, ...byKind[kind] });
+}
+
+function ownLead(state, rng) {
+  const tier = Math.max(1, jobTier(state) - 1);
+  const job = genJob(state, rng, { tier, lootMult: 0.75 });
+  return { id: job.id, source: 'own', kind: 'own', job, pitch: rng.pick(OWN_PITCHES) };
+}
+
+function groupOffer(state, rng, gid, forced) {
+  const G = GROUPS[gid];
+  const g = state.groups[gid];
+  const tier = jobTier(state);
+  let deal = forced || rng.weighted([['commission', 4], ['cut', 3], ['rival', G.rivals.length ? 3 : 0]]);
+  let venueType;
+  let owner = null;
+  const mine = ownedBy(gid);
+  if (deal === 'rival' || (forced === 'marker' && G.rivals.length && rng.chance(0.5))) {
+    owner = rng.pick(G.rivals);
+    venueType = rng.pick(ownedBy(owner));
+    if (deal === 'rival') deal = rng.chance(0.5) ? 'commission' : 'cut';
+  } else {
+    venueType = rng.pick(Object.keys(VENUES).filter((v) => !mine.includes(v)));
+    const others = (VENUE_OWNERS[venueType] || []).filter((o) => o !== gid);
+    owner = others.length && rng.chance(0.35) ? rng.pick(others) : null;
+  }
+  const job = genJob(state, rng, { tier, venueType, owner });
+  const patron = { group: gid, deal, cut: 0, fee: 0, want: null, front: 0, debtClear: 0, rivalHit: owner && G.rivals.includes(owner) ? owner : null };
+  if (deal === 'commission' || deal === 'marker') {
+    const wanted = job.loot.filter((l) => G.wants.includes(l.kind));
+    const item = (wanted.length ? wanted : job.loot)[0];
+    patron.want = item.id;
+    patron.fee = deal === 'marker' ? 0 : Math.round((item.value * (1.25 + Math.max(0, g.standing) / 200)) / 50) * 50;
+    if (deal === 'marker') patron.debtClear = g.debt.amount;
+  } else {
+    patron.cut = g.standing >= 50 ? 20 : g.standing >= 20 ? 25 : 30;
+    // A tip-off comes with some of their intel.
+    const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
+    for (const k of rng.sample(unknown, 2)) revealIntel(job, k);
+  }
+  if (G.serious && deal !== 'marker' && rng.chance(0.5)) patron.front = 100 * tier + 100;
+  job.patron = patron;
+  return { id: job.id, source: gid, kind: deal, job, pitch: rng.pick(G.pitch) };
+}
+
+// Fill the job board: your own small leads, any debts being called in, and
+// offers from outfits that rate you.
+export function genOffers(state, rng) {
+  const offers = [ownLead(state, rng), ownLead(state, rng)];
+  for (const gid of GROUP_IDS) if (state.groups[gid].debt) offers.push(groupOffer(state, rng, gid, 'marker'));
+  const eligible = rng.shuffle(GROUP_IDS.filter((g) => canDeal(state, g) && !state.groups[g].debt));
+  for (const gid of eligible) {
+    if (offers.filter((o) => o.source !== 'own').length >= 3) break;
+    if (rng.chance(0.55 + state.groups[gid].standing / 200)) offers.push(groupOffer(state, rng, gid));
+  }
+  for (const o of offers) {
+    if (o.source !== 'own' && !state.groups[o.source].met) {
+      state.groups[o.source].met = true;
+      queueStory(state, o.source, 'intro');
+    }
+  }
+  state.offers = offers;
+}
+
+export function rerollOwnLeads(state, rng) {
+  state.offers = state.offers.filter((o) => o.source !== 'own');
+  state.offers.unshift(ownLead(state, rng), ownLead(state, rng));
+}
+
+// After grading: what the outfits make of it. Returns log lines for the aftermath.
+export function settleGroups(state) {
+  const job = state.job;
+  const r = state.result;
+  const a = state.after;
+  const p = job.patron;
+  const log = [];
+  const identified = r.outcome !== 'clean' || r.clues >= 3 || r.captured.some((c) => c.talked) || r.tipped.length > 0;
+  if (p) {
+    const G = GROUPS[p.group];
+    const g = state.groups[p.group];
+    g.jobs += 1;
+    const success = p.want ? !!a.delivered : a.securedValue > 0 && !a.sting;
+    if (success) {
+      adjust(state, p.group, ['S', 'A'].includes(a.grade?.letter) ? 18 : 12, 'Job done', log);
+      log[log.length - 1].quote = G.thanks[state.stats.jobs % G.thanks.length];
+      if (p.deal === 'marker' && g.debt) {
+        g.debt = null;
+        log.push({ gid: p.group, delta: 0, why: 'Debt cleared', now: g.standing });
+        queueStory(state, p.group, 'cleared');
+      }
+      for (const rival of G.rivals) adjust(state, rival, -5, `Working for ${G.short}`, log);
+    } else {
+      adjust(state, p.group, -15, 'Job botched', log);
+      log[log.length - 1].quote = G.angry[state.stats.jobs % G.angry.length];
+      if (G.serious) {
+        const penalty = p.deal === 'marker' ? Math.round((g.debt?.amount || 0) * 0.5) : Math.round((p.fee || totalLootValue(job) * 0.15) * 0.5);
+        const owed = (p.front || 0) + penalty;
+        g.debt = { amount: (g.debt?.amount || 0) + owed, patience: p.deal === 'marker' ? 1 : 2 };
+        log.push({ gid: p.group, delta: 0, why: `You now owe them £${g.debt.amount.toLocaleString('en-GB')}`, now: g.standing, debt: true });
+        queueStory(state, p.group, 'debt', { amount: `£${g.debt.amount.toLocaleString('en-GB')}` });
+      }
+    }
+  }
+  if (job.owner && job.owner !== p?.group && (a.securedValue > 0 || r.alarmMax > 0)) {
+    adjust(state, job.owner, identified ? -25 : -8, identified ? 'You robbed them, and they know it' : 'You robbed them; they suspect you', log);
+  }
+  return log;
+}
+
+export function payDebt(state, gid) {
+  const g = state.groups[gid];
+  if (!g?.debt) return { ok: false, msg: 'You don\'t owe them anything.' };
+  if (state.cash < g.debt.amount) return { ok: false, msg: `You need £${g.debt.amount.toLocaleString('en-GB')}.` };
+  state.cash -= g.debt.amount;
+  g.debt = null;
+  adjust(state, gid, 3, 'Paid in full');
+  return { ok: true, msg: `Paid off ${GROUPS[gid].short}. ${GROUPS[gid].boss} nods, once.` };
+}
+
+// Between jobs: debts come due and enemies make their moves.
+export function betweenJobs(state, rng) {
+  const events = [];
+  for (const gid of GROUP_IDS) {
+    const G = GROUPS[gid];
+    const g = state.groups[gid];
+    if (g.debt) {
+      g.debt.patience -= 1;
+      if (g.debt.patience < 0) {
+        if (gid === 'syndicate') {
+          const take = Math.min(state.cash, Math.round(g.debt.amount / 2));
+          state.cash -= take;
+          g.debt.amount -= take;
+          state.heat = Math.min(100, state.heat + (take < g.debt.amount ? 10 : 5));
+        } else {
+          state.heat = Math.min(100, state.heat + 15);
+        }
+        g.debt.amount = Math.round((g.debt.amount * 1.2) / 10) * 10;
+        g.debt.patience = 2;
+        queueStory(state, gid, 'pressure');
+        events.push(G.pressure);
+      }
+    } else if (g.standing <= -40 && rng.chance(0.35)) {
+      const e = G.hostile.effect;
+      const vars = {};
+      if (e === 'heat') state.heat = Math.min(100, state.heat + 10);
+      else if (e === 'cash') {
+        const take = Math.round(state.cash * 0.15);
+        state.cash -= take;
+        vars.amount = `£${take.toLocaleString('en-GB')}`;
+      } else if (e === 'alert') state.sabotage = (state.sabotage || 0) + 1;
+      else if (e === 'rep') state.rep = Math.max(0, state.rep - 5);
+      else if (e === 'crew') {
+        const pool = Object.values(state.dogs).filter((d) => d.met && d.status === 'free');
+        if (!pool.length) continue;
+        const d = rng.pick(pool);
+        d.relation = Math.max(-100, d.relation - 25);
+        vars.dog = d.nick || d.first;
+      }
+      queueStory(state, gid, 'hostile', vars);
+      events.push(G.hostile.text);
+    }
+  }
+  return events;
+}

@@ -44,6 +44,35 @@ distraction.
 Playthrough of a single heist should take 5-10 minutes depending on how much time and complexity the mastermind opts for. Each heist should be uniquely generated and could have a
 memorable name or mnemonic, e.g. "The Case of the Golden Bone" or "The Kibble Job". 
 
+The phases of each turn are: **job selection → planning (recruit, scout, kit, plan) → the heist → aftermath (deliver or fence, pay the crew, grade)**, then back to job selection.
+
+### Job selection, groups and story
+
+Every job starts on a job board. Early on, the mastermind has to find and scout small jobs themselves ("your own leads"). As their reputation grows, the city's
+groups start coming to them with work, and the story is told through these groups: their bosses, what they want, and who they are feuding with. A group's first
+approach is a short story scene with its boss.
+
+The groups (each also a faction whose members turn up in the pub):
+- **The Greyhound Family** (Italian Greyhounds) and **The Shiba Syndicate** (Shiba Inu) are old rivals, nodding to the mafia and the yakuza. Refer to them only by
+  breed and group name; the allusion comes through archetype (the Don, favours, honour, debts), never nationality. These two are the dangerous ones: they front
+  money and they collect.
+- **The Bulldog Firm**, **The Poodle Set** and **Ze Germans** also offer work. The Firm and the Poodle Set are rivals.
+
+Each group only deals with a mastermind whose reputation clears its bar, and offers get better as standing with it rises. Offers come in a few shapes:
+- **A cut**: the group supplies the tip-off and some intel, and takes a percentage of whatever the fence pays.
+- **A commission**: the group wants one specific item and pays for it directly on delivery, with no fence. The rest of the haul can be fenced as usual.
+- **A rival hit**: the target is owned by the patron's rival.
+
+Venues can be owned by a group. Robbing one, even on your own lead, damages standing with the owner, and badly if they can tell it was you.
+
+Results ripple through relationships. Success raises standing with the patron and cools it with the patron's rivals. Failure or walking away sours the patron.
+Groups that turn hostile act against the mastermind between jobs: tip-offs to the Inspector, raids on the safe, poaching or scaring crew, security warned, or
+reputation smeared. Their members won't work for someone they've crossed, while trusted groups give their members' services at mates' rates.
+
+Failing the Greyhound Family or the Shiba Syndicate puts the mastermind in their debt, including any money they fronted. While the debt stands they demand "marker"
+jobs that pay nothing but clear the debt. Ignore them for too long and they escalate: the debt grows, and they take cash or try to get the mastermind caught by
+tipping off the Inspector. A debt can also be paid off in cash.
+
 ## Graphics
 
 Graphically, it can be stylized and does not need to be 3d or complex. It should be easy to render and play on a phone, so the interface should be simple and playable with a

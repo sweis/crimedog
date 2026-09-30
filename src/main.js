@@ -4,7 +4,7 @@ import { render, currentScreen, hiringFor } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
 import { cardPNG, shareBlob } from './card.js';
 
-const SAVE_KEY = 'crimedog.save.v1';
+const SAVE_KEY = 'crimedog.save.v2';
 const params = new URLSearchParams(location.search);
 
 const G = {
@@ -32,7 +32,7 @@ G.load = () => {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const data = JSON.parse(raw);
-    if (!data.state || data.state.version !== 1) return false;
+    if (!data.state || data.state.version !== 2) return false;
     G.state = data.state;
     G.ui.screen = data.screen || 'job';
     G.ui.heist = { i: data.heistI || 0, playing: true };
@@ -121,6 +121,17 @@ const A = {
   },
   'intro-next'() { G.ui.introPage++; G.render(); },
   'start'() { G.ui.screen = 'job'; G.commit(); window.scrollTo(0, 0); },
+  'take-offer'(el) {
+    const r = E.acceptOffer(G.state, el.dataset.id);
+    toast(r.msg, !r.ok);
+    if (r.ok) G.ui.screen = 'job';
+    G.commit();
+    window.scrollTo(0, 0);
+  },
+  'dig-leads'() { run(E.digLeads); },
+  'pay-debt'(el) { run(E.payDebt, el.dataset.g); },
+  'story-ok'() { E.dismissStory(G.state); G.commit(); },
+  'deliver'() { run(E.deliver); },
   'time'(el) { run(E.setTime, el.dataset.t); },
   'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },
   'picked'(el) {

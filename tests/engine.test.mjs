@@ -7,8 +7,16 @@ import { odds } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
 
 // Play one job with a simple policy. mode: 'smart' | 'reckless'
+export function takeJob(s, mode = 'reckless') {
+  if (s.phase !== 'select') return;
+  const pick = mode === 'smart' ? (s.offers.find((o) => o.source !== 'own') || s.offers[0]) : s.offers[0];
+  const r = E.acceptOffer(s, pick.id);
+  assert.ok(r.ok, r.msg);
+}
+
 export function playJob(s, mode) {
   const rng = makeRng({ s: s.seed * 7 + s.stats.jobs });
+  takeJob(s, mode);
   if (mode === 'smart') {
     // hire top 3 affordable
     const pub = s.pub.map((id) => s.dogs[id]).sort((a, b) => b.fee - a.fee);
@@ -28,6 +36,7 @@ export function playJob(s, mode) {
   const r = E.pullJob(s);
   assert.ok(r.ok, r.msg);
   E.resolveHeist(s);
+  if (s.after.step === 'deliver') assert.ok(E.deliver(s).ok);
   if (s.after.step === 'fence') {
     const f = s.job.buyer ? 'collector' : 'hal';
     assert.ok(E.fence(s, f).ok);
@@ -58,13 +67,15 @@ test('same seed generates identical games', () => {
   const a = E.newGame(1234), b = E.newGame(1234);
   assert.deepEqual(a, b);
   const c = E.newGame(1235);
-  assert.notEqual(JSON.stringify(a.job), JSON.stringify(c.job));
+  assert.notEqual(JSON.stringify(a.offers), JSON.stringify(c.offers));
 });
 
 test('every generated job: each visible stage has an ungated option; intel keys valid', () => {
   for (let seed = 1; seed <= 300; seed++) {
     const s = E.newGame(seed);
-    const j = s.job;
+    s.rep = 80; // unlock every group so their offers are covered too
+    E.nextJob(s);
+    for (const j of s.offers.map((o) => o.job)) {
     assert.ok(j.name && j.loot.length >= 2, `seed ${seed}`);
     for (const st of j.stages) {
       assert.ok(st.options.length >= 2, `${seed} ${st.id}`);
@@ -72,6 +83,9 @@ test('every generated job: each visible stage has an ungated option; intel keys 
     }
     for (const k of Object.keys(j.intel)) assert.ok(INTEL[k], k);
     for (const h of Object.keys(j.hazards)) assert.ok(`hz_${h}` in j.intel);
+    if (j.patron?.want) assert.ok(j.loot.some((l) => l.id === j.patron.want), 'wanted item is in the loot');
+    if (j.patron) assert.notEqual(j.owner, j.patron.group, 'groups never commission hits on themselves');
+    }
   }
 });
 
@@ -97,7 +111,7 @@ test('full runs: no invariant violations, games end or continue sanely', () => {
 
 test('simulation is deterministic for a given state', () => {
   const a = E.newGame(99), b = E.newGame(99);
-  for (const s of [a, b]) { E.hire(s, s.pub[0]); E.hire(s, s.pub[1]); E.pullJob(s); }
+  for (const s of [a, b]) { takeJob(s); E.hire(s, s.pub[0]); E.hire(s, s.pub[1]); E.pullJob(s); }
   assert.deepEqual(a.result, b.result);
 });
 
@@ -118,6 +132,7 @@ test('game over triggers', () => {
 
 test('assignToStage keeps the chosen approach or picks one the dog can do', () => {
   const s = E.newGame(21);
+  takeJob(s);
   const id = s.pub[0];
   const outsider = s.pub[1];
   assert.ok(E.hire(s, id).ok);
