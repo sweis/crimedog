@@ -429,6 +429,7 @@ export function resolveHeist(state) {
   state.heat = Math.min(100, state.heat + r.heatGain);
   const securedValue = r.secured.reduce((s, id) => s + job.loot.find((l) => l.id === id).value, 0);
   state.after = { step: r.secured.length ? 'fence' : 'pay', securedValue, received: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0 };
+  state.after.headline = headline(state);
   state.phase = 'aftermath';
   return done('The dust settles.');
 }
@@ -487,6 +488,7 @@ export function payCrew(state, pct) {
   }
   finishGrade(state);
   a.step = 'grade';
+  if (!a.received) return done('');
   return done(share ? `Paid the crew £${share.toLocaleString()}.` : 'The crew gets nothing. They\'ll remember that.');
 }
 

@@ -342,7 +342,8 @@ export function simulate(state, job, rng) {
       }
       const b = bestFor(stage, [approach], extra + 1) || bestFor(stage, [], extra + 1);
       if (b) {
-        beat({ kind: 'improv', stage: stage.id, dog: b.dog.id, text: `${shortName(b.dog)} improvises: ${APPROACHES[b.approach].label.toLowerCase()}!` });
+        const again = b.approach === approach;
+        beat({ kind: 'improv', stage: stage.id, dog: b.dog.id, text: again ? `No other way through. ${shortName(b.dog)} has another go.` : `${shortName(b.dog)} improvises: ${APPROACHES[b.approach].label.toLowerCase()}!` });
         ok = attempt(stage, b.approach, b.dog, extra + 1, 'improv');
         if (!ok) dog = b.dog;
       }
