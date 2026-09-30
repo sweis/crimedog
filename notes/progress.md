@@ -5,7 +5,7 @@
 - Dev hooks + diagnostics overlay: `?dev=1` (optionally `&seed=N`, `&simdt=ms` for heist beat speed).
 - Tests: `npm test` (engine/content/balance, node --test) and `npm run smoke` (Playwright: cold boot
   play-through with real touch taps, 10 s dev boot, stills sweep over every screen). `npm run check` runs both.
-- Balance probe: `node tools/balance.mjs [careers]`.
+- Balance probe: `node tools/balance.mjs [careers]`. Chaos probe: `node tools/chaos.mjs [careers]` (hazards, arrests, losses).
 - Hosted build: `tools/artifact.html` is a head-less page fragment published with `styles.css` + `src/*.js`
   as a private claude.ai artifact (https://claude.ai/artifact/67hUULmWTEsCNWrUs5UqH1). Downloads/Web Share
   are blocked there, so the share card also shows as an in-page image (long-press to save).
@@ -13,7 +13,7 @@
 ## Architecture
 | File | What |
 |---|---|
-| `src/data.js` | All content: 10 skills, 100 talents, 16 quirks, 20 breeds / 7 factions, voices, names, catchphrases, kit, approaches, venues, loot, intel, fences |
+| `src/data.js` | All content: 10 skills, 100 talents, 16 quirks, 22 breeds / 9 factions, 5 groups, voices, names, catchphrases, kit, approaches, venues, loot, intel, fences |
 | `src/dogs.js` | Dog generation, derived skills, procedural SVG portraits |
 | `src/heists.js` | Job generation: venue → ordered stages (entry, obstacles, hidden hazards, vault, exit, getaway), each with 3–5 approaches |
 | `src/sim.js` | Pure heist resolution → list of beats + outcome (pear-shaped improvisation, chaos, alarms, captures, betrayals, undercover coppers, interrogation) |
@@ -29,9 +29,9 @@ All randomness goes through a seeded RNG stored in the save, so a seed + inputs 
 
 ## Debug hooks (`?dev=1`, `window.cd`)
 `screens()`, `getState()`, `teleport(screen)`, `freeze()/step(n)/resume()`, `simdt(ms)`, `setTimeOfDay(h)`,
-`setSeed(n)`, `spawn('dog'|'cash'|'kit'|'intel', at)` (`spawn('dog','copper')` plants an undercover cop),
+`setSeed(n)`, `spawn('dog'|'cash'|'kit'|'intel'|'rep', at)` (`spawn('dog','copper')` plants an undercover cop),
 `clearAll()`, `win()/lose()`, `cam('overview'|'hero-close'|'hud-check'|'blueprint')`.
-The 3D-specific items in CLAUDE.md §2.2 are adapted: `teleport` targets named screens, `drawCalls`/`shaderPrograms`
+Planning screens auto-take the first job-board offer when needed. The 3D-specific items in CLAUDE.md §2.2 are adapted: `teleport` targets named screens, `drawCalls`/`shaderPrograms`
 report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLost` is always false.
 
 ## Game loop (one heist ≈ 5–10 min)
@@ -43,21 +43,29 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
    vet the flashy fence, lie low.
 3. **Plan** — per stage pick an approach and a dog; odds shown only for skills you actually know.
 4. **Pull the job** — watch it play out beat by beat on a blueprint. Failures go pear-shaped → improvisation,
-   chaos events, alarms, the Old Bill, captures, betrayals, and surprise hazards you didn't scout.
+   chaos events, alarms, the Old Bill, captures, betrayals, and surprise hazards you didn't scout. Fumbled risky
+   moves (climbing, brawling, driving, drilling) can send a dog to the farm for good; being spotted going in
+   raises the alarm, on the way out it gets dogs collared; the police arriving always catch someone.
 5. **Aftermath** — Daily Bark headline, fence (Hal / Francesca (may be a sting at 40+ heat) / the Collector),
-   pay the crew a cut (loyalty), grade S–F, crew who used a skill may improve, pound/lawyer, farm.
+   pay the crew a cut (loyalty), grade S–F, crew who used a skill may improve, pound/lawyer, farm
+   (farming a copper: +6 rep; a real crook: −8 rep).
 6. Game over: Inspector heat 100, rep 0, or skint with nobody to hire.
 
-## Balance (tools/balance.mjs, 200 careers × up to 10 jobs)
-- Scripted "careful" policy: ~40% B or better, ~5% S (perfect).
-- Reckless (hire one stranger, no prep): ~70% F.
-- Pinned in `tests/balance.test.mjs` (careful B+ ≥ 30%, reckless D/F ≥ 60%, S achievable but < 20%).
+## Balance (tools/balance.mjs, 150 careers × up to 10 jobs)
+- Scripted "careful" policy: ~34% B or better, ~4% S (perfect).
+- Reckless (hire one stranger, no prep): ~68% F.
+- Chaos (first 5 jobs): every job has a hazard, ~36% have the security cat, ~30% spring a surprise; ~55–63% of
+  pear-shaped jobs cost a dog; ~0.8 arrests and ~0.1 permanent losses per job.
+- Pinned in `tests/balance.test.mjs` (careful B+ ≥ 30%, reckless D/F ≥ 60%, S achievable but < 20%) and
+  `tests/chaos.test.mjs`.
+- Grading: loyal crew doing time count half toward "crew got away".
 
 ## Verified vs not
 - Verified: unit/content/balance tests pass; Playwright cold boot on a 390×844 touch viewport with real
   `touchscreen.tap` plays one full job with no console errors; save/continue survives reload; dev boot 10 s
   sim time advances, freeze/step exact, seeded heists replay identically; stills sweep over all 11 screens
-  non-blank. Captures in `notes/captures/`.
+  non-blank; job board, group story scene, deal and relations; hire-from-plan-step flow; profile fits
+  390×844 and 375×667 without scrolling. Captures in `notes/captures/`.
 - Not verified: real phones (iOS Safari / Android Chrome), Web Share on device, human playtest for fun/pacing,
   long careers by a human past tier 3.
 
@@ -75,7 +83,11 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
+## UI text
+- Mobile-first: headers and chips over sentences. Keep story scenes, the heist log and boss quotes; cut helper text.
+
 ## Next
+- Balance group jobs separately from own leads (they're full-size, so a step up in difficulty).
 - Human playtest of the first five minutes; tune copy and pacing from that.
 - More obstacle types/venues and multi-dog steps (e.g. a lookout + a cracker on the same stage).
 - Inspector escalation beyond undercover plants and sting fences (raids on the safehouse, wanted posters).
