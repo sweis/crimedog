@@ -81,6 +81,11 @@ function run(fn, ...args) {
 }
 
 // ------------------------------------------------------------------ heist playback
+// The log grows downwards; keep the newest beat in view, just above the sticky controls.
+function scrollToLatest(smooth) {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+}
+
 G.advanceBeat = (doRender = true) => {
   const r = G.state?.result;
   if (!r) return;
@@ -88,7 +93,7 @@ G.advanceBeat = (doRender = true) => {
   if (G.ui.heist.i >= r.beats.length - 1) G.ui.heist.playing = false;
   if (doRender) {
     G.commit();
-    document.querySelector('.beat[data-latest]')?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    scrollToLatest(true);
   }
 };
 
@@ -245,7 +250,7 @@ const A = {
     G.ui.heist.i = G.state.result.beats.length - 1;
     G.ui.heist.playing = false;
     G.commit();
-    document.querySelector('.beat[data-latest]')?.scrollIntoView({ block: 'end' });
+    scrollToLatest(false);
   },
   'resolve'() { run(E.resolveHeist); window.scrollTo(0, 0); },
   'pay'(el) { run(E.payCrew, Number(el.dataset.pct)); window.scrollTo(0, 0); },

@@ -129,7 +129,16 @@ console.log('1. Cold boot, real touch play-through');
   await tap(page, '[data-act="pull"]');
   check(await page.locator('main[data-screen="heist"]').count() === 1, 'heist playback screen');
   await tap(page, '[data-act="heist-toggle"]'); // pause
-  for (let k = 0; k < 5; k++) if (await page.locator('[data-act="heist-step"]').count()) await tap(page, '[data-act="heist-step"]');
+  for (let k = 0; k < 12; k++) if (await page.locator('[data-act="heist-step"]').count()) await tap(page, '[data-act="heist-step"]');
+  // The log grows downwards: the newest beat should be in view between the sticky header and controls.
+  await page.waitForTimeout(700);
+  const seen = await page.evaluate(() => {
+    const b = document.querySelector('.beat[data-latest]').getBoundingClientRect();
+    const head = document.querySelector('.heist-head').getBoundingClientRect();
+    const ctl = document.querySelector('.heist-controls').getBoundingClientRect();
+    return { top: Math.round(b.top), bottom: Math.round(b.bottom), head: Math.round(head.bottom), ctl: Math.round(ctl.top), scrolled: scrollY };
+  });
+  check(seen.scrolled > 0 && seen.top >= seen.head - 2 && seen.bottom <= seen.ctl + 2, `latest beat in view after stepping (${JSON.stringify(seen)})`);
   await shot(page, '09-heist');
   if (await page.locator('[data-act="heist-skip"]').count()) await tap(page, '[data-act="heist-skip"]');
   await shot(page, '10-heist-end');

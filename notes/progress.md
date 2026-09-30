@@ -52,7 +52,8 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 6. Game over: Inspector heat 100, rep 0, or skint with nobody to hire.
 
 ## Balance (tools/balance.mjs, 150 careers × up to 10 jobs)
-- Scripted "careful" policy: ~34% B or better, ~4% S (perfect).
+- Start with £2,500 (enough to survive two busted jobs; was £1,000).
+- Scripted "careful" policy: ~41% B or better, ~7% S (perfect); 12/200 careers end inside 10 jobs (52 at £1,000).
 - Reckless (hire one stranger, no prep): ~68% F.
 - Chaos (first 5 jobs): every job has a hazard, ~36% have the security cat, ~30% spring a surprise; ~55–63% of
   pear-shaped jobs cost a dog; ~0.8 arrests and ~0.1 permanent losses per job.
@@ -87,6 +88,9 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Chrome: self-hosted fonts in `assets/fonts/` (Alfa Slab One display, Roboto Slab headings, Libre Baskerville italic quotes, UnifrakturMaguntia masthead; OFL/Apache licences alongside), paper grain + rain textures as inline SVG, bevelled brass/red buttons, deeper card shadows, lit nav tab.
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
+
+## Heist playback
+- The log grows downwards; each new beat scrolls the page to the end so it sits just above the sticky controls (smoke checks this after 12 real taps on Next).
 
 ## UI text
 - Mobile-first: headers and chips over sentences. Keep story scenes, the heist log and boss quotes; cut helper text.

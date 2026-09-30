@@ -399,11 +399,7 @@ function heistScreen(G) {
   const r = s.result;
   const i = Math.min(G.ui.heist.i, r.beats.length - 1);
   const shown = r.beats.slice(0, i + 1);
-  const cur = shown[shown.length - 1];
-  const alarm = cur.alarm;
   const finished = i >= r.beats.length - 1;
-  const segs = Array.from({ length: ALARM_MAX }, (_, k) => `<i class="${k < alarm ? 'on' : ''} ${alarm >= 6 ? 'hot' : ''} ${alarm >= ALARM_MAX ? 'max' : ''}"></i>`).join('');
-  const ringing = shown.some((b) => b.kind === 'alarm');
   const log = shown.map((b, k) => beatHTML(G, b, k === shown.length - 1)).join('');
   return `<section class="heist" data-beat="${i}"><div class="heist-head">${heistHead(G, shown, finished)}</div>
     <div class="log">${log}</div>

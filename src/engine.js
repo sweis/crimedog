@@ -9,7 +9,7 @@ import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwn
 import { simulate, approachAvailable, odds, baseOdds } from './sim.js';
 
 export const MAX_CREW = 6;
-const START_CASH = 1000;
+const START_CASH = 2500;
 
 export function rngOf(state) {
   return makeRng(state.rng);

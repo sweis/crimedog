@@ -372,7 +372,7 @@ export const APPROACHES = {
   g_moped: { label: 'Mopeds through the alleys', skill: 'wheels', mod: 0, noise: 0, failNoise: 2, clues: 0, needKit: 'moped', ok: 'A swarm of mopeds vanishes into the back alleys.', fail: 'A moped runs out of petrol. Right outside a police box.' },
   g_crowd: { label: 'Melt into the crowd', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 0, crowd: true, ok: 'Just another bunch of blokes in flat caps.', fail: 'There is no crowd. There is them, and a policeman.' },
   g_barge: { label: 'Slow canal barge', skill: 'wheels', mod: -1, noise: 0, failNoise: 1, clues: -1, slow: true, ok: 'Chug... chug... chug. Nobody suspects a barge.', fail: 'The barge is overtaken by a jogger. Then a police boat.' },
-  g_walk: { label: 'Walk. Casual. Whistle.', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
+  g_walk: { label: 'Walk. Casual. Whistle', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
 };
 
 export const OBSTACLES = {
