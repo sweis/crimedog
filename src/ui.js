@@ -427,7 +427,7 @@ export function blueprintSVG(G, shown) {
   const stages = job.stages.filter((st) => !st.hidden || surprised.has(st.id));
   const W = 340, cols = 3, rw = 100, rh = 44, gx = 10, gy = 16, ox = 5, oy = 6;
   const rows = Math.ceil(stages.length / cols);
-  const lostCount = shown.filter((b) => b.kind === 'caught' || (b.kind === 'betray' && b.dog)).length + r.exposed.length;
+  const lostCount = shown.filter((b) => b.kind === 'caught' || b.kind === 'lost' || (b.kind === 'betray' && b.dog)).length + r.exposed.length;
   const H = oy * 2 + rows * rh + (rows - 1) * gy + (lostCount ? 30 : 0);
   const pos = stages.map((st, k) => {
     const row = Math.floor(k / cols);
@@ -439,6 +439,7 @@ export function blueprintSVG(G, shown) {
   const failed = new Set(shown.filter((b) => b.kind === 'fail').map((b) => b.stage));
   const captured = new Set(shown.filter((b) => b.kind === 'caught').map((b) => b.dog));
   const gone = new Set(shown.filter((b) => b.kind === 'betray' && b.dog).map((b) => b.dog));
+  const farmed = new Set(shown.filter((b) => b.kind === 'lost').map((b) => b.dog));
   const exposed = new Set(r.exposed);
   const ended = shown.some((b) => b.kind === 'end');
   const coppers = shown.some((b) => b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
@@ -485,7 +486,7 @@ export function blueprintSVG(G, shown) {
   });
   // crew tokens
   const crew = r.crew.map((id) => s.dogs[id]);
-  const here = crew.filter((d) => !captured.has(d.id) && !gone.has(d.id) && !exposed.has(d.id));
+  const here = crew.filter((d) => !captured.has(d.id) && !gone.has(d.id) && !exposed.has(d.id) && !farmed.has(d.id));
   const anchor = curIdx >= 0 ? pos[curIdx] : { x: ox, y: oy - 60 };
   here.forEach((d, k) => {
     const tx = anchor.x + rw - 22 - (k % 4) * 15;
@@ -493,7 +494,7 @@ export function blueprintSVG(G, shown) {
     svg += `<g transform="translate(${tx} ${ty})"><ellipse cx="10" cy="20" rx="8" ry="2.2" fill="#000" opacity=".4"/><circle cx="10" cy="10" r="10" fill="#f4ead3" stroke="#0c1427" stroke-width="1.4"/><g transform="translate(1 1)">${innerPortrait(d, 18)}</g></g>`;
   });
   // van / gone tray
-  const tray = [...captured].map((id) => ['🚓', s.dogs[id]]).concat([...gone, ...exposed].map((id) => ['💨', s.dogs[id]]));
+  const tray = [...captured].map((id) => ['🚓', s.dogs[id]]).concat([...farmed].map((id) => ['🚜', s.dogs[id]]), [...gone, ...exposed].map((id) => ['💨', s.dogs[id]]));
   const ty = H - 26;
   svg += `<text x="${ox}" y="${ty + 15}" font-size="10" fill="#9ec1f0">${tray.length ? 'Lost:' : ''}</text>`;
   tray.forEach(([ico, d], k) => {
@@ -536,6 +537,7 @@ function aftermathScreen(G) {
   const lines = [];
   for (const run of r.runners) lines.push(`💨 <b>${esc(shortName(s.dogs[run.id]))}</b> did a runner with ${esc(job.loot.find((l) => l.id === run.lootId).name)}.`);
   for (const l of loot(r.dropped)) lines.push(`🚓 Lost to the police: ${esc(l.name)}.`);
+  for (const l of r.lost || []) lines.push(`🚜 <b>${esc(shortName(s.dogs[l.id]))}</b> has gone to live on a farm. For good.`);
   for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${c.sentence} jobs in the pound.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
   for (const im of a.improved || []) lines.push(`📈 <b>${esc(shortName(s.dogs[im.id]))}</b> is getting better at ${SKILL_INFO[im.skill].icon} ${SKILL_INFO[im.skill].label} (now ${skillOf(s.dogs[im.id], im.skill)}).`);

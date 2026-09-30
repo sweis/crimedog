@@ -496,6 +496,12 @@ export function resolveHeist(state) {
     if (c.talked) d.relation -= 10; else d.relation += 10;
     state.crew = state.crew.filter((x) => x !== c.id);
   }
+  for (const l of r.lost || []) {
+    const d = state.dogs[l.id];
+    d.status = 'farm';
+    state.crew = state.crew.filter((x) => x !== l.id);
+    news(state, `${displayName(d)} went to live on a farm after ${job.name}.`);
+  }
   for (const run of r.runners) {
     const d = state.dogs[run.id];
     d.status = 'gone';
@@ -619,7 +625,9 @@ export function gradeJob(state) {
   parts.loot = Math.round((35 * a.securedValue) / total);
   parts.fence = a.securedValue ? Math.min(15, Math.round((15 * (a.gross ?? a.received)) / a.securedValue)) : 0;
   parts.stealth = r.alarmMax === 0 ? 20 : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
-  parts.crew = r.crew.length ? Math.round((15 * r.escaped.length) / r.crew.length) : 0;
+  // Loyal crew doing time count for half; grasses and the lost count for nothing.
+  const stayedQuiet = r.captured.filter((c) => !c.talked).length;
+  parts.crew = r.crew.length ? Math.round((15 * (r.escaped.length + 0.5 * stayedQuiet)) / r.crew.length) : 0;
   parts.clues = Math.max(0, 10 - r.clues);
   parts.pay = (a.cut ?? 0) >= 30 ? 5 : (a.cut ?? 0) >= 15 ? 2 : 0;
   if (!a.securedValue) { parts.stealth = Math.min(parts.stealth, 5); parts.pay = 0; }
@@ -683,12 +691,20 @@ export function farm(state, id) {
   d.status = 'farm';
   state.crew = state.crew.filter((x) => x !== id);
   state.pub = state.pub.filter((x) => x !== id);
+  state.stats.farmed += 1;
+  if (d.undercover) {
+    // Word gets round that you dealt with a copper. The underworld approves.
+    d.known.undercover = true;
+    state.rep = Math.min(100, state.rep + 6);
+    for (const o of Object.values(state.dogs)) if (o.met && o.id !== id) o.relation = Math.min(100, o.relation + 3);
+    news(state, `${displayName(d)} was a copper. Was. They've gone to live on a farm.`);
+    return done(`A copper on the farm. Respect. (+6 rep)`);
+  }
   state.rep = Math.max(0, state.rep - 8);
   for (const o of Object.values(state.dogs)) if (o.met && o.id !== id) o.relation = Math.max(-100, o.relation - 8);
   if (wasPound && d.talked === false) state.heat = Math.max(0, state.heat - 5);
-  state.stats.farmed += 1;
-  news(state, `${displayName(d)} has gone to live on a farm. Lovely big farm. Lots of room to run. Everyone's gone very quiet.`);
-  return done(`${shortName(d)} has gone to live on a farm. (-8 rep; the others are nervous)`);
+  news(state, `${displayName(d)} has gone to live on a farm. Everyone's gone very quiet.`);
+  return done(`${shortName(d)} has gone to the farm. (-8 rep; the crew are nervous)`);
 }
 
 export function nextJob(state) {

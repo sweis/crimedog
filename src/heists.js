@@ -58,9 +58,14 @@ export function genJob(state, rng, opts = {}) {
   const nObs = tier === 1 ? 1 : tier === 2 ? rng.int(1, 2) : 2;
   const obstacles = rng.sample(V.obstacles, Math.min(nObs, V.obstacles.length));
   const hazards = {};
-  const hazardPool = ['cat', 'plates', 'silent', 'stakeout'];
-  const nHaz = Math.min(hazardPool.length, rng.int(tier === 1 ? 0 : 1, tier));
-  for (const h of rng.sample(hazardPool, nHaz)) hazards[h] = true;
+  // Every job hides at least one nasty surprise; the security cat is the most common.
+  const pool = [['cat', 3], ['plates', 2], ['silent', 2], ['stakeout', 1]];
+  const nHaz = tier === 1 ? 1 : tier === 2 ? rng.int(1, 2) : rng.int(2, 3);
+  for (let k = 0; k < nHaz && pool.length; k++) {
+    const h = rng.weighted(pool);
+    hazards[h] = true;
+    pool.splice(pool.findIndex(([x]) => x === h), 1);
+  }
   const stakeoutTime = rng.pick(['night', 'day']);
   const vaultType = rng.pick(V.vaults);
 

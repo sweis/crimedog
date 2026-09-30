@@ -103,6 +103,7 @@ export function simulate(state, job, rng) {
     tipped: [],
     exposed: [],
     captured: [],
+    lost: [],
     runners: [],
     secured: [],
     dropped: [],
@@ -116,7 +117,7 @@ export function simulate(state, job, rng) {
     practised: {},
   };
   // Tipped undercover dogs stay "active" during the job; they only reveal themselves after.
-  const active = () => crew.filter((d) => !ctx.exposed.includes(d.id) && !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id));
+  const active = () => crew.filter((d) => !ctx.exposed.includes(d.id) && !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id) && !ctx.lost.some((l) => l.id === d.id));
   const learn = (dog, kind, v) => {
     const L = (ctx.learned[dog.id] ||= { skills: [], talents: [], quirks: [], loyalty: false, undercover: false });
     if (kind === 'loyalty' || kind === 'undercover') L[kind] = true;
@@ -151,6 +152,8 @@ export function simulate(state, job, rng) {
     if (!ctx.coppers && ctx.alarm >= ALARM_MAX) {
       ctx.coppers = true;
       beat({ kind: 'alarm', stage: stageId, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
+      const unlucky = active();
+      if (unlucky.length) escapeCheck(rng.pick(unlucky), stageId);
     }
   };
   const hourLabel = `${String(job.hour).padStart(2, '0')}:00`;
@@ -233,6 +236,7 @@ export function simulate(state, job, rng) {
     if (dog.quirks.includes('steel') && ctx.alarm >= 4) learn(dog, 'quirks', 'steel');
     if (dog.quirks.includes('pack')) learn(dog, 'quirks', 'pack');
     const line = rng.chance(0.55) ? say(dog, ok ? 'ok' : 'fail') : null;
+    if (!ok) ctx.lastFail = { dog, approachId, margin: roll - p };
     if (ok) {
       ctx.lastOk = approachId;
       (ctx.practised[dog.id] ||= []).push(a.skill);
@@ -255,8 +259,48 @@ export function simulate(state, job, rng) {
     return best;
   };
 
+  // Anything a dog was carrying on the way out is lost with them.
+  const dropLoot = (stageId, how) => {
+    // Half the time someone else grabs the bag first.
+    if (!ctx.secured.length || !['exit', 'getaway'].includes(stageId) || rng.chance(0.5)) return;
+    const lostItem = ctx.secured.splice(rng.int(0, ctx.secured.length - 1), 1)[0];
+    ctx.dropped.push(lostItem);
+    beat({ kind: 'fail', stage: stageId, text: `${job.loot.find((l) => l.id === lostItem).name} ${how}.` });
+  };
+
+  const LOSS_TEXT = {
+    agility: '{d} slips. It\'s a long way down.',
+    muscle: '{d} takes on one guard too many.',
+    wheels: '{d} wraps the motor round a lamppost.',
+    other: '{d} doesn\'t make it out.',
+  };
+  const loseDog = (dog, stageId, skill) => {
+    ctx.lost.push({ id: dog.id, stage: stageId });
+    const t = (LOSS_TEXT[skill] || LOSS_TEXT.other).replace('{d}', shortName(dog));
+    beat({ kind: 'lost', stage: stageId, dog: dog.id, text: `${t} ${shortName(dog)} has gone to live on a farm.` });
+    dropLoot(stageId, 'is left behind');
+  };
+  const RISKY = new Set(['agility', 'muscle', 'wheels']);
+  // What a failed check costs the dog who fumbled it.
+  // Going in, a fumble mostly raises the alarm; on the way out (or once the
+  // alarm is ringing) it gets dogs nicked or worse.
+  const fallout = (stageId, second) => {
+    const f = ctx.lastFail;
+    if (!f || !active().includes(f.dog)) return;
+    const a = APPROACHES[f.approachId];
+    const risky = RISKY.has(a.skill) || ['drill', 'van', 'grapple'].includes(a.needKit);
+    const goingIn = !ctx.vaultDone && ctx.alarm < 6;
+    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1);
+    if (risky && f.margin > (second ? 0.2 : 0.3) && rng.chance(pLose)) loseDog(f.dog, stageId, a.skill);
+    else if (rng.chance(second ? 0.55 : 0.12 + ctx.alarm * 0.04)) {
+      beat({ kind: 'chaos', stage: stageId, dog: f.dog.id, text: `${shortName(f.dog)} has been spotted!` });
+      if (goingIn) addAlarm(1, stageId);
+      else escapeCheck(f.dog, stageId);
+    }
+  };
+
   const escapeCheck = (dog, stageId) => {
-    let p = 0.5 + 0.07 * Math.max(skillOf(dog, 'agility'), skillOf(dog, 'sneak'), skillOf(dog, 'wheels')) - 0.035 * ctx.alarm;
+    let p = 0.5 + 0.06 * Math.max(skillOf(dog, 'agility'), skillOf(dog, 'sneak'), skillOf(dog, 'wheels')) - 0.035 * ctx.alarm;
     if (hasSpecial(dog, 'escape')) { p += 0.2; learn(dog, 'talents', dog.talents.find((t) => ['getaway', 'parkour'].includes(t))); }
     if (ctx.kitLeft.smoke > 0) {
       p += 0.2;
@@ -265,19 +309,14 @@ export function simulate(state, job, rng) {
     }
     if (job.safehouse) p += 0.05;
     if (ctx.coppers) p -= 0.1;
-    p = clamp(p, 0.1, 0.95);
+    p = clamp(p, 0.08, 0.92);
     if (rng.chance(p)) {
       beat({ kind: 'escape', stage: stageId, dog: dog.id, text: `${shortName(dog)} gives them the slip.` });
       return true;
     }
     ctx.captured.push({ id: dog.id, stage: stageId });
     beat({ kind: 'caught', stage: stageId, dog: dog.id, text: `${shortName(dog)} is collared by the Old Bill!`, line: say(dog, 'caught') });
-    if (ctx.secured.length && ['exit', 'getaway'].includes(stageId)) {
-      const lost = ctx.secured.splice(rng.int(0, ctx.secured.length - 1), 1)[0];
-      ctx.dropped.push(lost);
-      const item = job.loot.find((l) => l.id === lost);
-      beat({ kind: 'fail', stage: stageId, text: `${item.name} goes with them into the police van.` });
-    }
+    dropLoot(stageId, 'goes with them into the police van');
     return false;
   };
 
@@ -307,13 +346,13 @@ export function simulate(state, job, rng) {
     let approach;
     let extra = 0;
     if (stage.hidden) {
-      const b = bestFor(stage, [], 2);
+      const b = bestFor(stage, [], 1.5);
       if (!b) continue;
       beat({ kind: 'surprise', stage: stage.id, text: `Surprise! ${stage.label}. Nobody said anything about this!` });
       ctx.pearShaped = true;
       dog = b.dog;
       approach = b.approach;
-      extra = 2;
+      extra = 1.5;
     } else {
       const choice = plan[stage.id] || {};
       dog = state.dogs[choice.dog];
@@ -339,6 +378,8 @@ export function simulate(state, job, rng) {
         ctx.pearShaped = true;
         beat({ kind: 'pear', stage: stage.id, text: 'It\'s all gone PEAR-SHAPED!' });
       }
+      fallout(stage.id, false);
+      if (!active().length) break;
       if (rng.chance(0.3)) {
         const good = rng.chance(0.5);
         beat({ kind: good ? 'good' : 'chaos', stage: stage.id, text: rng.pick(good ? CHAOS.good : CHAOS.bad) });
@@ -349,8 +390,16 @@ export function simulate(state, job, rng) {
         const again = b.approach === approach;
         beat({ kind: 'improv', stage: stage.id, dog: b.dog.id, text: again ? `No other way through. ${shortName(b.dog)} has another go.` : `${shortName(b.dog)} improvises: ${APPROACHES[b.approach].label.toLowerCase()}!` });
         ok = attempt(stage, b.approach, b.dog, extra + 0.5, 'improv');
-        if (!ok) dog = b.dog;
+        if (!ok) {
+          dog = b.dog;
+          fallout(stage.id, true);
+          if (!active().length) break;
+        }
       }
+    }
+    // With the police outside, even a clean exit is a scramble.
+    if (ok && ctx.coppers && ['exit', 'getaway'].includes(stage.kind)) {
+      for (const d of active()) if (rng.chance(0.2)) escapeCheck(d, stage.id);
     }
     if (ok) {
       if (stage.kind === 'vault') {
@@ -372,12 +421,11 @@ export function simulate(state, job, rng) {
         }
         beat({ kind: 'fail', stage: stage.id, text: 'They can\'t get in. "Abort! ABORT!" Everyone legs it.' });
         ctx.aborted = true;
-        if (ctx.alarm >= 4) escapeCheck(dog, stage.id);
+        if (ctx.alarm >= 4) for (const d of active()) if (rng.chance(0.5)) escapeCheck(d, stage.id);
         break;
       case 'obstacle':
         beat({ kind: 'fail', stage: stage.id, text: 'No finesse left. They barge straight through.' });
         addAlarm(2, stage.id);
-        if (rng.chance(0.5)) escapeCheck(dog, stage.id);
         break;
       case 'vault':
         beat({ kind: 'fail', stage: stage.id, text: 'The vault won\'t budge. They\'ll have to leave empty-pawed.' });
@@ -478,13 +526,13 @@ export function simulate(state, job, rng) {
   const talkedCount = interrogations.filter((i) => i.talked).length;
   let heatGain = ctx.clues * 2 + (ctx.ringing ? 4 : 0) + (ctx.coppers ? 5 : 0) + talkedCount * 12 + ctx.tipped.length * 25;
   if (job.safehouse) heatGain = Math.round(heatGain * 0.6);
-  const escaped = crew.filter((d) => !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id) && !ctx.exposed.includes(d.id) && !ctx.tipped.includes(d.id)).map((d) => d.id);
+  const escaped = crew.filter((d) => !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id) && !ctx.lost.some((l) => l.id === d.id) && !ctx.exposed.includes(d.id) && !ctx.tipped.includes(d.id)).map((d) => d.id);
 
   let outcome;
   if (ctx.aborted) outcome = 'aborted';
   else if (!ctx.secured.length) outcome = 'bust';
-  else if (ctx.alarmMax === 0 && ctx.clues === 0 && !ctx.captured.length) outcome = 'clean';
-  else if (ctx.captured.length || ctx.alarmMax >= 6) outcome = 'messy';
+  else if (ctx.alarmMax === 0 && ctx.clues === 0 && !ctx.captured.length && !ctx.lost.length) outcome = 'clean';
+  else if (ctx.captured.length || ctx.lost.length || ctx.alarmMax >= 6) outcome = 'messy';
   else outcome = 'tidy';
   const endText = {
     clean: ctx.swap ? 'Not a whisker out of place. They won\'t even know they\'ve been robbed.' : 'In and out. Clean as a whistle.',
@@ -507,6 +555,7 @@ export function simulate(state, job, rng) {
     aborted: ctx.aborted,
     swap: ctx.swap && outcome === 'clean',
     captured: interrogations,
+    lost: ctx.lost,
     runners: ctx.runners,
     exposed: ctx.exposed,
     tipped: ctx.tipped,

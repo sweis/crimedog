@@ -53,7 +53,7 @@ export function smartJob(s) {
   E.autoPlan(s);
 }
 
-export function career(seed, policy, maxJobs = 10) {
+export function career(seed, policy, maxJobs = 10, onResult = null) {
   const s = E.newGame(seed);
   const grades = [];
   for (let j = 0; j < maxJobs && !s.over; j++) {
@@ -64,6 +64,7 @@ export function career(seed, policy, maxJobs = 10) {
     else if (s.pub.length) { const d = s.dogs[s.pub[0]]; if (d.fee <= s.cash) E.hire(s, d.id); }
     if (!s.crew.length) { E.nextJob(s); continue; }
     E.pullJob(s);
+    if (onResult) onResult(s);
     E.resolveHeist(s);
     if (s.after.step === 'deliver') E.deliver(s);
     if (s.after.step === 'fence') E.fence(s, s.job.buyer ? 'collector' : 'hal');
