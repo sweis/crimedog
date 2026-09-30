@@ -223,3 +223,18 @@ export function betweenJobs(state, rng) {
   }
   return events;
 }
+
+// When you're skint, the Family will always lend. At a price.
+export const LOAN = { amount: 500, owe: 600, cap: 1800 };
+export function canBorrow(state) {
+  const g = state.groups.family;
+  return g.standing > -50 && (g.debt?.amount || 0) + LOAN.owe <= LOAN.cap;
+}
+export function borrow(state) {
+  if (state.cash >= 200) return { ok: false, msg: 'The Don only lends to the desperate.' };
+  if (!canBorrow(state)) return { ok: false, msg: 'The Family won\'t lend you another penny.' };
+  const g = state.groups.family;
+  state.cash += LOAN.amount;
+  g.debt = { amount: (g.debt?.amount || 0) + LOAN.owe, patience: Math.max(g.debt?.patience ?? 0, 3) };
+  return { ok: true, msg: `The Family lends you £${LOAN.amount}. You owe them £${LOAN.owe}.` };
+}

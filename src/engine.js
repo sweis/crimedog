@@ -5,7 +5,7 @@ import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, QUIRKS } from './data.js'
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel } from './heists.js';
 import { GROUPS } from './data.js';
-import { initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, payDebt as payGroupDebt, hireBlocked, hireCost, adjust } from './groups.js';
+import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, payDebt as payGroupDebt, hireBlocked, hireCost, adjust } from './groups.js';
 import { simulate, approachAvailable, odds, baseOdds, crewOf } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -64,6 +64,12 @@ export function news(state, text) {
   state.news = state.news.slice(0, 30);
 }
 
+// Strangers you never hired or looked into drift away, so saves don't grow forever.
+function pruneStrangers(state, keep) {
+  const strangers = Object.values(state.dogs).filter((d) => !d.met && d.status === 'free' && !keep.includes(d.id) && !state.crew.includes(d.id));
+  for (const d of strangers.slice(0, Math.max(0, strangers.length - 12))) delete state.dogs[d.id];
+}
+
 export function refreshPub(state, rng = rngOf(state)) {
   const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier - 1 : 0);
   const n = Math.min(6, 4 + Math.floor(state.rep / 35));
@@ -93,6 +99,7 @@ export function refreshPub(state, rng = rngOf(state)) {
     pub[pub.length - 1] = r.id;
   }
   state.pub = pub;
+  pruneStrangers(state, pub);
 }
 
 // ------------------------------------------------------------------ helpers
@@ -209,6 +216,11 @@ export function digLeads(state) {
 
 export function payDebt(state, gid) {
   return payGroupDebt(state, gid);
+}
+
+export function borrow(state) {
+  if (state.phase !== 'select') return fail('Not now.');
+  return borrowFromFamily(state);
 }
 
 export function dismissStory(state) {
@@ -759,7 +771,8 @@ export function checkGameOver(state) {
   else {
     const avail = Object.values(state.dogs).filter((d) => d.status === 'free' || d.status === 'crew');
     const cheapest = Math.min(...avail.map((d) => d.fee), Infinity);
-    if (['plan', 'select'].includes(state.phase) && !state.crew.length && state.cash < Math.min(cheapest, 40)) reason = 'broke';
+    // Skint means skint: no crew, no cash, and not even the Family will lend.
+    if (['plan', 'select'].includes(state.phase) && !state.crew.length && state.cash < Math.min(cheapest, 40) && !canBorrow(state)) reason = 'broke';
   }
   if (reason) {
     state.over = { reason, day: state.day, jobs: state.stats.jobs };

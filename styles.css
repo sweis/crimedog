@@ -470,3 +470,4 @@ p { margin: 0 0 8px; }
 .card.dark h2 { color: var(--brass); text-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
 .offer .offer-from b { font-size: 15px; }
 .offer .job-name { margin-top: 8px; }
+.events .event { margin: 0; padding: 6px 0; border-top: 1px dashed var(--paper-3); font-size: 14.5px; }
