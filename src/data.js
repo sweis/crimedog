@@ -182,7 +182,7 @@ export const FACTIONS = {
   ze: { label: 'Ze Germans', voice: 'ze', blurb: 'Precise. Punctual. Terrifying.' },
   firm: { label: 'The Bulldog Firm', voice: 'cockney', blurb: 'Hard lads from Bonechapel.' },
   poodle: { label: 'The Poodle Set', voice: 'posh', blurb: 'Old money. Older grudges.' },
-  whippet: { label: 'The Whippet Wheelmen', voice: 'cockney', blurb: 'Fastest drivers in the Big Smoke.' },
+  whippet: { label: 'The Whippet Wheelmen', voice: 'cockney', blurb: 'Fastest drivers in Dogsbury.' },
   terrier: { label: 'The Terrier Lads', voice: 'cockney', blurb: 'Small, scrappy, never let go.' },
   hounds: { label: 'The Hounds of Bonechapel', voice: 'neutral', blurb: 'Noses for hire. Mouths shut.' },
   indie: { label: 'Freelancer', voice: 'neutral', blurb: 'Answers to nobody.' },
@@ -474,7 +474,7 @@ export const CHAOS = {
 };
 
 export const INTRO = [
-  'The Big Smoke. Rain on the cobbles, sausages on the grill, and a fortune in every vault.',
+  'Dogsbury. Rain on the cobbles, sausages on the grill, and a fortune in every vault.',
   'They call you the Guv\'nor. You don\'t get your paws dirty. You find the job, pick the crew, buy the kit, lay the plan... and watch.',
   'Somewhere in the fog, the Inspector is watching too. Every clue brings them closer. Every grass in the pound is a thread to your door.',
   'Keep your cash up, your rep solid, and your name out of the Inspector\'s notebook.',
