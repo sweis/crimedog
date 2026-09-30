@@ -524,7 +524,7 @@ export function simulate(state, job, rng) {
   }
 
   const talkedCount = interrogations.filter((i) => i.talked).length;
-  let heatGain = ctx.clues * 2 + (ctx.ringing ? 4 : 0) + (ctx.coppers ? 5 : 0) + talkedCount * 12 + ctx.tipped.length * 25;
+  let heatGain = ctx.clues * 2 + (ctx.ringing ? 3 : 0) + (ctx.coppers ? 4 : 0) + talkedCount * 8 + ctx.tipped.length * 25;
   if (job.safehouse) heatGain = Math.round(heatGain * 0.6);
   const escaped = crew.filter((d) => !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id) && !ctx.lost.some((l) => l.id === d.id) && !ctx.exposed.includes(d.id) && !ctx.tipped.includes(d.id)).map((d) => d.id);
 

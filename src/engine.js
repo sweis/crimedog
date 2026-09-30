@@ -751,7 +751,7 @@ export function nextJob(state) {
       news(state, `${G.boss} heard you walked away. Not a good look.`);
     }
   }
-  state.heat = Math.max(0, state.heat - 4);
+  state.heat = Math.max(0, state.heat - 6);
   state.day += 1;
   state.job = null;
   state.result = null;

@@ -72,7 +72,7 @@ function toast(msg, bad) {
 }
 G.toast = toast;
 
-const QUIET = new Set([E.setPlan, E.autoPlan, E.resolveHeist, E.setTime]);
+const QUIET = new Set([E.setPlan, E.autoPlan, E.resolveHeist, E.setTime, E.nextJob]);
 function run(fn, ...args) {
   const r = fn(G.state, ...args);
   if (r && r.msg && (!r.ok || !QUIET.has(fn))) toast(r.msg, !r.ok);
@@ -134,6 +134,7 @@ const A = {
   'intro-next'() { G.ui.introPage++; G.render(); },
   'start'() { G.ui.screen = 'job'; G.commit(); window.scrollTo(0, 0); },
   'take-offer'(el) {
+    G.clearToasts();
     const r = E.acceptOffer(G.state, el.dataset.id);
     toast(r.msg, !r.ok);
     if (r.ok) G.ui.screen = 'job';

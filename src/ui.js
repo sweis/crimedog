@@ -41,6 +41,10 @@ export function currentScreen(G) {
 
 export function render(G) {
   const screen = currentScreen(G);
+  if (screen === 'heist' && G.ui.rendered === 'heist' && patchHeist(G)) {
+    G.stats.renders++;
+    return;
+  }
   G.ui.rendered = screen;
   const app = document.getElementById('app');
   const body = SCREEN_RENDER[screen](G);
@@ -190,7 +194,7 @@ function jobScreen(G) {
     <div class="job-name mt">${esc(job.name)}</div>
     <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
     <h3 class="mt">The Goods</h3>
-    <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">Wanted by ${esc(GROUPS[job.patron.group].boss)}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}</ul>
+    <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">🎯 ${GROUPS[job.patron.group].emblem}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}</ul>
     <div class="row spread mt"><div><b>Days left</b><div class="days mt">${days}</div></div>
     <div class="seg" role="group" aria-label="Time of the job">${timeSeg(job)}</div></div>
     ${stake}
@@ -398,14 +402,46 @@ function heistScreen(G) {
   const segs = Array.from({ length: ALARM_MAX }, (_, k) => `<i class="${k < alarm ? 'on' : ''} ${alarm >= 6 ? 'hot' : ''} ${alarm >= ALARM_MAX ? 'max' : ''}"></i>`).join('');
   const ringing = shown.some((b) => b.kind === 'alarm');
   const log = shown.map((b, k) => beatHTML(G, b, k === shown.length - 1)).join('');
-  return `<section class="heist"><div class="heist-head">
-    <div class="row spread"><h2 style="margin:0">${esc(s.job.name)}</h2><span class="chip dark">${s.job.time === 'night' ? '🌙' : '☀️'} ${String(s.job.hour).padStart(2, '0')}:00</span></div>
-    <div class="row"><span class="muted" style="width:44px">Alarm</span><div class="alarm grow" data-alarm="${alarm}">${segs}</div><span class="chip dark" title="Clues left">🔍 ${cur.clues}</span></div>
-    <div class="blueprint ${ringing && !finished ? 'ringing' : ''}">${blueprintSVG(G, shown)}</div></div>
+  return `<section class="heist" data-beat="${i}"><div class="heist-head">${heistHead(G, shown, finished)}</div>
     <div class="log">${log}</div>
-    <div class="heist-controls">
-      ${finished ? '<button class="btn big block" data-act="resolve">See the aftermath →</button>' : `<button class="btn" data-act="heist-toggle">${G.ui.heist.playing ? '⏸ Pause' : '▶ Play'}</button><button class="btn ghost" data-act="heist-step">Next ›</button><button class="btn ghost" data-act="heist-skip">Skip ⏭</button>`}
-    </div></section>`;
+    <div class="heist-controls">${heistControls(G, finished)}</div></section>`;
+}
+
+function heistHead(G, shown, finished) {
+  const s = G.state;
+  const cur = shown[shown.length - 1];
+  const alarm = cur.alarm;
+  const segs = Array.from({ length: ALARM_MAX }, (_, k) => `<i class="${k < alarm ? 'on' : ''} ${alarm >= 6 ? 'hot' : ''} ${alarm >= ALARM_MAX ? 'max' : ''}"></i>`).join('');
+  const ringing = shown.some((b) => b.kind === 'alarm');
+  return `<div class="row spread"><h2 style="margin:0">${esc(s.job.name)}</h2><span class="chip dark">${s.job.time === 'night' ? '🌙' : '☀️'} ${String(s.job.hour).padStart(2, '0')}:00</span></div>
+    <div class="row"><span class="muted" style="width:44px">Alarm</span><div class="alarm grow" data-alarm="${alarm}">${segs}</div><span class="chip dark" title="Clues left">🔍 ${cur.clues}</span></div>
+    <div class="blueprint ${ringing && !finished ? 'ringing' : ''}">${blueprintSVG(G, shown)}</div>`;
+}
+
+function heistControls(G, finished) {
+  return finished ? '<button class="btn big block" data-act="resolve">See the aftermath →</button>' : `<button class="btn" data-act="heist-toggle">${G.ui.heist.playing ? '⏸ Pause' : '▶ Play'}</button><button class="btn ghost" data-act="heist-step">Next ›</button><button class="btn ghost" data-act="heist-skip">Skip ⏭</button>`;
+}
+
+// Playing forward on the heist screen: append the new beats and redraw the
+// header, instead of rebuilding a log that grows to hundreds of nodes.
+function patchHeist(G) {
+  const sec = document.querySelector('main[data-screen="heist"] .heist');
+  if (!sec || G.ui.modal) return false;
+  const r = G.state.result;
+  const i = Math.min(G.ui.heist.i, r.beats.length - 1);
+  const prev = Number(sec.dataset.beat);
+  if (!(i >= prev)) return false;
+  const shown = r.beats.slice(0, i + 1);
+  const finished = i >= r.beats.length - 1;
+  const log = sec.querySelector('.log');
+  if (i > prev) {
+    log.querySelector('[data-latest]')?.removeAttribute('data-latest');
+    log.insertAdjacentHTML('beforeend', r.beats.slice(prev + 1, i + 1).map((b, k, arr) => beatHTML(G, b, k === arr.length - 1)).join(''));
+    sec.querySelector('.heist-head').innerHTML = heistHead(G, shown, finished);
+    sec.dataset.beat = String(i);
+  }
+  sec.querySelector('.heist-controls').innerHTML = heistControls(G, finished);
+  return true;
 }
 
 function beatHTML(G, b, latest) {
