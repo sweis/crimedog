@@ -22,7 +22,7 @@ export function newGame(seed = Date.now() % 1e9, name = 'The Guv\'nor') {
     phase: 'plan', // plan | heist | aftermath | over
     mastermind: name,
     cash: START_CASH,
-    rep: 20,
+    rep: 25,
     heat: 0,
     dogs: {},
     pub: [],
@@ -76,6 +76,16 @@ export function refreshPub(state, rng = rngOf(state)) {
     const d = genDog(state, rng, { quality, undercover });
     state.dogs[d.id] = d;
     pub.push(d.id);
+  }
+  // There's always some wide-eyed rookie who'll work for peanuts.
+  if (!pub.some((id) => state.dogs[id].fee <= 60)) {
+    const r = genDog(state, rng, { quality: 0 });
+    r.archetype = 'rookie';
+    r.catchphrase = 'Is this... is this a real heist? Like, a proper one?';
+    r.fee = 40;
+    r.minRep = 0;
+    state.dogs[r.id] = r;
+    pub[pub.length - 1] = r.id;
   }
   state.pub = pub;
 }
@@ -405,6 +415,18 @@ export function resolveHeist(state) {
       if (L.undercover) d.known.undercover = true;
     }
   }
+  const rng = rngOf(state);
+  const improved = [];
+  for (const [id, skills] of Object.entries(r.practised || {})) {
+    const d = state.dogs[id];
+    for (const sk of new Set(skills)) {
+      if (d.skills[sk] < 5 && rng.chance(0.35)) {
+        d.skills[sk] += 1;
+        d.known.skills[sk] = true;
+        improved.push({ id, skill: sk });
+      }
+    }
+  }
   for (const c of r.captured) {
     const d = state.dogs[c.id];
     d.status = 'pound';
@@ -430,6 +452,7 @@ export function resolveHeist(state) {
   const securedValue = r.secured.reduce((s, id) => s + job.loot.find((l) => l.id === id).value, 0);
   state.after = { step: r.secured.length ? 'fence' : 'pay', securedValue, received: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0 };
   state.after.headline = headline(state);
+  state.after.improved = improved;
   state.phase = 'aftermath';
   return done('The dust settles.');
 }
@@ -500,17 +523,17 @@ export function gradeJob(state) {
   const parts = {};
   parts.loot = Math.round((35 * a.securedValue) / total);
   parts.fence = a.securedValue ? Math.round((15 * a.received) / a.securedValue) : 0;
-  parts.stealth = r.alarmMax === 0 ? 20 : r.alarmMax < 4 ? 12 : r.alarmMax < 7 ? 6 : 0;
+  parts.stealth = r.alarmMax === 0 ? 20 : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
   parts.crew = r.crew.length ? Math.round((15 * r.escaped.length) / r.crew.length) : 0;
-  parts.clues = Math.max(0, 10 - 2 * r.clues);
+  parts.clues = Math.max(0, 10 - r.clues);
   parts.pay = (a.cut ?? 0) >= 30 ? 5 : (a.cut ?? 0) >= 15 ? 2 : 0;
   if (!a.securedValue) { parts.stealth = Math.min(parts.stealth, 5); parts.pay = 0; }
   const score = Object.values(parts).reduce((s, v) => s + v, 0);
-  const letter = score >= 95 ? 'S' : score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 45 ? 'C' : score >= 25 ? 'D' : 'F';
+  const letter = score >= 93 ? 'S' : score >= 78 ? 'A' : score >= 62 ? 'B' : score >= 45 ? 'C' : score >= 28 ? 'D' : 'F';
   return { score, letter, parts };
 }
 
-const REP_FOR = { S: 14, A: 9, B: 5, C: 2, D: -3, F: -7 };
+const REP_FOR = { S: 14, A: 9, B: 6, C: 3, D: -1, F: -4 };
 function finishGrade(state) {
   const a = state.after;
   const g = gradeJob(state);

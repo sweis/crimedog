@@ -29,7 +29,7 @@ function jobName(rng, venueType, star) {
 }
 
 export function jobTier(state) {
-  return Math.min(3, 1 + Math.floor(state.stats.jobs / 2) + (state.rep >= 60 ? 1 : 0));
+  return Math.min(3, 1 + Math.floor(state.stats.jobs / 3) + (state.rep >= 60 ? 1 : 0));
 }
 
 export function genJob(state, rng) {

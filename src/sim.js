@@ -36,7 +36,7 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
 }
 
 export function baseOdds(skill, diff) {
-  return clamp(0.55 + 0.12 * (skill - diff), 0.05, 0.95);
+  return clamp(0.6 + 0.11 * (skill - diff), 0.05, 0.95);
 }
 
 function clamp(v, a, b) {
@@ -67,7 +67,7 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   if (q.includes('napper') && ['exit', 'getaway'].includes(stage.kind)) p -= 0.1;
   if (q.includes('glory')) p += 0.08;
   const load = Object.values(job.plan).filter((p2) => p2 && p2.dog === dog.id).length;
-  if (load > 2) p -= 0.05 * (load - 2);
+  if (load > 3) p -= 0.05 * (load - 3);
   p += ctx.bonus || 0;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
@@ -78,7 +78,7 @@ export function oddsKnown(dog, approachId) {
 }
 
 export function carryCapacity(crew, kit) {
-  let c = 2;
+  let c = 3;
   for (const d of crew) c += Math.floor(skillOf(d, 'muscle') / 2) + (hasSpecial(d, 'carry') ? 2 : 0);
   if (kit.bags > 0) c += 2;
   if (kit.van > 0) c += 3;
@@ -113,6 +113,7 @@ export function simulate(state, job, rng) {
     nextBonus: 0,
     learned: {},
     acted: new Set(),
+    practised: {},
   };
   // Tipped undercover dogs stay "active" during the job; they only reveal themselves after.
   const active = () => crew.filter((d) => !ctx.exposed.includes(d.id) && !ctx.captured.some((c) => c.id === d.id) && !ctx.runners.some((r) => r.id === d.id));
@@ -223,7 +224,7 @@ export function simulate(state, job, rng) {
       if (dog.quirks.includes('postmen')) learn(dog, 'quirks', 'postmen');
     }
     let clues = ok ? a.clues : 1;
-    if (dog.quirks.includes('sheds')) { clues += 1; learn(dog, 'quirks', 'sheds'); }
+    if (dog.quirks.includes('sheds') && rng.chance(0.5)) { clues += 1; learn(dog, 'quirks', 'sheds'); }
     if (dog.quirks.includes('glory')) { clues += 1; learn(dog, 'quirks', 'glory'); }
     if (hasSpecial(dog, 'clean')) clues -= 1;
     if (job.time === 'day' && ['charm', 'disguise'].includes(a.skill)) clues += 1; // witnesses
@@ -232,7 +233,10 @@ export function simulate(state, job, rng) {
     if (dog.quirks.includes('steel') && ctx.alarm >= 4) learn(dog, 'quirks', 'steel');
     if (dog.quirks.includes('pack')) learn(dog, 'quirks', 'pack');
     const line = rng.chance(0.55) ? say(dog, ok ? 'ok' : 'fail') : null;
-    if (ok) ctx.lastOk = approachId;
+    if (ok) {
+      ctx.lastOk = approachId;
+      (ctx.practised[dog.id] ||= []).push(a.skill);
+    }
     beat({ kind: ok ? 'ok' : 'fail', stage: stage.id, dog: dog.id, approach: approachId, tag, p, roll, text, line });
     addAlarm(noise, stage.id);
     return ok;
@@ -340,11 +344,11 @@ export function simulate(state, job, rng) {
         beat({ kind: good ? 'good' : 'chaos', stage: stage.id, text: rng.pick(good ? CHAOS.good : CHAOS.bad) });
         if (good) { ctx.alarm = Math.max(0, ctx.alarm - 1); ctx.nextBonus = 0.15; } else { addAlarm(1, stage.id); ctx.nextBonus = -0.1; }
       }
-      const b = bestFor(stage, [approach], extra + 1) || bestFor(stage, [], extra + 1);
+      const b = bestFor(stage, [approach], extra + 0.5) || bestFor(stage, [], extra + 0.5);
       if (b) {
         const again = b.approach === approach;
         beat({ kind: 'improv', stage: stage.id, dog: b.dog.id, text: again ? `No other way through. ${shortName(b.dog)} has another go.` : `${shortName(b.dog)} improvises: ${APPROACHES[b.approach].label.toLowerCase()}!` });
-        ok = attempt(stage, b.approach, b.dog, extra + 1, 'improv');
+        ok = attempt(stage, b.approach, b.dog, extra + 0.5, 'improv');
         if (!ok) dog = b.dog;
       }
     }
@@ -510,6 +514,7 @@ export function simulate(state, job, rng) {
     crew: crewIds,
     kitUsed: ctx.kitUsed,
     learned: ctx.learned,
+    practised: ctx.practised,
     heatGain,
   };
 }

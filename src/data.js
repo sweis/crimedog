@@ -300,12 +300,12 @@ export const KIT = {
 export const APPROACHES = {
   // ---- Entry
   e_pick: { label: 'Pick the tradesman\'s door', skill: 'locks', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'lockpicks', ok: '{d} works the pins. Click. In.', fail: '{d} snaps a pick in the lock. The door rattles.' },
-  e_charm: { label: 'Sweet-talk the doorman', skill: 'charm', mod: 1, noise: 0, failNoise: 2, clues: 1, ok: '{d} chats up the doorman about the weather. Waved straight through.', fail: 'The doorman isn\'t buying it. He reaches for his whistle.' },
+  e_charm: { label: 'Sweet-talk the doorman', skill: 'charm', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '{d} chats up the doorman about the weather. Waved straight through.', fail: 'The doorman isn\'t buying it. He reaches for his whistle.' },
   e_staff: { label: 'Stroll in as staff', skill: 'disguise', mod: -1, noise: 0, failNoise: 2, clues: 0, needKit: 'uniforms', ok: '{d} strolls in wearing a uniform and a clipboard. Nobody blinks.', fail: 'The uniform is two sizes too small. Someone points.' },
   e_skylight: { label: 'Over the roofs, in the skylight', skill: 'agility', mod: 0, noise: 0, failNoise: 3, clues: 0, needKit: 'grapple', ok: '{d} drops through the skylight like a feather.', fail: '{d} drops through the skylight like a sack of spuds.' },
   e_sewer: { label: 'Up through the sewers', skill: 'sneak', mod: -1, noise: 0, failNoise: 1, clues: 0, needIntel: 'blueprints', ok: '{d} pops up through a floor grate. Smells awful. Totally unseen.', fail: 'Wrong tunnel. {d} surfaces in the middle of the lobby.' },
   e_vent: { label: 'Crawl in through the air vents', skill: 'agility', mod: 1, noise: 0, failNoise: 2, clues: 0, needIntel: 'blueprints', ok: '{d} wriggles through the vents and out a grille.', fail: '{d} gets stuck in a vent. The banging echoes.' },
-  e_delivery: { label: 'Pose as a sausage delivery', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 1, ok: '"Sausages for Mr... Sausage?" It works. Somehow.', fail: 'Nobody ordered sausages. Suspicion is high.' },
+  e_delivery: { label: 'Pose as a sausage delivery', skill: 'disguise', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '"Sausages for Mr... Sausage?" It works. Somehow.', fail: 'Nobody ordered sausages. Suspicion is high.' },
   e_ram: { label: 'Ram-raid the front window', skill: 'wheels', mod: -2, noise: 5, failNoise: 6, clues: 2, needKit: 'van', ok: '{d} puts the van through the front window. Subtle as a brick.', fail: '{d} misses the window and hits a lamppost. Very loud.' },
   e_insider: { label: 'Inside dog props the door', skill: 'sneak', mod: -3, noise: 0, failNoise: 1, clues: 0, needInsider: true, ok: 'The inside dog props the fire door with a chew toy. Walk right in.', fail: 'The inside dog gets called to the manager\'s office at the worst moment.' },
   // ---- Obstacles
