@@ -162,8 +162,43 @@ export function hasSpecial(dog, special) {
 
 export function feeFor(dog, cheap) {
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
-  const base = (30 + power * 18 + (dog.relation > 30 ? -20 : 0)) * (dog.rarity ? RARITY[dog.rarity].feeMult : 1);
+  const R = dog.rarity && RARITY[dog.rarity];
+  const base = (30 + power * 18 + (dog.relation > 30 ? -20 : 0)) * (R ? (dog.homegrown ? R.homeMult : R.feeMult) : 1);
   return Math.max(30, Math.round((cheap ? base * 0.6 : base) / 10) * 10);
+}
+
+// A star passing through town (as opposed to one of your own who made it big).
+export const isVisitor = (dog) => !!dog.rarity && !dog.homegrown;
+
+// Base skills, best first.
+const bestBase = (dog) => SKILLS.slice().sort((a, b) => dog.skills[b] - dog.skills[a]);
+
+// Common -> rare -> legendary, for crew who've made a name for themselves. A rare
+// gets a signature move in their best skill; a legendary goes by it. Returns the
+// new rarity, or null if they're already at the top.
+export function promote(dog) {
+  const next = !dog.rarity ? 'rare' : dog.rarity === 'rare' ? 'legendary' : null;
+  if (!next) return null;
+  const [best, second] = bestBase(dog);
+  dog.rarity = next;
+  dog.homegrown = !dog.inTown; // not a visiting star: one of yours
+  dog.skills[best] = 5;
+  if (next === 'legendary') dog.skills[second] = Math.min(5, dog.skills[second] + 1);
+  dog.signature ||= Object.keys(SIGNATURES).find((id) => SIGNATURES[id].skill === best);
+  if (next === 'legendary') dog.nick = SIGNATURES[dog.signature].name;
+  for (const sk of SKILLS) dog.known.skills[sk] = true;
+  dog.minRep = 0;
+  dog.fee = feeFor(dog);
+  return next;
+}
+
+// Has a regular earned a promotion on the job? Rare: a maxed skill, some jobs
+// and some trust. Legendary: a long record, real trust and a second strong skill.
+export function earnedPromotion(dog) {
+  const [best, second] = bestBase(dog);
+  if (!dog.rarity) return dog.skills[best] >= 5 && dog.jobs >= 4 && dog.relation >= 20;
+  if (dog.rarity === 'rare') return dog.jobs >= 8 && dog.relation >= 45 && dog.skills[second] >= 3;
+  return false;
 }
 
 export function displayName(dog) {
@@ -176,6 +211,8 @@ export function shortName(dog) {
 export function relationLabel(dog) {
   if (dog.status === 'gone' && dog.undercover && dog.known.undercover) return 'Copper in disguise';
   if (dog.status === 'farm') return 'Gone to live on a farm';
+  if (dog.status === 'gone' && dog.left === 'poached') return 'Moved on';
+  if (dog.status === 'gone' && dog.left === 'grass') return 'Grassed you up';
   if (dog.status === 'gone') return 'Did a runner';
   const r = dog.relation;
   if (dog.jobs === 0 && r === 0) return 'Unknown quantity';

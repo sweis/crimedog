@@ -260,6 +260,53 @@ console.log('1f. A star in the first pub; hiring them opens a secret option');
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1g. crew drama
+console.log('1g. Crew drama: a scene on the job board, answered with a real tap');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=8`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(8); window.cd.spawn('cash', 2000); window.cd.teleport('select'); window.cd.spawn('arc', 'debt'); window.cd.teleport('select'); });
+  await page.waitForTimeout(200);
+  check(await page.locator('.modal.story [data-act="drama"]').count() === 2, 'debt scene shows two choices');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  await shot(page, 'drama-scene');
+  const before = await page.evaluate(() => window.cd.getState());
+  await tap(page, '.modal.story [data-act="drama"][data-i="0"]');
+  const after = await page.evaluate(() => window.cd.getState());
+  const arc = after.arcs.find((a) => a.id === before.arcs[0].id);
+  check(after.cash < before.cash && after.drama.some((d) => d.id === before.arcs[0].dog && d.edge === 1) && arc && arc.node !== 'start',
+    `paying the debt costs cash, fires the dog up and moves the story on (${before.cash}->${after.cash}, ${arc?.node})`);
+  check(await page.locator('.modal.story').count() === 0, 'scene closes');
+  // The fired-up dog shows it on the crew page.
+  await page.evaluate(() => { window.cd.teleport('crew'); });
+  check(await page.locator('main .dog-card .chip.good', { hasText: 'Fired up' }).count() === 1, 'crew page shows "Fired up"');
+  await shot(page, 'drama-crew');
+  // A regular who has earned it gets promoted after a clean job.
+  const promo = await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    window.cd.teleport('plan');
+    const s = window.cd.live();
+    const d = Object.values(s.dogs).find((x) => x.met && !x.rarity);
+    for (const k of Object.keys(d.skills)) d.skills[k] = Math.min(d.skills[k], 3);
+    Object.assign(d, { jobs: 5, relation: 40 });
+    d.skills.sneak = 5;
+    s.cash += 5000;
+    E.hire(s, d.id);
+    window.cd.win();
+    window.cd.teleport('aftermath');
+    return { promoted: s.after.promoted, rarity: d.rarity, signature: d.signature };
+  });
+  check(promo.rarity === 'rare' && promo.promoted?.length === 1 && promo.signature === 'phantom', `a regular who earned it is promoted (${JSON.stringify(promo)})`);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, 'drama-promoted');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

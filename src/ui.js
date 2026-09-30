@@ -3,10 +3,11 @@
 import * as E from './engine.js';
 import { esc, money, count } from './util.js';
 import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES } from './data.js';
-import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills } from './dogs.js';
+import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
+import { ARCS, sceneChoices } from './drama.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
 
@@ -237,12 +238,24 @@ const skillChip = (d, sk) => `<span class="chip ${d.known.skills[sk] ? 'info' : 
 // Rare/legendary badge and signature move.
 const rarityBadge = (d) => (d.rarity ? `<span class="rar ${d.rarity}">${RARITY[d.rarity].icon} ${RARITY[d.rarity].label}</span>` : '');
 
+// Personal drama carried into the next job, and the story a dog is caught up in.
+function dramaChips(d) {
+  const dr = d.drama || {};
+  const c = [];
+  if (dr.away) c.push('<span class="chip">🏠 Away</span>');
+  if (dr.edge > 0) c.push('<span class="chip good">🔥 Fired up</span>');
+  if (dr.edge < 0) c.push('<span class="chip warn">😟 Distracted</span>');
+  if (dr.trouble) c.push('<span class="chip bad">⚠️ Trouble</span>');
+  return c;
+}
+const dramaMark = (d) => (d.drama?.trouble ? ' ⚠️' : d.drama?.edge > 0 ? ' 🔥' : d.drama?.edge < 0 ? ' 😟' : '');
+
 // opts: fee (show hire cost), skill (show that skill), act/extra (tap action; default opens the profile)
 function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
   const hired = s.crew.includes(d.id);
-  const away = d.rarity && d.status === 'free' && d.inTown !== s.job?.id;
+  const away = isVisitor(d) && d.status === 'free' && d.inTown !== s.job?.id;
   let right = '';
   if (opts.fee && away) right = '<div class="chip">Out of town</div>';
   else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
@@ -251,6 +264,8 @@ function dogCard(G, d, opts = {}) {
   const flags = [];
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
+  if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
+  flags.push(...dramaChips(d));
   return `<button class="dog-card ${d.rarity || ''} ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
     <div class="pic">${portraitSVG(d, { size: 64 })}</div>
     <div class="grow"><div class="name">${esc(displayName(d))}</div>
@@ -384,7 +399,7 @@ function planScreen(G) {
     if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
     if (p.approach) {
       const skill = APPROACHES[p.approach].skill;
-      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
+      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}${dramaMark(d)}<br><b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
       if (p.dog) {
         const d = s.dogs[p.dog];
         const o = odds(s, job, st, p.approach, d);
@@ -579,6 +594,10 @@ function aftermathScreen(G) {
   for (const l of r.lost || []) lines.push(`🚜 <b>${esc(shortName(s.dogs[l.id]))}</b> has gone to live on a farm. For good.`);
   for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
+  for (const p of a.promoted || []) {
+    const d = s.dogs[p.id];
+    lines.push(`🌟 <b>${esc(shortName(d))}</b> has made a name for themselves: <span class="rar ${p.to}">${RARITY[p.to].icon} ${RARITY[p.to].label}</span> ✨ ${esc(SIGNATURES[d.signature].name)}`);
+  }
   for (const im of a.improved || []) lines.push(`📈 <b>${esc(shortName(s.dogs[im.id]))}</b> is getting better at ${SKILL_INFO[im.skill].icon} ${SKILL_INFO[im.skill].label} (now ${skillOf(s.dogs[im.id], im.skill)}).`);
   lines.push(`🕵️ Heat +${r.heatGain} (alarm peaked at ${r.alarmMax}/10, ${count(r.clues, 'clue')} left behind).`);
   h += `<div class="events mt">${lines.map((l) => `<p class="event">${l}</p>`).join('')}</div></section>`;
@@ -681,6 +700,18 @@ function renderModal(G) {
   if (!m && G.state?.story?.length && currentScreen(G) === 'select') m = { type: 'story' };
   document.body.classList.toggle('modal-open', !!(m && G.state));
   if (!m || !G.state) { root.innerHTML = ''; return; }
+  if (m.type === 'story' && G.state.story[0].type === 'drama') {
+    const st = G.state.story[0];
+    const d = G.state.dogs[st.dog];
+    const choices = sceneChoices(G.state, st);
+    root.innerHTML = `<div class="modal-back"><div class="modal story drama" data-stop role="dialog" aria-modal="true">
+      <div class="story-pic ${d.rarity || ''}">${portraitSVG(d, { size: 96 })}</div>
+      <div class="muted center">📖 ${esc(displayName(d))}</div>
+      <h2 class="center">${esc(st.title)}</h2><p class="story-text">${esc(st.text)}</p>
+      ${st.notes?.length ? `<p class="chip good">${esc(st.notes.join(' '))}</p>` : ''}
+      <div class="stack">${choices.map((c, i) => `<button class="btn block ${i ? 'ghost' : ''}" data-act="drama" data-i="${i}" ${c.ok ? '' : 'disabled'}>${esc(c.label)}${c.cost ? ` · ${money(c.cost)}` : ''}</button>`).join('')}</div></div></div>`;
+    return;
+  }
   if (m.type === 'story') {
     const st = G.state.story[0];
     root.innerHTML = `<div class="modal-back"><div class="modal story" data-stop role="dialog" aria-modal="true">
@@ -714,15 +745,18 @@ function dogModal(G, d) {
   const quirks = d.known.quirks.map((q) => `<span class="chip ${QUIRKS[q].good === true ? 'good' : QUIRKS[q].good === false ? 'bad' : ''}" title="${esc(QUIRKS[q].blurb)}">${esc(QUIRKS[q].name)}</span>`).join('')
     || '<span class="muted">No quirks known yet.</span>';
   const trait = (k, label) => `<div class="dm-trait"><span>${label}</span><b>${d.known[k] ? band(d[k]) : '?'}</b></div>`;
-  const undercover = d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '';
+  const arc = (s.arcs || []).find((a) => a.dog === d.id);
+  const undercover = (d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '')
+    + (arc ? `<span class="chip info">📖 ${esc(ARCS[arc.kind].title)}</span>` : '') + dramaChips(d).join('');
   const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'crew' ? 'on your crew' : d.status;
 
   // Actions: one primary, then compact secondaries.
   const primary = [];
   const minor = [];
   const hf = hiringFor(G);
-  const away = d.rarity && d.status === 'free' && d.inTown !== s.job?.id;
+  const away = isVisitor(d) && d.status === 'free' && d.inTown !== s.job?.id;
   if (planning && d.status === 'free' && !inCrew && away) primary.push('<span class="chip">Out of town. Stars come and go.</span>');
+  else if (planning && d.status === 'free' && !inCrew && d.drama?.away) primary.push('<span class="chip">Sitting this one out.</span>');
   else if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);
   if (planning && inCrew) primary.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
   if (d.status === 'pound') primary.push(`<button class="btn" data-act="lawyer" data-id="${d.id}">⚖️ Hire a brief · £150</button>`);

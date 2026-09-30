@@ -3,9 +3,10 @@
 import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName } from './dogs.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
+import { advanceArcs } from './drama.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -79,7 +80,7 @@ export function refreshPub(state, rng = rngOf(state)) {
   const n = Math.min(6, 4 + Math.floor(state.rep / 35));
   const pub = [];
   // Some regulars come back.
-  const regulars = Object.values(state.dogs).filter((d) => d.status === 'free' && !d.rarity && !state.crew.includes(d.id) && !(d.undercover && d.known.undercover));
+  const regulars = Object.values(state.dogs).filter((d) => d.status === 'free' && !isVisitor(d) && !state.crew.includes(d.id) && !(d.undercover && d.known.undercover));
   for (const d of rng.shuffle(regulars)) {
     if (pub.length >= Math.floor(n / 2)) break;
     if (d.met || rng.chance(0.3)) pub.push(d.id);
@@ -117,13 +118,13 @@ const legendShare = (rep) => clamp((rep - 20) / 120, 0.05, 0.5);
 function starVisit(state, rng) {
   const job = state.job;
   if (!job) return null;
-  const here = Object.values(state.dogs).find((d) => d.rarity && d.inTown === job.id && d.status === 'free');
+  const here = Object.values(state.dogs).find((d) => isVisitor(d) && d.inTown === job.id && d.status === 'free');
   if (here || job.starRolled) return here || null;
   job.starRolled = true;
   const teaser = !state.teased;
   if (!teaser && !rng.chance(starChance(state.rep))) return null;
   state.teased = true;
-  const returning = Object.values(state.dogs).filter((d) => d.rarity && d.met && d.status === 'free');
+  const returning = Object.values(state.dogs).filter((d) => isVisitor(d) && d.met && d.status === 'free');
   let d;
   if (!teaser && returning.length && rng.chance(0.5)) d = rng.pick(returning);
   else {
@@ -176,7 +177,8 @@ export function hire(state, id) {
   if (state.rep < d.minRep && d.relation < 30) return fail(`"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`);
   if (d.relation <= -30) return fail(`${shortName(d)} won't work for you. Not after last time.`);
   if (hireBlocked(state, d)) return fail(`"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`);
-  if (d.rarity && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
+  if (d.drama?.away) return fail(`${shortName(d)} is sitting this one out.`);
+  if (isVisitor(d) && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
   const cost = hireCost(state, d);
   if (!spend(state, cost)) return fail('You can\'t afford the retainer.');
   d.status = 'crew';
@@ -247,6 +249,7 @@ export function borrow(state) {
 }
 
 export { payDebt } from './groups.js';
+export { chooseDrama } from './drama.js';
 
 export function dismissStory(state) {
   state.story.shift();
@@ -558,6 +561,15 @@ export function resolveHeist(state) {
     d.known.undercover = true;
     leaveCrew(state, id);
   }
+  // Crew who've made a name for themselves move up: rare, then legendary.
+  const promoted = [];
+  for (const id of r.escaped) {
+    const d = state.dogs[id];
+    if (!earnedPromotion(d)) continue;
+    promoted.push({ id, to: promote(d) });
+    state.stats.promoted = (state.stats.promoted || 0) + 1;
+    news(state, `${displayName(d)} has made a name for themselves: ${d.rarity}, ✨ ${SIGNATURES[d.signature].name}.`);
+  }
   addHeat(state, r.heatGain);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
@@ -565,6 +577,7 @@ export function resolveHeist(state) {
   state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [] };
   state.after.headline = headline(state);
   state.after.improved = improved;
+  state.after.promoted = promoted;
   state.phase = 'aftermath';
   return done('The dust settles.');
 }
@@ -804,6 +817,7 @@ export function nextJob(state) {
   state.result = null;
   state.after = null;
   for (const e of betweenJobs(state, rng)) news(state, e.replace(/\{\w+\}/g, '').trim());
+  advanceArcs(state, rng);
   genOffers(state, rng);
   state.phase = 'select';
   checkGameOver(state);

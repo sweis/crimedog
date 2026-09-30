@@ -80,6 +80,18 @@ they're marked out on sight. They turn up more often (and more of them are legen
 the very first job as a teaser. Many have a signature move: a secret way through certain steps of a job (a way in nobody else knows, a vault door taken off
 its hinges, walking out dressed as the Inspector). Those options stay hidden until the mastermind hires a star whose move fits the job.
 
+### Crew drama and rising stars
+
+Crew have lives. Between jobs, someone you know may bring personal drama to the job board: a debt to one of the groups, family trouble, an old partner
+trying to poach them, a chance to learn from a master, the Inspector asking questions. Each is a short story arc over a few jobs, told as scenes where
+the mastermind chooses whether and how to get involved. Helping costs money and usually earns loyalty and a sharper crew member, but it can backfire:
+the debt grows, a relative tags along on the job and draws attention, or the Inspector starts watching. Ignoring it has its own costs. Drama spills
+into the next job (a crew member fired up, distracted, sitting it out, or followed by trouble), and arcs can end with the crew member promoted to rare
+or legendary, doing time in the pound, or betraying the mastermind.
+
+Regular crew also level up: work together long enough, and a crew member who masters a skill becomes rare, with a signature move in it, and later
+legendary.
+
 ## Graphics
 
 Graphically, it can be stylized and does not need to be 3d or complex. It should be easy to render and play on a phone, so the interface should be simple and playable with a

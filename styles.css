@@ -385,6 +385,9 @@ p { margin: 0 0 8px; }
 .standing { position: relative; height: 6px; border-radius: 3px; margin-top: 6px; background: linear-gradient(90deg, #c23b2e, #6b6f7e 50%, #2f7d52); opacity: .85; }
 .standing i { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--paper); box-shadow: 0 0 0 1px #0c1427, 0 0 6px rgba(255, 255, 255, .6); }
 .story-pic { width: 120px; height: 120px; margin: 4px auto 10px; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 3px var(--ink), 0 8px 20px rgba(0, 0, 0, .4); }
+.story-pic.rare { box-shadow: 0 0 0 3px #6fa8dc, 0 8px 20px rgba(0, 0, 0, .4); }
+.story-pic.legendary { box-shadow: 0 0 0 3px var(--brass), 0 0 18px rgba(233, 196, 106, .9); }
+.drama .story-pic { width: 96px; height: 96px; }
 .story-text { font-family: var(--font-quote); font-style: italic; font-size: 16px; line-height: 1.55; margin: 8px 0 16px; }
 
 /* ---------- toast & diagnostics */

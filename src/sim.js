@@ -89,6 +89,7 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   if (q.includes('glory')) p += 0.08;
   const load = Object.values(job.plan).filter((p2) => p2 && p2.dog === dog.id).length;
   if (load > 3) p -= 0.05 * (load - 3);
+  p += (dog.drama?.edge || 0) * 0.08; // fired up or distracted by personal drama
   p += ctx.bonus || 0;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
@@ -524,8 +525,30 @@ export function simulate(state, job, rng) {
     addAlarm(3, null);
   }
 
-  for (const stage of job.stages) {
+  // Personal drama that follows a dog to work turns up at one step (see drama.js).
+  const troubled = crew.filter((d) => d.drama?.trouble);
+  const troubleAt = troubled.length ? rng.int(0, job.stages.length - 2) : -1;
+  const trouble = (stage) => {
+    for (const d of troubled.filter((x) => active().includes(x))) {
+      const t = d.drama.trouble;
+      beat({ kind: 'chaos', stage: stage.id, dog: d.id, text: t.text });
+      if (t.kind === 'heavies') {
+        addAlarm(3, stage.id);
+        if (rng.chance(0.5) && active().includes(d)) escapeCheck(d, stage.id);
+      } else if (t.kind === 'relative') {
+        ctx.clues += 2;
+        addAlarm(1, stage.id);
+      } else if (t.kind === 'tail') {
+        ctx.clues += 3;
+        addAlarm(2, stage.id);
+      }
+    }
+  };
+
+  for (const [k, stage] of job.stages.entries()) {
     if (ctx.aborted || !active().length) break;
+    if (k === troubleAt) trouble(stage);
+    if (!active().length) break;
     const pick = lead(stage);
     if (!pick) {
       if (stage.hidden) continue;

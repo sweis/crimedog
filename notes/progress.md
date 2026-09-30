@@ -96,6 +96,15 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Marker: blue (rare) / gold (legendary) card frame and portrait ring, ★ badge, ✨ signature on the pub card, a gold chip in the profile, gold "secret" options on the plan, a ribbon on the share card.
 - Debug: `spawn('dog','rare'|'legend')`; `getState().stars` lists the pub's stars. Tests: `tests/stars.test.mjs`; smoke section 1f hires the teaser with real taps and picks the secret option.
 
+## Crew drama and promotions
+- `src/drama.js`: five arcs (Borrowed Time: a debt to a group; Family Matters; The Old Crew: an old partner poaching them; The Big Break: a master's apprenticeship; Heat on the Street: the Inspector watching them). Each is 2–3 choice scenes on the job board, usually a job apart; `ARCS` holds the text, choices, effects and branches.
+- Between jobs (`advanceArcs` in `nextJob`): last job's drama effects wear off, unanswered scenes take their last (always free) choice, due scenes come up, and 40% of the time someone you know (met, free, not a known copper) starts a new arc. At most 2 arcs at once, one per dog.
+- Effects: cash, relation, loyalty, greed, group standing, heat, +1 best skill, promotion, the pound, leaving (runner with some of your cash, grass = +20 heat, poached), a relative joining your black book. Next-job effects on `dog.drama`: `edge` (±8% odds on every step; shows on the plan), `away` (can't be hired), `trouble` (heavies, a relative tagging along, a police tail: played by sim.js at one step, adding alarm/clues or an escape check).
+- Promotions: `earnedPromotion`/`promote` in dogs.js. After a job, crew who got away go common→rare at a base skill of 5, 4+ jobs and relation 20+, and rare→legendary at 8+ jobs, relation 45+ and a second base skill of 3+. Arcs can promote too (paying a debt, loyalty to you over an old partner, a master's lessons). Home-grown stars are `homegrown`: mates'-rates fees (rare ×1.4, legendary ×2) and never "out of town".
+- UI: scene modal with the dog's portrait and choice buttons (cost shown, disabled if unaffordable); 📖 Story / 🔥 Fired up / 😟 Distracted / ⚠️ Trouble / 🏠 Away chips; 🔥/😟/⚠️ on plan assignees; a 🌟 promotion line in the aftermath.
+- Probe: `node tools/drama.mjs [careers]`. Careful 12-job careers: ~0.36 arcs per job, ~0.9 home-grown rares and ~0.12 legendaries per career; the balance probe's careful player pays when it has £800 to spare, the reckless one always takes the free option.
+- Debug: `spawn('arc', kind)`, `live()` (the real state, for scripted set-ups); `getState().arcs` / `.drama`. Tests: `tests/drama.test.mjs`; smoke 1g answers a scene with a real tap and checks a promotion.
+
 ## Heist playback
 - The log grows downwards; each new beat scrolls the page to the end so it sits just above the sticky controls (smoke checks this after 12 real taps on Next).
 

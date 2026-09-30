@@ -389,8 +389,9 @@ export const APPROACHES = {
 // Rare and legendary crew only drift into the pub now and then. They cost more,
 // their skills are common knowledge, and many have a signature move.
 export const RARITY = {
-  rare: { label: 'Rare', icon: '★', feeMult: 2.5, minRep: 0, sigChance: 0.6 },
-  legendary: { label: 'Legendary', icon: '★★', feeMult: 4, minRep: 30, sigChance: 1 },
+  // homeMult: fee for crew you brought up yourself (mates' rates).
+  rare: { label: 'Rare', icon: '★', feeMult: 2.5, homeMult: 1.4, minRep: 0, sigChance: 0.6 },
+  legendary: { label: 'Legendary', icon: '★★', feeMult: 4, homeMult: 2, minRep: 30, sigChance: 1 },
 };
 
 // One signature per skill. `fits` matches a stage kind, stage id or vault type:
