@@ -146,6 +146,31 @@ console.log('1. Cold boot, real touch play-through');
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1b. short viewport modal
+console.log('1b. Profile close button stays reachable with browser toolbars showing');
+{
+  const ctx = await browser.newContext({ ...phone, viewport: { width: 375, height: 560 } });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}?dev=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.teleport('pub'); });
+  await tap(page, 'main .dog-card');
+  await page.waitForTimeout(300);
+  const at = async () => page.evaluate(() => { const r = document.querySelector('.modal .close').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, vh: innerHeight }; });
+  const a = await at();
+  check(a.top >= 24 && a.bottom <= a.vh, `close button on screen at open (top ${a.top})`);
+  await page.evaluate(() => { const m = document.querySelector('.modal'); m.scrollTop = m.scrollHeight; });
+  await page.waitForTimeout(150);
+  const b = await at();
+  check(b.top >= 24 && b.bottom <= b.vh, `close button still on screen after scrolling (top ${b.top})`);
+  await shot(page, 'modal-short-viewport');
+  const box = await page.locator('.modal .close').boundingBox();
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(150);
+  check((await page.locator('.modal').count()) === 0, 'tapping ✕ closes the profile');
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 2. dev boot
 console.log('2. Dev boot: sim time advances');
 {

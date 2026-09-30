@@ -482,7 +482,7 @@ function renderModal(G) {
   if (m.type === 'dog') inner = dogModal(G, G.state.dogs[m.id]);
   else if (m.type === 'pick') inner = pickModal(G, m.purpose);
   else if (m.type === 'card') inner = cardModal(G, G.state.dogs[m.id]);
-  root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><button class="close" data-act="close-modal" aria-label="Close">✕</button>${inner}</div></div>`;
+  root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
 
 function dogModal(G, d) {
