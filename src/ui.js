@@ -6,7 +6,7 @@ import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APP
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty, roleLevel } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
-import { canShareFiles } from './card.js';
+import { canShareFiles, FATES } from './card.js';
 import { ARCS, sceneChoices } from './drama.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
@@ -166,7 +166,7 @@ function selectScreen(G) {
       <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
       <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
   }
-  h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button></div>`;
+  h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button>${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}</div>`;
   if (s.cash < 200 && canBorrow(s)) h += `<div class="btn-row mt"><button class="btn red" data-act="borrow">🌹 Borrow £${LOAN.amount} from the Family · owe £${LOAN.owe}</button></div>`;
   h += `<section class="card dark mt"><h2>The Players</h2>`;
   for (const gid of GROUP_IDS) {
@@ -336,7 +336,8 @@ function crewScreen(G) {
   <h2 class="mt">Little Black Book</h2>
   ${book.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">Empty. For now.</p>'}
   ${pound.length ? `<h2 class="mt">In the Pound</h2>${pound.map((d) => dogCard(G, d)).join('')}` : ''}
-  ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}`;
+  ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}
+  ${s.history.length ? `<div class="btn-row mt"><button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button></div>` : ''}`;
 }
 
 // Where a piece of special kit can be won: venues and kinds of job.
@@ -700,7 +701,8 @@ function aftermathScreen(G) {
       h += involved.map((d) => dogCard(G, d)).join('');
       h += '</section>';
     }
-    h += '<button class="btn big block" data-act="next-job">Next job →</button>';
+    h += '<div class="btn-row"><button class="btn ghost" data-act="share-recap" data-i="0">📸 Share this heist</button></div>';
+    h += '<button class="btn big block mt" data-act="next-job">Next job →</button>';
   }
   return h;
 }
@@ -719,7 +721,7 @@ function overScreen(G) {
     <p>${esc(t.text)}</p>
     <section class="card" style="width:100%;text-align:left"><h2>Your Career</h2>
     <p>${s.stats.jobs} jobs · ${s.stats.perfect} perfect · ${money(s.stats.earned)} earned · ${s.day} days</p>
-    <ul class="loot-list">${s.history.map((h) => `<li><span>${esc(h.name)}</span><span class="v">${h.grade}</span></li>`).join('')}</ul></section>
+    <div class="rap-list">${s.history.map((h, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(h.grade)}<div class="grow"><b>${esc(h.name)}</b></div><span class="v">${money(h.take || 0)}</span></button>`).join('')}</div></section>
     <div class="title-actions"><button class="btn big block" data-act="new-game">New Game</button></div>
   </section>`;
 }
@@ -770,7 +772,9 @@ function renderModal(G) {
   let inner = '';
   if (m.type === 'dog') inner = dogModal(G, G.state.dogs[m.id]);
   else if (m.type === 'pick') inner = pickModal(G, m.purpose);
-  else if (m.type === 'card') inner = cardModal(G, G.state.dogs[m.id]);
+  else if (m.type === 'card') inner = cardModal(G);
+  else if (m.type === 'history') inner = historyModal(G);
+  else if (m.type === 'recap') inner = recapModal(G, m.i);
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
 
@@ -833,13 +837,39 @@ function dogModal(G, d) {
     <div class="dm-actions">${actions}</div>`;
 }
 
-function cardModal(G, d) {
-  if (!G.card || G.card.id !== d.id) return '';
-  const name = `crimedog-${d.first.toLowerCase()}.png`;
-  return `<h2>${esc(shortName(d))}'s card</h2>
-    <img class="card-preview" src="${G.card.url}" alt="Character card for ${esc(displayName(d))}" data-card-preview>
+function cardModal(G) {
+  const c = G.card;
+  if (!c) return '';
+  return `<h2>${esc(c.title)}</h2>
+    <img class="card-preview" src="${c.url}" alt="Card: ${esc(c.title)}" data-card-preview>
     <p class="muted center">Long-press to save</p>
-    <div class="btn-row">${canShareFiles() ? '<button class="btn" data-act="share-native">📤 Share</button>' : ''}<a class="btn ghost" href="${G.card.url}" download="${esc(name)}">💾 Save</a></div>`;
+    <div class="btn-row">${canShareFiles() ? '<button class="btn" data-act="share-native">📤 Share</button>' : ''}<a class="btn ghost" href="${c.url}" download="${esc(c.file)}">💾 Save</a></div>`;
+}
+
+// ------------------------------------------------------------------ heist history
+const FATE_ICON = { away: '🏃', nicked: '🚓', farm: '🚜', ran: '💨', copper: '👮' };
+const gradeBadge = (g) => `<span class="gbadge g${g}">${g}</span>`;
+
+function historyModal(G) {
+  const h = G.state.history;
+  if (!h.length) return '<h2>Rap Sheet</h2><p class="muted">No jobs yet. Go and make some history.</p>';
+  return `<h2>Rap Sheet</h2><p class="muted">${count(h.length, 'job')} · tap one for the story</p><div class="rap-list">${h.map((r, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(r.grade)}<div class="grow"><b>${esc(r.name)}</b><div class="muted">${JOB_TYPES[r.type]?.icon || '🔓'} ${esc(r.venue)} · Day ${r.day}</div></div><span class="v">${money(r.take || 0)}</span></button>`).join('')}</div>`;
+}
+
+function recapModal(G, i) {
+  const r = G.state.history[i];
+  if (!r) return '';
+  const T = JOB_TYPES[r.type] || JOB_TYPES.breakin;
+  const crew = (r.crew || []).map((c) => `<div class="rc-dog">${portraitSVG(c, { size: 52 })}<div>${esc(c.nick ? c.nick.replace(/^The /, '') : c.first)}</div><small>${FATE_ICON[c.fate] || ''} ${esc(FATES[c.fate] || '')}</small></div>`).join('');
+  const steps = (r.steps || []).map((st) => `<li><b>${st.icon} ${esc(st.label)}</b>${st.surprise ? ' <span class="chip bad">Surprise!</span>' : ''}
+    ${st.tries.map((t) => `<div class="rc-try ${t.ok ? 'ok' : 'fail'}">${t.ok ? '✓' : '✗'} <b>${esc(t.dog)}</b>${t.improv ? ' improvised' : ''}: ${esc(t.how.toLowerCase())}</div>`).join('')}</li>`).join('');
+  return `<div class="rc-head">${gradeBadge(r.grade)}<div class="grow"><h2>${esc(r.name)}</h2><div class="muted">${T.icon} ${esc(T.label)} · ${esc(r.venue)}${r.district ? `, ${esc(r.district)}` : ''} · Day ${r.day}</div></div></div>
+    ${r.headline ? `<div class="paper rc-paper"><div class="hl">${esc(r.headline)}</div></div>` : ''}
+    <p><b>${money(r.take || 0)}</b>${r.score != null ? ` · ${r.score}/100` : ''}${r.alarmMax != null ? ` · alarm ${r.alarmMax}/10 · ${count(r.clues, 'clue')}` : ''}</p>
+    ${crew ? `<div class="rc-crew">${crew}</div>` : ''}
+    ${steps ? `<h3 class="dm-h">How it went down</h3><ol class="rc-steps">${steps}</ol>` : ''}
+    ${(r.moments || []).map((m) => `<div class="quote">${esc(m)}</div>`).join('')}
+    <div class="btn-row mt"><button class="btn" data-act="share-recap" data-i="${i}">📸 Share this heist</button><button class="btn ghost" data-act="history">📜 Rap sheet</button></div>`;
 }
 
 function pickModal(G, purpose) {

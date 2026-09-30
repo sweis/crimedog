@@ -450,6 +450,57 @@ console.log('1k. Special kit: shown in the shop, offered on jobs, kept after a w
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1l. heist history
+console.log('1l. Heist history: share a heist from the aftermath, read it back on the rap sheet');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=61`);
+  await page.waitForFunction(() => window.cd);
+  // A real heist: hire, plan, pull, play out, fence, pay.
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    window.cd.setSeed(61);
+    window.cd.teleport('plan');
+    const s = window.cd.live();
+    s.cash += 3000;
+    for (const id of s.pub.slice(0, 3)) E.hire(s, id);
+    E.pullJob(s);
+    E.resolveHeist(s);
+    if (s.after.step === 'deliver') E.deliver(s);
+    if (s.after.step === 'fence') E.fence(s, 'hal');
+    E.payCrew(s, s.after.received ? 30 : 0);
+    window.cd.teleport('aftermath');
+  });
+  await tap(page, 'main [data-act="share-recap"]');
+  await page.waitForSelector('[data-card-preview]');
+  const w = await page.$eval('[data-card-preview]', (img) => img.decode().then(() => img.naturalWidth));
+  check(w === 600, `heist card renders a 600px PNG (${w})`);
+  await page.waitForTimeout(200);
+  await shot(page, 'history-card');
+  // Save the card image itself to look at.
+  const png = await page.$eval('[data-card-preview]', async (img) => { const b = await (await fetch(img.src)).blob(); const buf = new Uint8Array(await b.arrayBuffer()); let s = ''; for (const x of buf) s += String.fromCharCode(x); return btoa(s); });
+  fs.writeFileSync(path.join(OUT, 'history-card-image.png'), Buffer.from(png, 'base64'));
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, 'main [data-act="next-job"]');
+  for (let g = 0; g < 10; g++) {
+    if (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+    else if (await page.locator('.modal.story [data-act="drama"]').count()) await tap(page, '.modal.story [data-act="drama"]:last-of-type');
+    else break;
+  }
+  await tap(page, 'main [data-act="history"]');
+  check(await page.locator('.modal .rap').count() === 1, 'the rap sheet lists the job');
+  await tap(page, '.modal .rap');
+  const st = await page.evaluate(() => window.cd.getState().history[0]);
+  const shown = await page.locator('.modal .rc-steps > li').count();
+  check(shown === st.steps && st.crew === 3, `the recap retells every step (${shown}/${st.steps}) and the crew (${st.crew})`);
+  await shot(page, 'history-recap');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

@@ -105,6 +105,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Probe: `node tools/drama.mjs [careers]`. Careful 12-job careers: ~0.36 arcs per job, ~0.9 home-grown rares and ~0.12 legendaries per career; the balance probe's careful player pays when it has £800 to spare, the reckless one always takes the free option.
 - Debug: `spawn('arc', kind)`, `live()` (the real state, for scripted set-ups); `getState().arcs` / `.drama`. Tests: `tests/drama.test.mjs`; smoke 1g answers a scene with a real tap and checks a promotion.
 
+## Heist history and sharing
+- Every graded job leaves a recap in `state.history` (last 30; `src/recap.js`): kind, venue, grade, take, headline, each step with who tried it and how (✓/✗, improvised, surprise), the big moments, loot, and a snapshot of each crew member (enough to draw them) with their fate (got away / nicked / the farm / did a runner / a copper).
+- Rap sheet (modal, `data-act="history"`): from the job board, the crew page and the game-over screen. Tap a job for its recap; "Share this heist" there or on the grade screen.
+- Share card: `recapPNG(r)` in card.js draws a heist report (grade, take, crew portraits and fates, how it went down, moments) that grows to fit; crew and heist cards share one pipeline (`svgPNG`, `shareBlob(card)`, a generic card modal). No emoji on cards (they don't rasterise reliably).
+- Tests: `tests/recap.test.mjs`; smoke 1l plays a job, shares it with a real tap (600px PNG saved to `notes/captures/history-card-image.png`) and reads it back on the rap sheet.
+
 ## Casing, roles, special kit (latest pass)
 - Casing: each INTEL key has the `skill` that finds it best (nose smells, tech systems, sneak watching, charm chatting, wheels routes). `caseOdds(state, dog)`: each unknown piece has p = 0.1 + 0.16×skill (+0.15 with an intel talent, max 0.9); up to 3 a day, at least 1. Spotted: 0.35 − 0.08×max(sneak, disguise). Specialists in nose/tech/sneak/charm each find ~1.8–2.0 a day (nose used to find 3).
 - Security alert: `raiseAlert(job, why)` keeps `job.alertWhy`; the job screen lists the reasons ("every step +N harder"), the plan shows an Alert chip.

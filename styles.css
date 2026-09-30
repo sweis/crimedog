@@ -270,6 +270,25 @@ p { margin: 0 0 8px; }
 .plan-step.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
 .kit.locked { opacity: .7; }
+/* ---------- heist history */
+.rap-list { display: flex; flex-direction: column; gap: 8px; }
+.rap { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--paper-3); background: var(--paper-fill); color: var(--ink); }
+.rap .v { font-weight: 800; font-variant-numeric: tabular-nums; }
+.gbadge { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; font-family: var(--font-display); font-size: 20px; background: #101a30; color: #e9c46a; box-shadow: 0 0 0 2px var(--brass); }
+.gbadge.gS { color: #7fd6ff; } .gbadge.gD, .gbadge.gF { color: #ff7a6b; }
+.rc-head { display: flex; gap: 12px; align-items: center; }
+.rc-head .gbadge { width: 56px; height: 56px; font-size: 32px; }
+.rc-head h2 { margin: 0; }
+.rc-paper { margin: 10px 0; transform: none; padding: 8px; }
+.rc-paper .hl { font-size: 16px; }
+.rc-crew { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.rc-dog { flex: none; width: 64px; text-align: center; font-size: 13px; font-weight: 700; }
+.rc-dog svg { width: 52px; height: 52px; border-radius: 10px; box-shadow: 0 0 0 2px var(--ink); }
+.rc-dog small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 11px; }
+.rc-steps { padding-left: 20px; margin: 4px 0 8px; }
+.rc-steps li { margin-bottom: 6px; }
+.rc-try { font-size: 14px; }
+.rc-try.ok { color: #1d5536; } .rc-try.fail { color: #8a2419; }
 .alert-note { background: #f7d8d3; border: 1px solid #e7a79c; color: #8a2419; border-radius: 10px; padding: 8px 10px; font-size: 13px; }
 .stage-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .stage-head .n { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a4652, #16151a); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: var(--font-title); font-weight: 800; font-size: 13px; flex: none; box-shadow: 0 2px 3px rgba(0, 0, 0, .35); }

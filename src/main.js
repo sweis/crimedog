@@ -2,7 +2,7 @@
 import * as E from './engine.js';
 import { render, currentScreen, hiringFor } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
-import { cardPNG, shareBlob } from './card.js';
+import { cardPNG, recapPNG, shareBlob } from './card.js';
 
 const SAVE_KEY = 'crimedog.save.v2';
 const params = new URLSearchParams(location.search);
@@ -98,6 +98,20 @@ G.advanceBeat = (doRender = true) => {
 };
 
 // ------------------------------------------------------------------ actions
+// Draw a shareable card (crew member or heist) and show it with share/save buttons.
+async function showCard(make) {
+  try {
+    const card = await make();
+    if (G.card?.url) URL.revokeObjectURL(G.card.url);
+    G.card = { ...card, url: URL.createObjectURL(card.blob) };
+    G.ui.modal = { type: 'card' };
+    G.render();
+  } catch (e) {
+    toast('Couldn\'t draw the card.', true);
+    logError(e);
+  }
+}
+
 function show(screen) {
   G.ui.screen = screen;
   G.ui.modal = null;
@@ -215,24 +229,19 @@ const A = {
     run(E.farm, id);
   },
   async 'share'(el) {
-    const dog = G.state.dogs[el.dataset.id];
-    try {
-      const blob = await cardPNG(dog);
-      if (G.card?.url) URL.revokeObjectURL(G.card.url);
-      G.card = { id: dog.id, blob, url: URL.createObjectURL(blob) };
-      G.ui.modal = { type: 'card', id: dog.id };
-      G.render();
-    } catch (e) {
-      toast('Couldn\'t draw the card.', true);
-      logError(e);
-    }
+    await showCard(() => cardPNG(G.state.dogs[el.dataset.id]));
+  },
+  async 'share-recap'(el) {
+    await showCard(() => recapPNG(G.state.history[Number(el.dataset.i)]));
   },
   async 'share-native'() {
     if (!G.card) return;
-    const how = await shareBlob(G.state.dogs[G.card.id], G.card.blob);
+    const how = await shareBlob(G.card);
     if (how === 'shared') toast('Shared.');
     else if (how !== 'cancelled') toast('Sharing isn\'t available here. Long-press the card to save it.', true);
   },
+  'history'() { G.ui.modal = { type: 'history' }; G.render(); },
+  'recap'(el) { G.ui.modal = { type: 'recap', i: Number(el.dataset.i) }; G.render(); },
   'plan-ap'(el) {
     const st = el.dataset.stage;
     const cur = G.state.job.plan[st] || {};
