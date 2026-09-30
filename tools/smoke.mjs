@@ -307,6 +307,200 @@ console.log('1g. Crew drama: a scene on the job board, answered with a real tap'
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1h. kinds of job
+console.log('1h. Kinds of job: a long con on the board, taken and planned with real taps');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=21`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(async () => {
+    const { genJob } = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.setSeed(21);
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.offers[0].job = genJob(s, makeRng({ s: 5 }), { type: 'con', tier: 2 });
+    s.offers[1].job = genJob(s, makeRng({ s: 6 }), { type: 'van', tier: 2 });
+    window.cd.teleport('select');
+  });
+  const chips = await page.locator('main .offer .chip.dark').allTextContents();
+  check(chips.some((c) => /Long Con/.test(c)) && chips.some((c) => /Van Job/.test(c)), `job board shows the kind of job (${chips.join(', ')})`);
+  await shot(page, 'job-types-board');
+  await tap(page, 'main .offer [data-act="take-offer"]');
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    s.cash += 3000;
+    for (const id of s.pub.slice(0, 3)) E.hire(s, id);
+    window.cd.teleport('job');
+  });
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  const steps = await page.locator('main .plan-step h3').allTextContents();
+  check(steps.some((t) => /The Introduction/.test(t)) && steps.some((t) => /The Pitch/.test(t)) && !steps.some((t) => /Getaway/.test(t)), `a con plans its own steps (${steps.join(' | ')})`);
+  const st = await page.evaluate(() => window.cd.getState().job);
+  check(st.type === 'con' && st.noInsider, 'getState: a con, no insiders');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; window.scrollTo(0, 0); });
+  await shot(page, 'job-types-con-plan');
+  if (await page.locator('.plan-step[data-stage="specialist"]').count()) {
+    await page.evaluate(() => document.querySelector('.plan-step[data-stage="specialist"]').scrollIntoView({ block: 'center' }));
+    await shot(page, 'job-types-specialist');
+  }
+  await tap(page, '.nav [data-to="fixer"]');
+  check(await page.locator('main [data-purpose="insider"][disabled]').count() === 1, 'fixer: no inside dog on a con');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1i. casing
+console.log('1i. Casing: the picker says what to look for; being spotted is explained');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=31`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(31); window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew'); window.cd.teleport('job'); });
+  await tap(page, 'main [data-act="pick"][data-purpose="case"]');
+  const note = await page.locator('.modal p.muted').first().textContent();
+  check(/Finds/.test(note) && /unseen/.test(note), `case picker lists what to look for (${note})`);
+  await shot(page, 'casing-picker');
+  // A clumsy caser: keep casing until someone's spotted.
+  const spotted = await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    const d = s.dogs[s.crew[0]];
+    for (const k of Object.keys(d.skills)) d.skills[k] = 0;
+    d.talents = [];
+    s.cash += 5000;
+    for (let i = 0; i < 20 && !s.job.alert; i++) { s.job.daysLeft = 5; for (const k of Object.keys(s.job.intel)) s.job.intel[k] = false; E.caseJoint(s, d.id); }
+    window.cd.teleport('job');
+    return s.job.alert;
+  });
+  const alertText = await page.locator('main .alert-note').textContent().catch(() => '');
+  check(spotted > 0 && /spotted casing the joint/.test(alertText), `job screen explains the alert (${alertText.trim()})`);
+  await page.evaluate(() => { document.querySelector('main .alert-note').scrollIntoView({ block: 'center' }); });
+  await shot(page, 'casing-alert');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1j. leaders and wildcards
+console.log('1j. Roles: a leader and a wildcard show on the crew and the plan');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=41`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => {
+    window.cd.setSeed(41);
+    window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew');
+    const s = window.cd.live();
+    s.dogs[s.crew[0]].role = { kind: 'leader', level: 2 };
+    s.dogs[s.crew[1]].role = { kind: 'wildcard', level: 3 };
+    s.dogs[s.crew[2]].role = null;
+    window.cd.teleport('crew');
+  });
+  check(await page.locator('main .chip.role.leader').count() === 1 && await page.locator('main .chip.role.wildcard').count() === 1, 'crew cards show the leader and the wildcard');
+  await shot(page, 'roles-crew');
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  const chips = await page.locator('main > p.dm-chips .chip').allTextContents();
+  check(chips.some((c) => /Every step \+4%/.test(c)) && chips.some((c) => /unexpected/.test(c)), `plan says what they bring (${chips.join(', ')})`);
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; window.scrollTo(0, 0); });
+  await shot(page, 'roles-plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1k. special kit
+console.log('1k. Special kit: shown in the shop, offered on jobs, kept after a win');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=51`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(51); window.cd.teleport('kit'); });
+  check(await page.locator('main .kit.locked').count() === 6, 'the shop lists 6 pieces found only on jobs');
+  await page.evaluate(() => document.querySelector('main h2.mt').scrollIntoView({ block: 'start' }));
+  await shot(page, 'special-kit-shop');
+  await page.evaluate(async () => {
+    const { genJob } = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.offers[0].job = genJob(s, makeRng({ s: 9 }), { type: 'breakin', venueType: 'museum' });
+    s.offers[0].job.prize = 'detector';
+    window.cd.teleport('select');
+  });
+  check(/Laser Detector/.test(await page.locator('main .offer').first().textContent()), 'the job board shows the prize');
+  await tap(page, 'main .offer [data-act="take-offer"]');
+  await page.evaluate(() => { window.cd.win(); window.cd.teleport('aftermath'); window.scrollTo(0, 0); });
+  const kept = await page.evaluate(() => ({ kit: window.cd.getState().kit.detector, text: document.querySelector('main .events')?.textContent || '' }));
+  check(kept.kit === 1 && /Kept/.test(kept.text), `a win keeps the Laser Detector (${kept.kit})`);
+  await shot(page, 'special-kit-kept');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1l. heist history
+console.log('1l. Heist history: share a heist from the aftermath, read it back on the rap sheet');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=61`);
+  await page.waitForFunction(() => window.cd);
+  // A real heist: hire, plan, pull, play out, fence, pay.
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    window.cd.setSeed(61);
+    window.cd.teleport('plan');
+    const s = window.cd.live();
+    s.cash += 3000;
+    for (const id of s.pub.slice(0, 3)) E.hire(s, id);
+    E.pullJob(s);
+    E.resolveHeist(s);
+    if (s.after.step === 'deliver') E.deliver(s);
+    if (s.after.step === 'fence') E.fence(s, 'hal');
+    E.payCrew(s, s.after.received ? 30 : 0);
+    window.cd.teleport('aftermath');
+  });
+  await tap(page, 'main [data-act="share-recap"]');
+  await page.waitForSelector('[data-card-preview]');
+  const w = await page.$eval('[data-card-preview]', (img) => img.decode().then(() => img.naturalWidth));
+  check(w === 600, `heist card renders a 600px PNG (${w})`);
+  await page.waitForTimeout(200);
+  await shot(page, 'history-card');
+  // Save the card image itself to look at.
+  const png = await page.$eval('[data-card-preview]', async (img) => { const b = await (await fetch(img.src)).blob(); const buf = new Uint8Array(await b.arrayBuffer()); let s = ''; for (const x of buf) s += String.fromCharCode(x); return btoa(s); });
+  fs.writeFileSync(path.join(OUT, 'history-card-image.png'), Buffer.from(png, 'base64'));
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, 'main [data-act="next-job"]');
+  for (let g = 0; g < 10; g++) {
+    if (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+    else if (await page.locator('.modal.story [data-act="drama"]').count()) await tap(page, '.modal.story [data-act="drama"]:last-of-type');
+    else break;
+  }
+  await tap(page, 'main [data-act="history"]');
+  check(await page.locator('.modal .rap').count() === 1, 'the rap sheet lists the job');
+  await tap(page, '.modal .rap');
+  const st = await page.evaluate(() => window.cd.getState().history[0]);
+  const shown = await page.locator('.modal .rc-steps > li').count();
+  check(shown === st.steps && st.crew === 3, `the recap retells every step (${shown}/${st.steps}) and the crew (${st.crew})`);
+  await shot(page, 'history-recap');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {
@@ -364,7 +558,12 @@ console.log('1e. Groups offer jobs once you have a name');
   check(st.offers.some((o) => o.source !== 'own'), `outfits make offers at high rep (${st.offers.map((o) => o.source).join(', ')})`);
   check(await page.locator('.modal.story').count() === 1, 'first contact shows a story scene');
   await shot(page, 'group-story');
-  while (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+  // Clear any scenes: group stories, and crew drama (taking the free last option).
+  for (let g = 0; g < 10; g++) {
+    if (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+    else if (await page.locator('.modal.story [data-act="drama"]').count()) await tap(page, '.modal.story [data-act="drama"]:last-of-type');
+    else break;
+  }
   await shot(page, 'group-board');
   const offerId = st.offers.find((o) => o.source !== 'own').id;
   await tap(page, `[data-act="take-offer"][data-id="${offerId}"]`);

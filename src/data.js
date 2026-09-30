@@ -312,6 +312,15 @@ export const KIT = {
   van: { name: 'Getaway Van', price: 500, icon: '🚐', consumable: false, blurb: 'Ram raids, +3 carry, +2 getaway. Burned if the alarm goes.' },
   moped: { name: 'Mopeds', price: 200, icon: '🛵', consumable: false, blurb: 'Nippy alley getaway.' },
   bags: { name: 'Big Swag Bags', price: 30, icon: '💰', consumable: true, blurb: '+2 carry. Used up.' },
+  // ---- Special kit: never for sale. Won on particular jobs (`from`: venues or kinds of
+  // job) and kept for later ones. `effect` makes matching steps easier.
+  keycard: { name: 'Master Key Card', icon: '💳', price: 0, special: true, consumable: true, uses: 3, from: ['bank', 'casino', 'hack'], blurb: 'A quiet way in on break-ins. Three swipes.' },
+  detector: { name: 'Laser Detector', icon: '📡', price: 0, special: true, from: ['museum', 'auction'], effect: { stage: 'obs_lasers', diff: -2 }, blurb: 'Laser grids: -2 difficulty.' },
+  scanner: { name: 'Police Scanner', icon: '📻', price: 0, special: true, from: ['van', 'hack'], effect: { kind: 'getaway', diff: -1 }, escape: 0.1, blurb: 'Getaways -1; better odds of slipping the Old Bill.' },
+  skeleton: { name: 'Skeleton Key', icon: '🗝️', price: 0, special: true, from: ['mansion', 'butcher', 'swap'], effect: { skill: 'locks', diff: -1 }, blurb: 'Every locks step: -1 difficulty.' },
+  catnip: { name: 'Catnip Pouch', icon: '🌿', price: 0, special: true, from: ['show', 'con', 'smash'], effect: { stage: 'haz_cat', diff: -3 }, blurb: 'Security cats: -3 difficulty.' },
+  ledger: { name: 'The Little Black Ledger', icon: '📒', price: 0, special: true, from: ['fraud', 'con', 'auction'], effect: { types: ['con', 'fraud', 'hack'], diff: -1 }, blurb: 'Everyone\'s secrets. Cons, frauds and wire jobs: -1 difficulty.' },
+  replica: { name: 'Replica', price: 150, icon: '🏺', consumable: true, blurb: 'A convincing fake. Needed to swap the goods.' },
   smoke: { name: 'Smoke Bombs', price: 90, icon: '💨', consumable: true, blurb: 'Better odds of escaping capture. Used up.' },
 };
 
@@ -329,12 +338,16 @@ export const APPROACHES = {
   e_vent: { label: 'Crawl in through the air vents', skill: 'agility', mod: 1, noise: 0, failNoise: 2, clues: 0, needIntel: 'blueprints', ok: '{d} wriggles through the vents and out a grille.', fail: '{d} gets stuck in a vent. The banging echoes.' },
   e_delivery: { label: 'Pose as a sausage delivery', skill: 'disguise', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '"Sausages for Mr... Sausage?" It works. Somehow.', fail: 'Nobody ordered sausages. Suspicion is high.' },
   e_ram: { label: 'Ram-raid the front window', skill: 'wheels', mod: -2, noise: 5, failNoise: 6, clues: 2, needKit: 'van', ok: '{d} puts the van through the front window. Subtle as a brick.', fail: '{d} misses the window and hits a lamppost. Very loud.' },
+  e_sniffkey: { label: 'Sniff out the spare key', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: '{d} sniffs every flowerpot on the street. Third one: a spare key.', fail: '{d} digs up the whole flowerbed. No key. Lots of mess.' },
+  e_rod: { label: 'Hook the window latch with a fishing rod', skill: 'aim', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'One cast from across the yard. The latch flips. {d} blows on the reel.', fail: '{d} hooks the burglar alarm instead. Reels it in, too.' },
+  e_keycard: { label: 'Swipe the master key card', skill: 'sneak', mod: -3, noise: 0, failNoise: 1, clues: 0, needKit: 'keycard', ok: 'Beep. Green light. The door just... opens.', fail: 'Beep. Red light. They\'ve changed the codes.' },
   e_insider: { label: 'Inside dog props the door', skill: 'sneak', mod: -3, noise: 0, failNoise: 1, clues: 0, needInsider: true, ok: 'The inside dog props the fire door with a chew toy. Walk right in.', fail: 'The inside dog gets called to the manager\'s office at the worst moment.' },
   // ---- Obstacles
   o_sneakpast: { label: 'Sneak past on the patrol gap', skill: 'sneak', mod: 0, noise: 0, failNoise: 3, clues: 0, intelBonus: 'guard_rota', ok: '{d} slips by in the gap between patrols.', fail: 'A guard turns round. Torchlight, right in the face.' },
   o_squeaky: { label: 'Lob a squeaky toy down the corridor', skill: 'aim', mod: -2, noise: 0, failNoise: 2, clues: 1, needKit: 'squeaky', ok: 'SQUEAK. Every guard in the building chases it. Can\'t help themselves.', fail: 'The toy bounces off a guard\'s head. He is not amused.' },
   o_knockout: { label: 'Have a quiet word (loudly)', skill: 'muscle', mod: 0, noise: 2, failNoise: 3, clues: 1, ok: '{d} has a word. The guards have a lie down.', fail: 'The guards have a word back. A loud one.' },
   o_relief: { label: 'Pose as the relief shift', skill: 'disguise', mod: -1, noise: 0, failNoise: 2, clues: 0, needKit: 'uniforms', ok: '"Shift change, lads. Off you pop." And off they pop.', fail: '"We don\'t have a shift change at two a.m." Oops.' },
+  o_sniffguards: { label: 'Sniff out where the guards are', skill: 'nose', mod: 0, noise: 0, failNoise: 2, clues: 0, intelBonus: 'guard_rota', ok: '{d} follows the smell of cheese sandwiches and steers everyone round them.', fail: '{d} follows the smell of cheese sandwiches straight into the break room.' },
   o_bribed: { label: 'Wave at the guard you bribed', skill: 'charm', mod: -4, noise: 0, failNoise: 2, clues: 0, needBribe: true, ok: 'The bribed guard is looking very hard at a crossword.', fail: 'The bribed guard has had second thoughts.' },
   o_loop: { label: 'Loop the camera feed', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'The monitors show an empty corridor. On repeat.', fail: 'The feed glitches. The control room goes, "Hang on..."' },
   o_shoot: { label: 'Pop the lenses with a slingshot', skill: 'aim', mod: -1, noise: 1, failNoise: 2, clues: 1, kitBonus: 'slingshot', ok: 'Ping. Ping. Ping. Every camera, blind.', fail: 'Ping. Miss. Ping. Miss. The camera swivels round.' },
@@ -355,6 +368,7 @@ export const APPROACHES = {
   v_drill: { label: 'Drill the hinges', skill: 'muscle', mod: -1, noise: 3, failNoise: 4, clues: 1, needKit: 'drill', ok: 'Sparks fly. The door falls off with a clang.', fail: 'The drill bit snaps. The whine could wake the dead.' },
   v_keypad: { label: 'Hack the keypad', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'Beep boop beep. Access granted.', fail: 'ACCESS DENIED. ACCESS DENIED. ACCESS DENIED.' },
   v_combo: { label: 'Punch in the combination', skill: 'locks', mod: -4, noise: 0, failNoise: 1, clues: 0, needIntel: 'combo', ok: 'The numbers from the intel. First try.', fail: 'Someone copied the numbers down wrong.' },
+  v_sniff: { label: 'Sniff out the most-pressed buttons', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Four buttons smell of the manager\'s biscuits. {d} tries them in order. Click.', fail: 'Every button smells of biscuits. The manager has a problem.' },
   v_swap: { label: 'Swap the goods for fakes', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: -1, swap: true, ok: '{d} swaps the real goods for convincing fakes. They\'ll never know.', fail: '{d} knocks the fakes over. Crash.' },
   v_smash: { label: 'Smash and grab', skill: 'muscle', mod: -2, noise: 4, failNoise: 4, clues: 2, ok: 'SMASH. Grab. Done.', fail: 'The glass doesn\'t smash. {d} bounces off it.' },
   v_pickcase: { label: 'Pick the case locks', skill: 'locks', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'lockpicks', ok: 'Tiny locks, tiny picks. Open.', fail: 'The case has a tilt sensor. It tilts.' },
@@ -365,6 +379,8 @@ export const APPROACHES = {
   x_chute: { label: 'Down the laundry chute', skill: 'agility', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: 'Wheee! Straight into a laundry cart.', fail: 'Wheee— stuck. Halfway down. With the swag.' },
   x_front: { label: 'Out the front, bold as brass', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 1, ok: 'Right out the front door, tipping their hats to the night guard.', fail: 'The night guard recognises them from the telly.' },
   x_wall: { label: 'Through the wall', skill: 'muscle', mod: 0, noise: 3, failNoise: 4, clues: 2, needKit: 'drill', ok: 'Through the wall and into the alley. Brick dust everywhere.', fail: 'The wall is load-bearing. Half the ceiling comes with them.' },
+  x_trolley: { label: 'Down the loading ramp on a trolley', skill: 'wheels', mod: 1, noise: 1, failNoise: 3, clues: 1, ok: '{d} steers a loaded trolley down the ramp like it\'s a sports car.', fail: 'The trolley has a wonky wheel. It goes left. Into a shelf.' },
+  x_fireexit: { label: 'Pick the chained fire exit', skill: 'locks', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'lockpicks', ok: 'The padlock on the fire exit lasts four seconds. {d} is almost insulted.', fail: 'The padlock holds. The chain rattles. Loudly.' },
   x_roof: { label: 'Up to the roof and zip-line off', skill: 'agility', mod: 0, noise: 0, failNoise: 2, clues: 0, needKit: 'grapple', ok: 'Zzzzzip. Across the rooftops and gone.', fail: 'Zzzzip— SNAP. Someone forgot to tie the knot.' },
   // ---- Getaway
   g_hotwire: { label: 'Hot-wire a motor on the street', skill: 'tech', mod: 1, noise: 1, failNoise: 2, clues: 1, ok: 'Two wires, one spark, and they\'re away.', fail: 'The car alarm goes off. The whole street wakes up.' },
@@ -372,7 +388,120 @@ export const APPROACHES = {
   g_moped: { label: 'Mopeds through the alleys', skill: 'wheels', mod: 0, noise: 0, failNoise: 2, clues: 0, needKit: 'moped', ok: 'A swarm of mopeds vanishes into the back alleys.', fail: 'A moped runs out of petrol. Right outside a police box.' },
   g_crowd: { label: 'Melt into the crowd', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 0, crowd: true, ok: 'Just another bunch of blokes in flat caps.', fail: 'There is no crowd. There is them, and a policeman.' },
   g_barge: { label: 'Slow canal barge', skill: 'wheels', mod: -1, noise: 0, failNoise: 1, clues: -1, slow: true, ok: 'Chug... chug... chug. Nobody suspects a barge.', fail: 'The barge is overtaken by a jogger. Then a police boat.' },
+  g_sniff: { label: 'Follow your nose through the back alleys', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: '{d} leads them home by the smell of the chip shop. Nobody follows.', fail: '{d} leads them home by the smell of the chip shop. So do the police.' },
+  g_tyres: { label: 'Pop the patrol car\'s tyres and stroll off', skill: 'aim', mod: 1, noise: 1, failNoise: 2, clues: 1, kitBonus: 'slingshot', ok: 'Pfft. Pfft. The patrol car isn\'t going anywhere, and neither is the copper in it.', fail: 'Missed. The copper looks up from his sandwich.' },
   g_walk: { label: 'Walk. Casual. Whistle', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
+  // ---- The Long Con (a confidence scam: no doors, no vault, just a mark)
+  c_club: { label: 'Bump into the mark at their club', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '{d} spills a drink on the mark, apologises beautifully, and gets invited to dinner.', fail: 'The mark remembers {d} from somewhere. Not somewhere good.' },
+  c_charity: { label: 'Pose as a charity collector', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'The Home for Retired Greyhounds thanks you. The mark thinks {d} is a saint.', fail: 'The mark asks for the charity\'s number. {d} doesn\'t have one.' },
+  c_haunts: { label: 'Sniff out the mark\'s favourite haunts', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '{d} follows the mark\'s cologne to a quiet little bar. Perfect.', fail: '{d} follows the wrong cologne. Spends the evening with a dentist.' },
+  c_party: { label: 'Gatecrash the garden party', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Over the hedge and into the canapés. Nobody asks.', fail: 'Stuck in the hedge. In full view of the croquet.' },
+  c_invest: { label: 'Pitch a can\'t-lose investment', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 0, intelBonus: 'mark_file', ok: '"Gold-plated biscuit futures, my friend. Can\'t lose." The mark is hooked.', fail: 'The mark\'s accountant is in the room. The accountant has questions.' },
+  c_duke: { label: 'Pose as a Duke down on his luck', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 0, intelBonus: 'mark_file', ok: '{d} does a Duke so convincing the mark curtseys.', fail: 'The mark actually knows the Duke. He\'s shorter.' },
+  c_papers: { label: 'Show him the forged paperwork', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 1, kitBonus: 'laptop', ok: 'Stamps, seals, a watermark. The paperwork is flawless.', fail: 'The watermark says "SAMPLE".' },
+  c_cards: { label: 'Let him win at cards', skill: 'agility', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'Sleight of paw. The mark wins three hands and thinks he\'s a genius.', fail: 'An ace falls out of {d}\'s sleeve. Then another.' },
+  c_ticket: { label: 'Rig a winning ticket', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: 'The mark\'s ticket comes up. He\'s a believer now.', fail: 'Every ticket in the raffle is a winner. Suspicious.' },
+  c_raid: { label: 'Stage a fake police raid', skill: 'disguise', mod: 1, noise: 1, failNoise: 2, clues: 1, needKit: 'uniforms', ok: 'Fake coppers burst in. The mark trusts {d} for "tipping him off".', fail: 'A real copper walks past the fake raid. Stops. Stares.' },
+  c_shill: { label: 'Plant a shill who vouches for you', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '"I made a fortune with these chaps!" The shill is very convincing.', fail: 'The shill overdoes it. Cries real tears. The mark edges away.' },
+  c_swapcase: { label: 'Swap his case for an identical one', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 0, swap: true, needKit: 'replica', ok: 'Two identical cases. {d} leaves with the right one. The mark doesn\'t notice a thing.', fail: 'Both cases burst open. Both are full of... oh dear.' },
+  c_handover: { label: 'He hands it over himself', skill: 'charm', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: 'The mark shakes {d}\'s paw and hands the lot over. "Pleasure doing business."', fail: 'At the last second, the mark wants to "sleep on it".' },
+  c_deed: { label: 'Get it signed over, all legal-like', skill: 'tech', mod: 1, noise: 0, failNoise: 1, clues: 1, ok: 'Signed, stamped, witnessed. It\'s yours. Legally. Ish.', fail: 'The mark reads the small print. Nobody reads the small print.' },
+  c_vanish: { label: 'Vanish before the cheque clears', skill: 'sneak', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'By morning the office is empty and the phone is disconnected.', fail: 'The mark pops round early with croissants. Awkward.' },
+  c_arrested: { label: 'Fake your own arrest', skill: 'disguise', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'uniforms', ok: 'Fake coppers march {d} off. The mark thinks the money\'s gone to the Old Bill.', fail: 'The fake copper forgets his lines. The mark gets his camera out.' },
+  c_happy: { label: 'Leave him happy with a good story', skill: 'charm', mod: 1, noise: 0, failNoise: 1, clues: -1, ok: 'The mark waves them off, delighted. He\'ll be telling this story for years. Wrongly.', fail: 'The story doesn\'t add up. The mark starts adding.' },
+  c_tip: { label: 'Slip the butler a tenner', skill: 'charm', mod: -1, noise: 0, failNoise: 1, clues: 1, ok: 'The butler pockets it and develops sudden deafness.', fail: 'The butler hands the tenner straight to the mark.' },
+  c_errand: { label: 'Send the butler on an errand', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '"His Lordship needs more mustard." Off the butler goes.', fail: 'The butler says His Lordship hates mustard.' },
+  c_sniffbutler: { label: 'Sniff out what the butler wants', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'Cheese. The butler wants cheese. Everyone\'s happy.', fail: 'The butler smells {d} sniffing him. That\'s a no.' },
+  // ---- The Switch (swap the goods for a decoy; done right, nobody notices)
+  w_sleight: { label: 'Swap it under their noses', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 0, swap: true, needKit: 'replica', ok: 'Real one out, fake one in. {d} doesn\'t even break stride.', fail: '{d} fumbles the replica. It bounces. It squeaks.' },
+  w_scene: { label: 'Cause a scene while it\'s swapped', skill: 'charm', mod: 0, noise: 1, failNoise: 2, clues: 1, swap: true, needKit: 'replica', ok: '{d} faints dramatically. By the time they\'re up, the swap\'s done.', fail: '{d} faints dramatically. Onto the display.' },
+  w_clean: { label: 'Swap it on the cleaning shift', skill: 'disguise', mod: -1, noise: 0, failNoise: 2, clues: 0, swap: true, needKit: 'replica', ok: 'Mop, bucket, swap. The cleaner is never suspected.', fail: 'The real cleaner turns up. There are now two cleaners.' },
+  w_magnet: { label: 'Fish it out through the vent', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: 0, swap: true, needKit: 'replica', ok: 'A magnet on a line lifts the real one; the replica drops in. Lovely.', fail: 'The magnet picks up the fake, the real one, and a paperclip.' },
+  w_cutout: { label: 'Leave a cardboard cut-out', skill: 'sneak', mod: 2, noise: 0, failNoise: 2, clues: 2, ok: 'A cardboard cut-out of the goods. It\'ll fool nobody by morning, but it\'s done.', fail: 'The cut-out falls over. So does {d}.' },
+  // ---- Smash & Grab (loud, fast, no finesse)
+  s_bin: { label: 'Put a bin through the window', skill: 'muscle', mod: -1, noise: 5, failNoise: 5, clues: 2, ok: 'CRASH. {d} is through the window before the glass lands.', fail: 'The bin bounces off the reinforced glass and back at {d}.' },
+  s_moped: { label: 'Ride a moped through the doors', skill: 'wheels', mod: -1, noise: 5, failNoise: 5, clues: 2, needKit: 'moped', ok: '{d} rides straight through the doors and does a doughnut in the shop.', fail: 'The doors are push, not pull. The moped disagrees.' },
+  s_brick: { label: 'Brick through the window from across the road', skill: 'aim', mod: 0, noise: 4, failNoise: 4, clues: 1, ok: 'One brick, one perfect throw, one very large hole.', fail: 'The brick goes through the window of the shop next door.' },
+  s_sweep: { label: 'Sweep the counter into a sack', skill: 'agility', mod: -1, noise: 2, failNoise: 3, clues: 1, ok: '{d} vaults the counter and sweeps the lot into a sack in one motion.', fail: '{d} vaults the counter. And the next counter. And into the wall.' },
+  s_cabinet: { label: 'Rip the cabinet off the wall', skill: 'muscle', mod: 0, noise: 3, failNoise: 4, clues: 1, ok: 'The whole cabinet comes off the wall. They take it with them.', fail: 'The cabinet is bolted to the wall. So is {d}\'s pride.' },
+  s_cupboard: { label: 'Shove him in a cupboard', skill: 'muscle', mod: 0, noise: 1, failNoise: 3, clues: 1, ok: 'One have-a-go hero, one cupboard, one very firm door.', fail: 'He has-a-go. Quite well, actually.' },
+  s_filmshoot: { label: 'Tell him it\'s a film shoot', skill: 'charm', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '"Smashing, love, you\'re a natural. Just stand there." He stands there.', fail: '"Where are the cameras, then?"' },
+  s_ducks: { label: 'Duck out the back', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'By the time he\'s rolled his sleeves up, they\'re gone.', fail: 'The back door is where he parked.' },
+  // ---- The Van Job (hit an armoured van on the road)
+  t_box: { label: 'Box it in at the lights', skill: 'wheels', mod: 0, noise: 1, failNoise: 2, clues: 1, intelBonus: 'van_route', ok: 'Two cars, one van, nowhere to go. Boxed in.', fail: 'The van mounts the pavement and squeezes past.' },
+  t_roadworks: { label: 'Fake roadworks and a diversion', skill: 'disguise', mod: -1, noise: 0, failNoise: 2, clues: 0, intelBonus: 'van_route', kitBonus: 'uniforms', ok: 'Cones, a sign, a hi-vis vest. The van follows the diversion into a quiet alley.', fail: 'The van driver has seen this film.' },
+  t_granny: { label: 'Flag it down as a stranded old lady', skill: 'charm', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '"Oh, young man, my shopping!" The van stops. They always stop.', fail: 'The van doesn\'t stop. Rude.' },
+  t_tyres: { label: 'Pop its tyres at the corner', skill: 'aim', mod: 0, noise: 1, failNoise: 2, clues: 1, kitBonus: 'slingshot', ok: 'Bang, bang. The van limps to a stop.', fail: 'Wrong van. A florist\'s van limps to a stop.' },
+  t_pick: { label: 'Pick the rear lock', skill: 'locks', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'lockpicks', ok: 'The back doors swing open. Sacks of cash, gleaming.', fail: 'The lock has a lock on it.' },
+  t_spoof: { label: 'Spoof the door\'s time lock', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'The van thinks it\'s arrived at the bank. It opens up for them.', fail: 'The van thinks it\'s being robbed. Which it is.' },
+  t_crowbar: { label: 'Crowbar the doors', skill: 'muscle', mod: 0, noise: 3, failNoise: 4, clues: 1, ok: 'Screech, crack, open. Subtle it isn\'t.', fail: 'The crowbar bends. {d} is embarrassed.' },
+  t_lose: { label: 'Lose the escort down the back streets', skill: 'wheels', mod: 0, noise: 1, failNoise: 3, clues: 0, ok: 'Left, right, left, through a car wash. The escort is gone.', fail: 'Dead end. The escort pulls up behind.' },
+  t_wave: { label: 'Wave the escort through at a checkpoint', skill: 'disguise', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'uniforms', ok: '"On you go, officers." The escort goes, and the van doesn\'t.', fail: 'The escort asks to see {d}\'s badge.' },
+  t_spill: { label: 'Spill marbles across the road', skill: 'aim', mod: 0, noise: 1, failNoise: 2, clues: 1, ok: 'A thousand marbles. The escort car does a slow, graceful pirouette.', fail: 'The marbles roll back towards {d}.' },
+  // ---- The Wire Job (rob them from a keyboard)
+  h_phish: { label: 'Phish the manager\'s password', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: '"URGENT: Your biscuit allowance has expired. Click here." The manager clicks.', fail: 'The manager forwards the email to IT. IT is not amused.' },
+  h_wifi: { label: 'Crack the Wi-Fi from a van outside', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 0, kitBonus: 'laptop', ok: 'The password was "password". It\'s always "password".', fail: 'The van is parked on a double yellow. A traffic warden takes an interest.' },
+  h_sticky: { label: 'Sniff out the password on a sticky note', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '{d} follows the smell of stale coffee to a monitor. There it is, on a sticky note.', fail: 'Forty sticky notes. All shopping lists.' },
+  h_usb: { label: 'Plug in a memory stick, dressed as IT', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: '"Have you tried turning it off and on again?" In goes the stick.', fail: 'The real IT department is standing right behind {d}.' },
+  h_vent: { label: 'Crawl in through the cooling vents', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'Cold, dusty, and nobody the wiser. {d} drops into the server room.', fail: '{d} sneezes in the vents. It echoes for a long time.' },
+  h_badge: { label: 'Clone a security badge', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'A quick bump in the lift and the badge is cloned. Beep. Green light.', fail: 'Beep. Red light. Beep. Red light.' },
+  h_tailgate: { label: 'Tailgate a technician through the door', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '{d} follows the technician in so closely they could share a coat.', fail: 'The technician holds the door. Then asks who {d} is.' },
+  h_heat: { label: 'Follow the smell of hot circuits', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Hot plastic and ambition. {d} finds the server room first go.', fail: 'That smell was the canteen toaster.' },
+  h_trail: { label: 'Follow the money trail', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, intelBonus: 'net_map', ok: '{d} sniffs through the accounts like a truffle hunter. Found it.', fail: 'The trail goes round in circles. So does {d}.' },
+  h_query: { label: 'Run a sneaky database query', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, intelBonus: 'net_map', kitBonus: 'laptop', ok: 'SELECT * FROM money. Lovely.', fail: 'The query takes down the whole system. Someone notices.' },
+  h_shoulder: { label: 'Read over the accountant\'s shoulder', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 1, ok: 'Account numbers, passwords, and a lovely photo of the accountant\'s nan.', fail: 'The accountant turns round. {d} pretends to be a coat stand.' },
+  h_shells: { label: 'Wire it through forty shell companies', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'Forty companies, eleven islands, one very happy mastermind.', fail: 'Company number thirty-nine is a real company. They ring up.' },
+  h_bonecoin: { label: 'Turn it into Bone-Coin', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: -1, ok: 'The money becomes Bone-Coin. Nobody understands Bone-Coin. Perfect.', fail: 'Bone-Coin crashes mid-transfer. It\'s now worth one biscuit.' },
+  h_mules: { label: 'Pay it out through money mules', skill: 'charm', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: 'Twenty helpful friends withdraw a little each. Nobody bats an eyelid.', fail: 'One of the mules has a very talkative mum.' },
+  h_pennies: { label: 'Skim a penny off every account', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: 0, swap: true, ok: 'A penny from a million accounts. Nobody will ever notice.', fail: 'A pensioner notices. She rings the bank. And the papers.' },
+  h_wipe: { label: 'Wipe the logs', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: -1, ok: 'The logs say nothing happened. Because, officially, it didn\'t.', fail: 'The logs are backed up. Twice.' },
+  h_scent: { label: 'Sniff out every trace you left', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: -1, ok: '{d} sniffs the whole floor and tidies up after everyone.', fail: '{d} misses one coffee cup. With a pawprint on it.' },
+  h_unplug: { label: 'Pull the plug and slip out', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'Unplugged, out the door, gone.', fail: 'The plug was holding up the fire door.' },
+  h_bounce: { label: 'Bounce the signal round the world', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'The trace ends up in a lighthouse. Good luck with that.', fail: 'The trace ends up here.' },
+  h_falsetrail: { label: 'Lay a false trail', skill: 'nose', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: '{d} lays a trail so convincing the trace follows it to a pet shop.', fail: 'The false trail leads straight back to {d}.' },
+  h_pull: { label: 'Pull the plug and run', skill: 'sneak', mod: 1, noise: 1, failNoise: 2, clues: 1, ok: 'Everything off, everyone out. The trace finds an empty room.', fail: 'They pull the wrong plug. The trace carries on happily.' },
+  // ---- The Paper Trail (white collar: get a job there and cook the books)
+  f_cv: { label: 'Forge a glowing CV', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: 'Oxford, Cambridge and the Royal Kennel Club. {d} starts on Monday.', fail: 'The panel rings the references. The references are {d}\'s mates.' },
+  f_interview: { label: 'Charm the interview panel', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: '"Where do I see myself in five years? Your job, sir." They love it.', fail: '{d} calls the chairman "mate". Twice.' },
+  f_temp: { label: 'Turn up as the agency temp', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'Nobody ever checks the temp. {d} gets a desk and a mug.', fail: 'The real temp turns up. She\'s very cross.' },
+  f_nephew: { label: 'Claim to be the chairman\'s nephew', skill: 'disguise', mod: 1, noise: 0, failNoise: 1, clues: 0, ok: 'Nobody dares ask the chairman. {d} gets the corner office.', fail: 'The chairman has no nephews. He does have a lawyer.' },
+  f_tea: { label: 'Make everyone\'s tea just right', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 0, intelBonus: 'org_chart', ok: 'Milk, two sugars, just how they like it. {d} is everyone\'s favourite.', fail: 'Wrong milk. In this office, that\'s a sacking offence.' },
+  f_gossip: { label: 'Sniff out the office gossip', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, intelBonus: 'org_chart', ok: '{d} knows who\'s feuding, who\'s fiddling and who fancies who.', fail: '{d} becomes the office gossip. Everyone\'s watching.' },
+  f_fixpc: { label: 'Fix the boss\'s computer', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'The boss is so grateful {d} gets the passwords to everything.', fail: '{d} fixes it so well it stops working.' },
+  f_late: { label: 'Stay late and learn the building', skill: 'sneak', mod: 1, noise: 0, failNoise: 1, clues: 0, ok: 'Every cupboard, every cabinet, every squeaky door. {d} knows the lot.', fail: 'The cleaner finds {d} in the stationery cupboard at midnight.' },
+  f_books: { label: 'Sniff out the second set of books', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'Behind the water cooler: the real accounts. And a slush fund.', fail: 'Behind the water cooler: a sandwich. An old one.' },
+  f_files: { label: 'Go through the files after hours', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: 'By torchlight, {d} finds a folder marked "DEFINITELY NOT THE SLUSH FUND".', fail: 'The security guard does rounds at eight. It\'s eight.' },
+  f_system: { label: 'Search the accounts system', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 0, kitBonus: 'laptop', ok: 'A department that doesn\'t exist has a budget that very much does.', fail: 'The system logs {d}\'s search. And emails the boss.' },
+  f_decimal: { label: 'Move a decimal point', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: 0, swap: true, ok: 'One tiny dot, one tiny move. The books balance. Nobody will ever notice.', fail: 'The decimal point moves the wrong way. Someone gets a bonus of £0.03.' },
+  f_signature: { label: 'Forge the director\'s signature', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: 'The signature is better than the director\'s. The cheque clears.', fail: 'The director signs with a paw print. {d} used a pen.' },
+  f_pension: { label: 'Vote yourself a generous pension', skill: 'charm', mod: 1, noise: 0, failNoise: 1, clues: 1, ok: '"All in favour?" The board, well-lunched, all say aye.', fail: 'The board reads the motion. Then reads it again.' },
+  f_notice: { label: 'Hand in your notice with a smile', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: -1, ok: 'Leaving drinks, a card, a whip-round. They\'ll miss {d}.', fail: 'The boss asks {d} to stay for "a quick chat with some gentlemen".' },
+  f_shred: { label: 'Shred everything on the way out', skill: 'sneak', mod: 0, noise: 1, failNoise: 2, clues: -1, ok: 'Ten minutes, one shredder, no evidence.', fail: 'The shredder jams. Half a bank statement pokes out.' },
+  f_sniffout: { label: 'Sniff out who suspects you first', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '{d} smells suspicion on the finance director and is gone before lunch.', fail: 'Everyone smells suspicious. It\'s a finance department.' },
+  f_biscuits: { label: 'Distract the auditor with biscuits', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'The auditor is very fond of custard creams. The audit is very short.', fail: 'The auditor is on a diet. And very thorough.' },
+  f_ceiling: { label: 'Hide the files in the ceiling', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'Up go the files, back goes the tile. Clean as a whistle.', fail: 'The ceiling tile gives way during the audit. Files everywhere.' },
+  f_sniffaudit: { label: 'Sniff out what the auditor\'s after', skill: 'nose', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'The auditor wants the stationery budget. Give him the stationery budget.', fail: 'The auditor wants exactly what {d} was hiding.' },
+  // ---- Specialist steps: one skill only, and it takes a real expert (4+)
+  x_tumblers: { label: 'Feel for the antique tumblers', skill: 'locks', mod: 1, noise: 0, failNoise: 2, clues: 0, kitBonus: 'stethoscope', ok: 'A hundred years old and {d} opens it like a biscuit tin.', fail: 'The old door groans. Everyone freezes.' },
+  x_hairpin: { label: 'A hairpin and a prayer', skill: 'locks', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: 'Click. Amen.', fail: 'The hairpin snaps. The prayer goes unanswered.' },
+  x_finger: { label: 'Fool the fingerprint reader', skill: 'tech', mod: 1, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'A lifted print and some sticky tape. ACCESS GRANTED.', fail: 'The scanner says {d}\'s pawprint belongs to "a dog". Alarm.' },
+  x_rewire: { label: 'Rewire the scanner from the ceiling', skill: 'tech', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: 'Upside down in the ceiling, {d} crosses two wires. Open.', fail: 'Wrong two wires. The lights go disco.' },
+  x_freeclimb: { label: 'Free-climb the wall', skill: 'agility', mod: 1, noise: 0, failNoise: 3, clues: 0, ok: '{d} goes up the sheer wall like it has handles.', fail: '{d} gets halfway and has a little think about gravity.' },
+  x_shaft: { label: 'Chimney up the lift shaft', skill: 'agility', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: 'Back to one wall, paws to the other, all the way up.', fail: 'The lift comes down. {d} goes down faster.' },
+  x_talk: { label: 'Talk your way past', skill: 'charm', mod: 1, noise: 0, failNoise: 2, clues: 1, ok: 'Ten minutes of chat and the doorman is showing {d} photos of his kids.', fail: 'The doorman has heard every line. Including that one.' },
+  x_namedrop: { label: 'Name-drop the Duke', skill: 'charm', mod: 2, noise: 0, failNoise: 2, clues: 1, ok: '"Friend of the Duke\'s." The rope lifts.', fail: '"The Duke\'s inside. Shall I fetch him?"' },
+  x_mask: { label: 'Blend in at the masked ball', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'One more mask among two hundred. {d} even gets a dance.', fail: 'Everyone else came as a swan. {d} came as a pirate.' },
+  x_host: { label: 'Impersonate the host', skill: 'disguise', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: '{d} greets the guests at the door. As the host. The real host is locked in a cupboard.', fail: 'The host is standing right there, being greeted by himself.' },
+  x_compost: { label: 'Roll in the compost to hide your scent', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Revolting, but the guard hounds don\'t so much as twitch.', fail: 'The guard hounds love compost. They come over for a sniff.' },
+  x_sleeper: { label: 'Sniff out the sleeping one', skill: 'nose', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: 'Straight past the one that\'s snoring. Easy.', fail: 'The snoring one was faking.' },
+  x_line: { label: 'Fire a line across the atrium', skill: 'aim', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Thwip. The line catches first time. Across they go.', fail: 'Thwip. The line catches the chandelier.' },
+  x_lights: { label: 'Knock out the lights one by one', skill: 'aim', mod: 2, noise: 1, failNoise: 2, clues: 1, ok: 'Ping. Ping. Ping. The atrium is dark as a cellar.', fail: 'Ping. Ping. Ping. Pong. A guard\'s tea.' },
+  x_lift: { label: 'Lift it off its runners', skill: 'muscle', mod: 1, noise: 1, failNoise: 3, clues: 0, ok: '{d} lifts the blast door clean off its runners. Everyone applauds, quietly.', fail: 'The door stays put. {d}\'s back does not.' },
+  x_hold: { label: 'Hold it while the others crawl under', skill: 'muscle', mod: 2, noise: 1, failNoise: 3, clues: 0, ok: 'Veins popping, {d} holds it up long enough.', fail: 'Not quite long enough.' },
+  x_creak: { label: 'Step only on the quiet boards', skill: 'sneak', mod: 1, noise: 0, failNoise: 3, clues: 0, ok: 'Not one creak. {d} knew exactly where to step.', fail: 'CREEEEAK.' },
+  x_skirting: { label: 'Crawl along the skirting', skill: 'sneak', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: 'Flat along the skirting board, silent as dust.', fail: 'The skirting board comes off the wall.' },
+  x_drift: { label: 'Handbrake turn through the barrier', skill: 'wheels', mod: 1, noise: 2, failNoise: 3, clues: 1, ok: '{d} slides the motor through a gap barely wider than the motor.', fail: 'The gap was narrower than the motor.' },
+  x_ramp: { label: 'Jump the gap on the car ramp', skill: 'wheels', mod: 2, noise: 2, failNoise: 3, clues: 1, ok: 'Airborne. For a moment it\'s beautiful. Then they land it.', fail: 'Airborne. Then less airborne.' },
   // ---- Signature moves: secret options only a rare or legendary specialist can open (see SIGNATURES)
   s_phantom: { label: 'Just... appear inside', skill: 'sneak', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'phantom', ok: 'Nobody saw {d} come in. Nobody ever does.', fail: '{d} appears inside. Right in front of a guard.' },
   s_blackout: { label: 'Black out the whole street', skill: 'tech', mod: -3, noise: 0, failNoise: 3, clues: 1, signature: 'blackout', ok: '{d} flips one switch. Every light on the street dies. "Power cut, innit."', fail: 'The whole street goes dark. Except, somehow, the alarm.' },
@@ -384,6 +513,28 @@ export const APPROACHES = {
   s_rooftops: { label: 'Across the rooftops, no rope', skill: 'agility', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'rooftops', ok: '{d} runs the rooftops like they\'re pavement.', fail: '{d} misjudges a gap. Only just.' },
   s_deadeye: { label: 'One tennis ball, ten ricochets', skill: 'aim', mod: -3, noise: 1, failNoise: 2, clues: 0, signature: 'deadeye', ok: 'One ball. Ten ricochets. Every lens and torch in the corridor, out.', fail: 'Eleven ricochets. The eleventh is a guard\'s nose.' },
   s_bloodhound: { label: 'Smell the trap before it springs', skill: 'nose', mod: -4, noise: 0, failNoise: 2, clues: 0, signature: 'bloodhound', ok: '{d} sniffs once and steps round the trouble like it was never there.', fail: '{d} sneezes. At the worst possible moment.' },
+};
+
+// Roles: what a dog brings just by being on the crew, whichever step they're on (or none).
+export const ROLES = {
+  leader: { label: 'Leader', icon: '👑', blurb: 'Keeps the crew together: steadier on every step, fewer runners, less talking.' },
+  wildcard: { label: 'Wildcard', icon: '🃏', blurb: 'Anything can happen, and usually does. Great at making it up as they go.' },
+};
+
+// What a wildcard gets up to mid-job.
+export const WILD = {
+  good: [
+    { text: '{d} finds a spare key in a flowerpot. Nobody asks how they knew.', alarm: -2 },
+    { text: '{d} does something nobody understands. It works. Everyone\'s fired up.', bonus: 0.25 },
+    { text: '{d} tidies up behind the crew without being asked.', clues: -1 },
+    { text: '{d} produces a smoke bomb from somewhere. "Always carry one."', smoke: 1 },
+  ],
+  bad: [
+    { text: '{d} decides this is the moment for a sing-song.', alarm: 2 },
+    { text: '{d} signs the visitors\' book. With their real name.', clues: 2 },
+    { text: '{d} knows "a little shortcut". It isn\'t one.', bonus: -0.15 },
+    { text: '{d} sets off a fire extinguisher. On purpose, apparently.', alarm: 1, clues: 1 },
+  ],
 };
 
 // Rare and legendary crew only drift into the pub now and then. They cost more,
@@ -398,7 +549,7 @@ export const RARITY = {
 // the move only shows up on steps it fits, and only with its owner on the crew.
 export const SIGNATURES = {
   phantom: { name: 'The Phantom', skill: 'sneak', blurb: 'Knows a way in nobody else does.', fits: ['entry'], approach: 's_phantom' },
-  blackout: { name: 'Blackout', skill: 'tech', blurb: 'Can kill the power to a whole street.', fits: ['obs_cameras', 'obs_lasers'], approach: 's_blackout' },
+  blackout: { name: 'Blackout', skill: 'tech', blurb: 'Can kill the power to a whole street.', fits: ['obs_cameras', 'obs_lasers', 'obs_server'], approach: 's_blackout' },
   juggernaut: { name: 'The Juggernaut', skill: 'muscle', blurb: 'Vault doors are more of a suggestion.', fits: ['vault'], approach: 's_juggernaut' },
   oldpals: { name: 'Old Pals', skill: 'charm', blurb: 'Knows every head of security in town.', fits: ['obs_guards'], approach: 's_oldpals' },
   wheelman: { name: 'The Wheelman', skill: 'wheels', blurb: 'Has a route nobody else would dare.', fits: ['getaway'], approach: 's_wheelman' },
@@ -406,26 +557,74 @@ export const SIGNATURES = {
   faces: { name: 'A Thousand Faces', skill: 'disguise', blurb: 'Can pass for anyone. Anyone.', fits: ['exit'], approach: 's_faces' },
   rooftops: { name: 'The Cat Burglar', skill: 'agility', blurb: 'Treats rooftops like pavement.', fits: ['entry', 'exit'], approach: 's_rooftops' },
   deadeye: { name: 'Deadeye', skill: 'aim', blurb: 'Never needs a second shot.', fits: ['obs_guards', 'obs_cameras'], approach: 's_deadeye' },
-  bloodhound: { name: 'The Bloodhound', skill: 'nose', blurb: 'Smells a trap before it\'s set.', fits: ['haz_cat', 'haz_plates'], approach: 's_bloodhound' },
+  bloodhound: { name: 'The Bloodhound', skill: 'nose', blurb: 'Smells a trap before it\'s set.', fits: ['haz_cat', 'haz_plates', 'obs_accounts', 'obs_fund'], approach: 's_bloodhound' },
 };
 
 export const OBSTACLES = {
-  guards: { label: 'The Guards', icon: '👮', options: ['o_sneakpast', 'o_squeaky', 'o_knockout', 'o_relief', 'o_bribed'] },
+  guards: { label: 'The Guards', icon: '👮', options: ['o_sneakpast', 'o_squeaky', 'o_knockout', 'o_relief', 'o_sniffguards', 'o_bribed'] },
   cameras: { label: 'The Cameras', icon: '📹', options: ['o_loop', 'o_shoot', 'o_blindspot', 'o_hats'] },
   lasers: { label: 'Laser Grid', icon: '🟥', options: ['o_limbo', 'o_short', 'o_mirror'] },
   cat: { label: 'Mr. Whiskers, Security Cat', icon: '🐈', options: ['o_laser', 'o_tuna', 'o_tiptoe', 'o_stare'], hazard: true },
   plates: { label: 'Pressure Plates', icon: '⬛', options: ['o_hop', 'o_sniffplates', 'o_sandbag'], hazard: true },
+  butler: { label: 'The Suspicious Butler', icon: '🤵', options: ['c_tip', 'c_errand', 'c_sniffbutler'], hazard: true },
+  escort: { label: 'A Police Escort', icon: '🚓', options: ['t_lose', 't_wave', 't_spill'], hazard: true },
+  hero: { label: 'A Have-a-Go Hero', icon: '🦸', options: ['s_cupboard', 's_filmshoot', 's_ducks'], hazard: true },
+  trace: { label: 'The Trace', icon: '📡', options: ['h_bounce', 'h_falsetrail', 'h_pull'], hazard: true },
+  auditor: { label: 'The Surprise Audit', icon: '🧮', options: ['f_biscuits', 'f_ceiling', 'f_sniffaudit'], hazard: true },
+};
+
+// Specialist steps: every option uses one skill, and anyone below `min` in it is out of their depth.
+export const SPECIALISTS = {
+  oldvault: { label: 'An Antique Vault Door', icon: '🗝️', skill: 'locks', min: 4, options: ['x_tumblers', 'x_hairpin'] },
+  biometric: { label: 'The Biometric Scanner', icon: '🖐️', skill: 'tech', min: 4, options: ['x_finger', 'x_rewire'] },
+  wall: { label: 'The Sheer Wall', icon: '🧗', skill: 'agility', min: 4, options: ['x_freeclimb', 'x_shaft'] },
+  doorman: { label: 'The Doorman Who Knows Everyone', icon: '🎩', skill: 'charm', min: 4, options: ['x_talk', 'x_namedrop'] },
+  ball: { label: 'The Masked Ball', icon: '🎭', skill: 'disguise', min: 4, options: ['x_mask', 'x_host'] },
+  kennel: { label: 'The Guard Hounds', icon: '🐕', skill: 'nose', min: 4, options: ['x_compost', 'x_sleeper'] },
+  atrium: { label: 'The Atrium', icon: '🏛️', skill: 'aim', min: 4, options: ['x_line', 'x_lights'] },
+  blastdoor: { label: 'The Blast Door', icon: '🚪', skill: 'muscle', min: 4, options: ['x_lift', 'x_hold'] },
+  creaky: { label: 'The Creaky Corridor', icon: '🪵', skill: 'sneak', min: 4, options: ['x_creak', 'x_skirting'] },
+  carpark: { label: 'The Car Park Barrier', icon: '🚧', skill: 'wheels', min: 4, options: ['x_drift', 'x_ramp'] },
 };
 
 export const VAULTS = {
-  safe: { label: 'The Safe', icon: '🗄️', options: ['v_crack', 'v_drill', 'v_keypad', 'v_combo'] },
+  safe: { label: 'The Safe', icon: '🗄️', options: ['v_crack', 'v_drill', 'v_keypad', 'v_sniff', 'v_combo'] },
   case: { label: 'The Display Case', icon: '💎', options: ['v_swap', 'v_smash', 'v_pickcase'] },
-  strongroom: { label: 'The Strongroom', icon: '🏦', options: ['v_timelock', 'v_drill', 'v_manager', 'v_combo'] },
+  strongroom: { label: 'The Strongroom', icon: '🏦', options: ['v_timelock', 'v_drill', 'v_manager', 'v_sniff', 'v_combo'] },
+  // Job-type specific "vaults": where the goods change hands.
+  switch: { label: 'The Switch', icon: '🔄', options: ['w_sleight', 'w_scene', 'w_clean', 'w_magnet', 'w_cutout'] },
+  mark: { label: 'The Hand-over', icon: '💼', options: ['c_handover', 'c_swapcase', 'c_deed'] },
+  counter: { label: 'Grab the Lot', icon: '💎', options: ['v_smash', 's_sweep', 's_cabinet'] },
+  van: { label: 'The Back Doors', icon: '🚚', options: ['t_pick', 't_spoof', 't_crowbar', 'v_drill'] },
+  wire: { label: 'Move the Money', icon: '💸', options: ['h_shells', 'h_bonecoin', 'h_mules', 'h_pennies'] },
+  books: { label: 'Cook the Books', icon: '📒', options: ['f_decimal', 'f_signature', 'f_pension'] },
 };
 
-export const ENTRY_POOL = ['e_pick', 'e_charm', 'e_staff', 'e_skylight', 'e_sewer', 'e_vent', 'e_delivery', 'e_ram', 'e_insider'];
-export const EXIT_POOL = ['x_same', 'x_chute', 'x_front', 'x_wall', 'x_roof'];
-export const GETAWAY_POOL = ['g_hotwire', 'g_van', 'g_moped', 'g_crowd', 'g_barge', 'g_walk'];
+// Kinds of job. Each lays out its own steps (see heists.js); `insider` says whether an
+// inside dog can be planted; `venues` are where it happens.
+export const JOB_TYPES = {
+  breakin: { label: 'Break-in', icon: '🔓', insider: true, weight: 4, venues: ['bank', 'museum', 'jeweller', 'mansion', 'casino', 'butcher', 'show', 'auction'] },
+  swap: { label: 'The Switch', icon: '🔄', insider: true, weight: 1.5, venues: ['museum', 'auction', 'jeweller', 'mansion'], blurb: 'Swap the goods for a decoy. Done right, nobody notices.' },
+  con: { label: 'The Long Con', icon: '🎩', insider: false, weight: 1.5, venues: ['mansion', 'auction', 'casino', 'show'], blurb: 'No doors, no vault. Just a mark who trusts you.' },
+  smash: { label: 'Smash & Grab', icon: '🔨', insider: false, weight: 1.2, venues: ['jeweller', 'butcher', 'casino', 'show'], blurb: 'Loud and fast. Grab what you can.' },
+  van: { label: 'The Van Job', icon: '🚚', insider: true, weight: 1.2, venues: ['bank', 'casino'], blurb: 'Hit the armoured van on the road.' },
+  // White-collar jobs: the loot is money on paper or on a screen, so it weighs nothing.
+  hack: {
+    label: 'The Wire Job', icon: '💻', insider: false, weight: 1.2, venues: ['bank', 'casino', 'auction'], blurb: 'Rob them from a keyboard. Tech, sneak and a good nose.',
+    loot: [['The slush fund', 'cash', 0, 6], ['Client accounts', 'cash', 0, 4], ['A Bone-Coin wallet', 'cash', 0, 5], ['The owner\'s offshore account', 'cash', 0, 7]],
+  },
+  fraud: {
+    label: 'The Paper Trail', icon: '📒', insider: false, weight: 1.2, venues: ['bank', 'auction', 'show', 'casino'], blurb: 'Get a job there and cook the books.',
+    loot: [['The pension fund', 'cash', 0, 6], ['The directors\' bonus pot', 'cash', 0, 5], ['Petty cash (not petty)', 'cash', 0, 3], ['A forged share certificate', 'cash', 0, 4]],
+  },
+};
+
+// The marks for a long con.
+export const MARKS = ['Lord Woofington', 'Lady Fluffington', 'Sir Reginald Barkley', 'The Duchess of Dribble', 'Mr. Moneybags Muttley', 'Baron von Wagner'];
+
+export const ENTRY_POOL = ['e_pick', 'e_charm', 'e_staff', 'e_skylight', 'e_sewer', 'e_vent', 'e_delivery', 'e_ram', 'e_sniffkey', 'e_rod', 'e_insider'];
+export const EXIT_POOL = ['x_same', 'x_chute', 'x_front', 'x_wall', 'x_trolley', 'x_fireexit', 'x_roof'];
+export const GETAWAY_POOL = ['g_hotwire', 'g_van', 'g_moped', 'g_crowd', 'g_barge', 'g_sniff', 'g_tyres', 'g_walk'];
 
 // Loot kinds: cash fences easily; art is hard to shift; oddities are dog-themed
 // collector pieces. bulk = carry slots.
@@ -484,19 +683,29 @@ export const DISTRICTS = ['Bonechapel', 'Kennelworth', 'Pawcaster Square', 'Fetc
 
 export const JOB_CODEWORDS = ['Walkies', 'Fetch', 'Belly Rub', 'Good Boy', 'Roll Over', 'Dinnertime', 'Sit Stay', 'Tennis Ball', 'Postman', 'Bath Night', 'Squirrel', 'Muddy Paws'];
 
-// Intel that can be gathered by casing the joint.
+// Intel that can be gathered by casing the joint. `skill` is what finds it best
+// (nose for smells, tech for systems, sneak for watching, charm for chatting).
 export const INTEL = {
-  guard_rota: { label: 'Guard rota', blurb: 'When the patrols change. Sneaking past guards is much easier.' },
-  camera_map: { label: 'Camera layout', blurb: 'Where the blind spots are.' },
-  blueprints: { label: 'Blueprints', blurb: 'Unlocks sewer and vent entries; easier to short circuits.' },
-  combo: { label: 'Vault combination', blurb: 'Scribbled on a sticky note by the manager. Unlocks the combination option.' },
-  plate_map: { label: 'Pressure plate map', blurb: 'Which tiles are live.' },
-  loot_value: { label: 'Loot valuation', blurb: 'What the goods are really worth.' },
-  escape_routes: { label: 'Escape routes', blurb: '+1 on the getaway.' },
-  hz_cat: { label: 'Hazard: Security Cat', blurb: 'There\'s a cat. Plan for it or be surprised.', hazard: 'cat' },
-  hz_plates: { label: 'Hazard: Pressure plates', blurb: 'Hidden plates by the vault. Plan for them.', hazard: 'plates' },
-  hz_silent: { label: 'Hazard: Silent alarm', blurb: 'The vault has a silent alarm. Known, it only makes the vault harder; unknown, it rings the Old Bill.', hazard: 'silent' },
-  hz_stakeout: { label: 'Hazard: Police stakeout', blurb: 'The Inspector has a car watching the street at one time of day.', hazard: 'stakeout' },
+  guard_rota: { skill: 'sneak', label: 'Guard rota', blurb: 'When the patrols change. Sneaking past guards is much easier.' },
+  camera_map: { skill: 'tech', label: 'Camera layout', blurb: 'Where the blind spots are.' },
+  blueprints: { skill: 'tech', label: 'Blueprints', blurb: 'Unlocks sewer and vent entries; easier to short circuits.' },
+  combo: { skill: 'nose', label: 'Vault combination', blurb: 'Scribbled on a sticky note by the manager. Unlocks the combination option.' },
+  plate_map: { skill: 'nose', label: 'Pressure plate map', blurb: 'Which tiles are live.' },
+  loot_value: { skill: 'charm', label: 'Loot valuation', blurb: 'What the goods are really worth.' },
+  escape_routes: { skill: 'wheels', label: 'Escape routes', blurb: '+1 on the getaway.' },
+  hz_cat: { skill: 'nose', label: 'Hazard: Security Cat', blurb: 'There\'s a cat. Plan for it or be surprised.', hazard: 'cat' },
+  hz_plates: { skill: 'nose', label: 'Hazard: Pressure plates', blurb: 'Hidden plates by the vault. Plan for them.', hazard: 'plates' },
+  hz_silent: { skill: 'tech', label: 'Hazard: Silent alarm', blurb: 'The vault has a silent alarm. Known, it only makes the vault harder; unknown, it rings the Old Bill.', hazard: 'silent' },
+  mark_file: { skill: 'charm', label: 'File on the mark', blurb: 'What the mark wants to hear. Easier pitches.' },
+  van_route: { skill: 'sneak', label: 'The van\'s route', blurb: 'Where and when it stops. Easier to stop the van.' },
+  net_map: { skill: 'tech', label: 'Network map', blurb: 'Where the money sits. Easier to find.' },
+  org_chart: { skill: 'charm', label: 'Who\'s who', blurb: 'Who to charm and who to avoid. Easier to earn their trust.' },
+  hz_trace: { skill: 'tech', label: 'Hazard: The trace', blurb: 'Security will try to trace the hack. Plan for it.', hazard: 'trace' },
+  hz_auditor: { skill: 'nose', label: 'Hazard: Surprise audit', blurb: 'An auditor is due in. Plan for it.', hazard: 'auditor' },
+  hz_butler: { skill: 'charm', label: 'Hazard: Suspicious butler', blurb: 'The mark\'s butler trusts nobody. Plan for him.', hazard: 'butler' },
+  hz_hero: { skill: 'charm', label: 'Hazard: Have-a-go hero', blurb: 'A local hero drinks next door. He will have a go.', hazard: 'hero' },
+  hz_escort: { skill: 'sneak', label: 'Hazard: Police escort', blurb: 'A police car follows the van. Plan for it.', hazard: 'escort' },
+  hz_stakeout: { skill: 'sneak', label: 'Hazard: Police stakeout', blurb: 'The Inspector has a car watching the street at one time of day.', hazard: 'stakeout' },
 };
 
 export const FENCES = {

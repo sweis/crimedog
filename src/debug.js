@@ -34,8 +34,8 @@ export function snapshot(G) {
     seed: s?.seed ?? null,
     day: s?.day, cash: s?.cash, rep: s?.rep, heat: s?.heat,
     job: s?.job ? {
-      id: s.job.id, name: s.job.name, tier: s.job.tier, daysLeft: s.job.daysLeft, time: s.job.time, hour: s.job.hour, alert: s.job.alert,
-      stages: s.job.stages.map((st) => ({ id: st.id, hidden: !!st.hidden, options: st.options.length })),
+      id: s.job.id, name: s.job.name, type: s.job.type, noInsider: !!s.job.noInsider, tier: s.job.tier, daysLeft: s.job.daysLeft, time: s.job.time, hour: s.job.hour, alert: s.job.alert,
+      stages: s.job.stages.map((st) => ({ id: st.id, label: st.label, hidden: !!st.hidden, options: st.options.length, needs: st.needs || null })),
       intel: s.job.intel, plan: s.job.plan, loot: s.job.loot.map((l) => ({ name: l.name, value: l.value })), patron: s.job.patron, owner: s.job.owner,
     } : null,
     crew: s ? s.crew.map((id) => ({ id, name: s.dogs[id].first, undercover: s.dogs[id].undercover })) : [],
@@ -46,6 +46,7 @@ export function snapshot(G) {
     offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner })) ?? [],
     groups: s?.groups ? Object.fromEntries(Object.entries(s.groups).map(([k, g]) => [k, { standing: g.standing, met: g.met, debt: g.debt?.amount ?? 0 }])) : null,
     story: s?.story?.length ?? 0,
+    history: s?.history?.map((h) => ({ name: h.name, grade: h.grade, type: h.type, steps: h.steps?.length ?? 0, crew: h.crew?.length ?? 0 })) ?? [],
     arcs: s?.arcs?.map((a) => ({ id: a.id, kind: a.kind, dog: a.dog, node: a.node, wait: a.wait, shown: a.shown })) ?? [],
     drama: s ? Object.values(s.dogs).filter((d) => d.drama).map((d) => ({ id: d.id, ...d.drama })) : [],
     heist: r ? { beat: G.ui.heist.i, beats: r.beats.length, playing: G.ui.heist.playing, alarm: r.beats[Math.min(G.ui.heist.i, r.beats.length - 1)].alarm, outcome: r.outcome } : null,
@@ -168,7 +169,10 @@ export function installDebug(G) {
       const s = G.state;
       if (!s) return;
       ensurePlan(G);
-      if (!s.crew.length) { s.cash += 2000; E.hire(s, s.pub[0]); }
+      if (!s.crew.length) {
+        s.cash += 2000;
+        s.pub.find((id) => E.hire(s, id).ok); // the first who'll come
+      }
       s.job.buyer = true;
       s.result = blankResult(s.crew, {
         beats: [{ kind: 'intro', stage: null, text: 'A perfect night.', alarm: 0, clues: 0 }, { kind: 'end', stage: null, text: 'They won\'t even know they\'ve been robbed.', alarm: 0, clues: 0 }],

@@ -53,8 +53,8 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 
 ## Balance (tools/balance.mjs, 150 careers × up to 10 jobs)
 - Start with £2,500 (enough to survive two busted jobs; was £1,000).
-- Scripted "careful" policy: ~41% B or better, ~7% S (perfect); 12/200 careers end inside 10 jobs (52 at £1,000).
-- Reckless (hire one stranger, no prep): ~68% F.
+- Scripted "careful" policy: ~44% B or better, ~6% S (perfect); it buys kit a step needs and sends the caser with the best expected finds.
+- Reckless (hire one stranger, no prep): ~60% F, ~86% D or F.
 - Chaos (first 5 jobs): every job has a hazard, ~36% have the security cat, ~30% spring a surprise; ~55–63% of
   pear-shaped jobs cost a dog; ~0.8 arrests and ~0.1 permanent losses per job.
 - Pinned in `tests/balance.test.mjs` (careful B+ ≥ 30%, reckless D/F ≥ 60%, S achievable but < 20%) and
@@ -104,6 +104,35 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - UI: scene modal with the dog's portrait and choice buttons (cost shown, disabled if unaffordable); 📖 Story / 🔥 Fired up / 😟 Distracted / ⚠️ Trouble / 🏠 Away chips; 🔥/😟/⚠️ on plan assignees; a 🌟 promotion line in the aftermath.
 - Probe: `node tools/drama.mjs [careers]`. Careful 12-job careers: ~0.36 arcs per job, ~0.9 home-grown rares and ~0.12 legendaries per career; the balance probe's careful player pays when it has £800 to spare, the reckless one always takes the free option.
 - Debug: `spawn('arc', kind)`, `live()` (the real state, for scripted set-ups); `getState().arcs` / `.drama`. Tests: `tests/drama.test.mjs`; smoke 1g answers a scene with a real tap and checks a promotion.
+
+## Heist history and sharing
+- Every graded job leaves a recap in `state.history` (last 30; `src/recap.js`): kind, venue, grade, take, headline, each step with who tried it and how (✓/✗, improvised, surprise), the big moments, loot, and a snapshot of each crew member (enough to draw them) with their fate (got away / nicked / the farm / did a runner / a copper).
+- Rap sheet (modal, `data-act="history"`): from the job board, the crew page and the game-over screen. Tap a job for its recap; "Share this heist" there or on the grade screen.
+- Share card: `recapPNG(r)` in card.js draws a heist report (grade, take, crew portraits and fates, how it went down, moments) that grows to fit; crew and heist cards share one pipeline (`svgPNG`, `shareBlob(card)`, a generic card modal). No emoji on cards (they don't rasterise reliably).
+- Tests: `tests/recap.test.mjs`; smoke 1l plays a job, shares it with a real tap (600px PNG saved to `notes/captures/history-card-image.png`) and reads it back on the rap sheet.
+
+## Casing, roles, special kit (latest pass)
+- Casing: each INTEL key has the `skill` that finds it best (nose smells, tech systems, sneak watching, charm chatting, wheels routes). `caseOdds(state, dog)`: each unknown piece has p = 0.1 + 0.16×skill (+0.15 with an intel talent, max 0.9); up to 3 a day, at least 1. Spotted: 0.35 − 0.08×max(sneak, disguise). Specialists in nose/tech/sneak/charm each find ~1.8–2.0 a day (nose used to find 3).
+- Security alert: `raiseAlert(job, why)` keeps `job.alertWhy`; the job screen lists the reasons ("every step +N harder"), the plan shows an Alert chip.
+- Roles (`ROLES`, `dog.role = {kind, level}`): ~20% of dogs. Leader (best on crew): +2%/level on every step for everyone, loyalty +10/level against running, −12%/level chance of losing a dog on a botched risky step, −5%/level talking, rallies the crew once when it goes pear-shaped. Wildcard: per step 10%+3%/level chance of an event (`WILD`), good 50%+4%/level; +5%/level when improvising. Roles grow 25% per job they get away from. Plan odds count everyone who turns up.
+- Special kit (`KIT[*].special`): Master Key Card (3 swipes; adds a sneak way into break-ins), Laser Detector, Police Scanner, Skeleton Key, Catnip Pouch, Little Black Ledger. Not for sale; 40% of jobs where one's possible carry a `prize` (shown on the board and in The Goods); kept if anything was secured. Effects (`effect: {stage | kind | skill | types, diff}`) apply in `difficulty()`; plan options tag the kit that helps. Kit shop lists them under "Found on Jobs" with where to find them.
+- Two new kinds of job: The Wire Job (hack) and The Paper Trail (fraud); see below.
+- Rebalance: job base difficulty is now 2 + tier (was 1 + tier), bringing careful play back to ~44% B or better (it had crept to ~56% with leaders, kit and more options). Reckless: ~86% D or F.
+
+## Kinds of job
+- `JOB_TYPES` in data.js (breakin, swap, con, smash, van): each has venues, a weight on the board, and whether an insider can be planted. `LAYOUTS` in heists.js builds each type's steps from its own option pools (con: introduction / pitch / convincer / hand-over / blow-off, no getaway; smash: hit the shop / grab the lot / getaway; van: stop the van / guards / back doors / getaway; swap: a break-in whose vault is The Switch, mostly needing a 🏺 replica). Stage kinds stay entry/obstacle/vault/exit/getaway so the sim is shared.
+- Hidden hazards by type (`HAZARDS`): con adds the suspicious butler, smash the have-a-go hero, van the police escort; all with intel to find them.
+- Specialist steps (`SPECIALISTS`, `stage.needs`): all options one skill; below 4 is +3 difficulty. 30–45% of jobs (by tier) outside smash & grabs. `refreshPub` guarantees someone qualified in the pub.
+- `job.noInsider`: cons and smash & grabs always; 20% of break-ins. No `e_insider` option, fixer's plant disabled, `plantInsider` refuses.
+- `noSig` steps (con steps, the van stop, smash entry) take no signature moves. Daylight witness clues don't apply to cons. Failure lines per type.
+- UI: type / specialist / no-insider / replica chips on the job board and job screen; the plan's specialist step shows "🥸 4+ only" (green if someone on the crew is known to qualify).
+- Probe by type (careful player, 200×8 jobs): surprises 14–28%, bust 13–34% (switches highest), aborted 4–9%. Tests: `tests/jobs.test.mjs`; smoke 1h takes a con with real taps.
+
+## Skill coverage
+- Every skill has 4+ approaches across 3+ kinds of step (nose, aim, locks and wheels gained entry/exit/vault/getaway options), 10 talents and 3+ breeds that lean towards it (`tests/skills.test.mjs`).
+- The pub spreads new faces across the skills (`refreshPub`): each face's speciality is weighted against what you can already see around you, against what you've been shown least over the whole game (`state.faces`), and slightly towards what the job uses; 70% get a breed known for it. The pub starts at 5 dogs. Result: every skill is a speciality in 40–60% of first pubs (disguise 36% → 57%), and you see ~8.4 of 10 specialities after one Ask Around.
+- `specialty(dog)` in dogs.js is the best *known* skill (what cards show).
+- Profile header compacts for long names; the talents row shows the best three (two beside a signature) plus "+N more", so any legendary fits 375×667.
 
 ## Heist playback
 - The log grows downwards; each new beat scrolls the page to the end so it sits just above the sticky controls (smoke checks this after 12 real taps on Next).

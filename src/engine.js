@@ -2,11 +2,12 @@
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation } from './util.js';
-import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion } from './dogs.js';
+import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
+import { buildRecap, HISTORY_MAX } from './recap.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -77,7 +78,7 @@ function pruneStrangers(state, keep) {
 
 export function refreshPub(state, rng = rngOf(state)) {
   const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier - 1 : 0);
-  const n = Math.min(6, 4 + Math.floor(state.rep / 35));
+  const n = Math.min(6, 5 + Math.floor(state.rep / 40));
   const pub = [];
   // Some regulars come back.
   const regulars = Object.values(state.dogs).filter((d) => d.status === 'free' && !isVisitor(d) && !state.crew.includes(d.id) && !(d.undercover && d.known.undercover));
@@ -85,23 +86,52 @@ export function refreshPub(state, rng = rngOf(state)) {
     if (pub.length >= Math.floor(n / 2)) break;
     if (d.met || rng.chance(0.3)) pub.push(d.id);
   }
+  // New faces spread across the skills: each leans towards a speciality nobody
+  // around you has yet (and ones this job can use), so every kind turns up.
+  // Counts what you've been shown lately: known specialities of everyone still about.
+  const have = {};
+  for (const d of Object.values(state.dogs)) {
+    const sk = ['free', 'crew'].includes(d.status) && specialty(d);
+    if (sk) have[sk] = (have[sk] || 0) + 1;
+  }
+  const need = new Set(state.job ? visibleStages(state.job).flatMap((st) => st.options.map((ap) => APPROACHES[ap].skill)) : []);
+  // Over the whole game, specialities you've seen least come round first.
+  state.faces ||= {};
+  const least = Math.min(...SKILLS.map((sk) => state.faces[sk] || 0));
+  const newFace = () => {
+    const primary = rng.weighted(SKILLS.map((sk) => [sk, (need.has(sk) ? 1.5 : 1) / ((1 + 4 * (have[sk] || 0)) ** 2 * (1 + 2 * ((state.faces[sk] || 0) - least)))]));
+    have[primary] = (have[primary] || 0) + 1;
+    state.faces[primary] = (state.faces[primary] || 0) + 1;
+    // Usually a breed known for it (poodles and pugs for disguise, hounds for noses...).
+    const breed = rng.chance(0.7) ? rng.pick(Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary))) : undefined;
+    return { primary, breed };
+  };
   let copperPlanted = false;
   while (pub.length < n) {
     const undercover = !copperPlanted && state.heat >= 25 && rng.chance((state.heat - 15) / 150);
     if (undercover) copperPlanted = true;
-    const d = genDog(state, rng, { quality, undercover });
+    const d = genDog(state, rng, { quality, undercover, ...newFace() });
     state.dogs[d.id] = d;
     pub.push(d.id);
   }
   // There's always some wide-eyed rookie who'll work for peanuts.
   if (!pub.some((id) => state.dogs[id].fee <= 60)) {
-    const r = genDog(state, rng, { quality: 0 });
+    const r = genDog(state, rng, { quality: 0, ...newFace() });
     r.archetype = 'rookie';
     r.catchphrase = 'Is this... is this a real heist? Like, a proper one?';
     r.fee = 40;
     r.minRep = 0;
     state.dogs[r.id] = r;
     pub[pub.length - 1] = r.id;
+  }
+  // A job with a specialist step always has someone in the pub who's up to it (at a price).
+  const sp = state.job?.stages.find((st) => st.needs);
+  if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
+    const d = genDog(state, rng, { quality, primary: sp.needs.skill });
+    d.skills[sp.needs.skill] = Math.max(d.skills[sp.needs.skill], sp.needs.min);
+    d.fee = feeFor(d);
+    state.dogs[d.id] = d;
+    pub.push(d.id);
   }
   const star = starVisit(state, rng);
   if (star) pub.unshift(star.id);
@@ -130,7 +160,7 @@ function starVisit(state, rng) {
   else {
     const rarity = !teaser && rng.chance(legendShare(state.rep)) ? 'legendary' : 'rare';
     const fitting = Object.keys(SIGNATURES).filter((id) => visibleStages(job).some((st) => signatureFits(id, st)));
-    const primary = teaser ? SIGNATURES[rng.pick(fitting)].skill : undefined;
+    const primary = teaser && fitting.length ? SIGNATURES[rng.pick(fitting)].skill : undefined;
     d = genDog(state, rng, { quality: 2, rarity, primary, signature: teaser });
     state.dogs[d.id] = d;
   }
@@ -225,7 +255,7 @@ export function acceptOffer(state, offerId) {
   const p = state.job.patron;
   if (p?.front) state.cash += p.front;
   if (state.sabotage) {
-    state.job.alert += state.sabotage;
+    raiseAlert(state.job, 'Someone tipped off security', state.sabotage);
     state.sabotage = 0;
   }
   state.offers = [];
@@ -260,12 +290,31 @@ export function dismissStory(state) {
 export function buy(state, kitId) {
   const k = KIT[kitId];
   if (!k) return fail('No such kit.');
+  if (k.special) return fail('Not for sale. You\'ll have to find one on a job.');
   if (!k.consumable && state.kit[kitId] > 0) return fail('You already have one.');
   if (!spend(state, k.price)) return fail('Can\'t afford it.');
   state.kit[kitId] = (state.kit[kitId] || 0) + 1;
   return done(`Bought ${k.name}.`);
 }
 
+// Security on alert makes every step harder. Each rise remembers why.
+function raiseAlert(job, why, n = 1) {
+  job.alert += n;
+  (job.alertWhy ||= []).push(why);
+}
+
+// How a dog would do casing this job: the chance of turning up each unknown piece
+// of intel (by the skill that finds it best) and of being spotted doing it.
+export function caseOdds(state, d) {
+  const job = state.job;
+  const intelBoost = hasSpecial(d, 'intel') ? 0.15 : 0;
+  const finds = Object.keys(job.intel).filter((k) => !job.intel[k])
+    .map((k) => ({ k, p: Math.min(0.9, 0.1 + 0.16 * skillOf(d, INTEL[k].skill) + intelBoost) }));
+  const cover = Math.max(skillOf(d, 'sneak'), skillOf(d, 'disguise'));
+  return { finds, expected: finds.reduce((a, f) => a + f.p, 0), spotted: Math.max(0.03, 0.35 - 0.08 * cover) };
+}
+
+const CASE_MAX = 3;
 export function caseJoint(state, who) {
   const job = state.job;
   const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
@@ -284,20 +333,25 @@ export function caseJoint(state, who) {
   if (state.cash < 40) return fail('Expenses are £40.');
   if (!useDay(state)) return fail('No days left before the job.');
   spend(state, 40);
-  d.known.skills.nose = true;
-  d.known.skills.sneak = true;
-  let n = 1 + Math.floor(skillOf(d, 'nose') / 2) + (hasSpecial(d, 'intel') ? 1 : 0);
+  const odds = caseOdds(state, d);
   if (hasSpecial(d, 'intel')) {
     const t = d.talents.find((x) => ['radio', 'bloodhound', 'casing'].includes(x));
     if (t && !d.known.talents.includes(t)) d.known.talents.push(t);
   }
-  const got = rng.sample(unknown, Math.min(n, unknown.length));
-  for (const k of got) revealIntel(job, k);
+  // Each piece of intel turns up on its own roll; the best bet always does.
+  let got = rng.shuffle(odds.finds).filter((f) => rng.chance(f.p)).map((f) => f.k).slice(0, CASE_MAX);
+  if (!got.length) got = [odds.finds.slice().sort((a, b) => b.p - a.p)[0].k];
+  for (const k of got) {
+    revealIntel(job, k);
+    d.known.skills[INTEL[k].skill] = true;
+  }
   let msg = `🔎 ${got.map((k) => INTEL[k].label.replace('Hazard: ', '⚠️ ')).join(', ')}`;
-  const spotted = rng.chance(Math.max(0.03, 0.35 - 0.08 * skillOf(d, 'sneak')));
+  const spotted = rng.chance(odds.spotted);
+  const cover = skillOf(d, 'sneak') >= skillOf(d, 'disguise') ? 'sneak' : 'disguise';
+  d.known.skills[cover] = true;
   if (spotted) {
-    job.alert += 1;
-    msg += ` · 👀 ${shortName(d)} was spotted: +1 difficulty`;
+    raiseAlert(job, `${shortName(d)} was spotted casing the joint`);
+    msg += ` · 👀 ${shortName(d)} was spotted! Security's on alert: every step +1 harder`;
   }
   return done(msg, { revealed: got, spotted });
 }
@@ -334,6 +388,7 @@ export function surveil(state, id) {
 export function plantInsider(state, id) {
   const d = state.dogs[id];
   const job = state.job;
+  if (job.noInsider) return fail('No way to get anyone inside on this one.');
   if (!state.crew.includes(id)) return fail('Pick someone from the crew.');
   if (job.insider) return fail('You already have someone inside.');
   if (state.cash < 100) return fail('Costs £100 for a fake reference.');
@@ -346,7 +401,7 @@ export function plantInsider(state, id) {
     job.insider = id;
     return done(`${shortName(d)} gets a job at ${job.venueName} as a cleaner. They're on the inside.`);
   }
-  job.alert += 1;
+  raiseAlert(job, `${shortName(d)} flunked a job interview there`);
   return done(`${shortName(d)}'s interview goes badly. Security's been told to look out for "a suspicious applicant".`);
 }
 
@@ -533,6 +588,14 @@ export function resolveHeist(state) {
       }
     }
   }
+  // Leaders and wildcards grow into it on jobs they get away from.
+  for (const id of r.escaped) {
+    const d = state.dogs[id];
+    if (d.role && d.role.level < 5 && rng.chance(0.25)) {
+      d.role.level += 1;
+      improved.push({ id, role: d.role.kind });
+    }
+  }
   for (const c of r.captured) {
     const d = state.dogs[c.id];
     d.status = 'pound';
@@ -570,6 +633,12 @@ export function resolveHeist(state) {
     state.stats.promoted = (state.stats.promoted || 0) + 1;
     news(state, `${displayName(d)} has made a name for themselves: ${d.rarity}, ✨ ${SIGNATURES[d.signature].name}.`);
   }
+  // Special kit found on the job is yours to keep, if they got into the goods.
+  const prize = job.prize && r.secured.length ? job.prize : null;
+  if (prize) {
+    state.kit[prize] = KIT[prize].uses || 1;
+    news(state, `You kept the ${KIT[prize].name} from ${job.name}.`);
+  }
   addHeat(state, r.heatGain);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
@@ -578,6 +647,7 @@ export function resolveHeist(state) {
   state.after.headline = headline(state);
   state.after.improved = improved;
   state.after.promoted = promoted;
+  state.after.prize = prize;
   state.phase = 'aftermath';
   return done('The dust settles.');
 }
@@ -709,7 +779,8 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
-  state.history.unshift({ name: state.job.name, venue: state.job.venueName, grade: g.letter, score: g.score, take: a.received, day: state.day });
+  state.history.unshift(buildRecap(state));
+  state.history.length = Math.min(state.history.length, HISTORY_MAX);
   news(state, `${state.job.name}: grade ${g.letter}. ${a.headline}`);
 }
 

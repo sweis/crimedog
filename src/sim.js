@@ -1,7 +1,7 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES } from './data.js';
-import { skillOf, hasSpecial, shortName } from './dogs.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD } from './data.js';
+import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
 
@@ -9,6 +9,7 @@ export const ALARM_MAX = 10;
 
 // Signature moves: a rare or legendary dog's secret way through the steps it fits.
 export function signatureFits(sigId, stage) {
+  if (stage.noSig) return false;
   return SIGNATURES[sigId].fits.some((t) => t === stage.kind || t === stage.id || t === `vault:${stage.vaultType}`);
 }
 
@@ -56,8 +57,19 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
   }
   if (stage.kind === 'vault' && job.hazards.silent && job.intel.hz_silent) d += 1;
   if (stage.id === 'obs_guards' && job.insider) d -= 1;
+  d += specialKitBonus(kit, job, stage, a);
   return d;
 }
+
+// Special kit won on earlier jobs: which pieces help on this step, and by how much.
+export function specialKitFor(kit, job, stage, a) {
+  return Object.keys(kit).filter((k) => {
+    const e = KIT[k]?.effect;
+    if (!e || !(kit[k] > 0)) return false;
+    return e.stage === stage.id || e.kind === stage.kind || e.skill === a.skill || !!e.types?.includes(job.type);
+  });
+}
+const specialKitBonus = (kit, job, stage, a) => specialKitFor(kit, job, stage, a).reduce((sum, k) => sum + KIT[k].effect.diff, 0);
 
 export function baseOdds(skill, diff) {
   return clamp(0.6 + 0.11 * (skill - diff), 0.05, 0.95);
@@ -73,10 +85,12 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   const a = APPROACHES[approachId];
   let skill = skillOf(dog, a.skill);
   if (job.time === 'night' && hasSpecial(dog, 'night')) skill += 1;
-  const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0);
+  // A specialist step: anyone short of the mark is out of their depth.
+  const outOfDepth = stage.needs && skill < stage.needs.min ? 3 : 0;
+  const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0) + outOfDepth;
   let p = baseOdds(skill, diff);
   const alarm = ctx.alarm || 0;
-  const crew = ctx.crew || crewOf(job.plan).map((id) => state.dogs[id]).filter(Boolean);
+  const crew = ctx.crew || [...new Set([...crewOf(job.plan), ...(state.crew || [])])].map((id) => state.dogs[id]).filter(Boolean);
   const q = dog.quirks;
   if (alarm >= 4) {
     if (q.includes('nervous')) p -= 0.15;
@@ -90,6 +104,7 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   const load = Object.values(job.plan).filter((p2) => p2 && p2.dog === dog.id).length;
   if (load > 3) p -= 0.05 * (load - 3);
   p += (dog.drama?.edge || 0) * 0.08; // fired up or distracted by personal drama
+  p += 0.02 * roleLevel(crew, 'leader'); // a leader steadies everyone
   p += ctx.bonus || 0;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
@@ -230,6 +245,7 @@ export function simulate(state, job, rng) {
     const o = odds(state, job, stage, approachId, dog, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra: (extra || 0) + (ctx.coppers ? 2 : 0), bonus: ctx.nextBonus });
     ctx.nextBonus = 0;
     let p = o.p;
+    if (tag === 'improv' && dog.role?.kind === 'wildcard') p = clamp(p + 0.05 * dog.role.level, 0.03, 0.97); // made for making it up
     if (hasSpecial(dog, 'wild')) {
       p = clamp(p + rng.float(-0.2, 0.2), 0.03, 0.97);
       learn(dog, 'talents', 'zoomies');
@@ -271,7 +287,8 @@ export function simulate(state, job, rng) {
     if (has('sheds') && rng.chance(0.5)) { clues += 1; learn(dog, 'quirks', 'sheds'); }
     if (has('glory')) { clues += 1; learn(dog, 'quirks', 'glory'); }
     if (hasSpecial(dog, 'clean')) clues -= 1;
-    if (job.time === 'day' && ['charm', 'disguise'].includes(a.skill)) clues += 1; // witnesses
+    // Witnesses, in daylight (a con wants to be seen: that's the point).
+    if (job.time === 'day' && !['con', 'fraud'].includes(job.type) && ['charm', 'disguise'].includes(a.skill)) clues += 1;
     ctx.clues += Math.max(0, clues);
     if (has('nervous') && ctx.alarm >= 4) learn(dog, 'quirks', 'nervous');
     if (has('steel') && ctx.alarm >= 4) learn(dog, 'quirks', 'steel');
@@ -325,7 +342,7 @@ export function simulate(state, job, rng) {
     const a = APPROACHES[f.approachId];
     const risky = RISKY.has(a.skill) || ['drill', 'van', 'grapple'].includes(a.needKit);
     const goingIn = !ctx.vaultDone && ctx.alarm < 6;
-    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1);
+    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1) * (1 - 0.12 * roleLevel(active(), 'leader'));
     if (risky && f.margin > (second ? 0.2 : 0.3) && rng.chance(pLose)) loseDog(f.dog, stageId, a.skill);
     else if (rng.chance(second ? 0.55 : 0.12 + ctx.alarm * 0.04)) {
       beat({ kind: 'chaos', stage: stageId, dog: f.dog.id, text: `${shortName(f.dog)} has been spotted!` });
@@ -342,6 +359,7 @@ export function simulate(state, job, rng) {
       useKit('smoke');
     }
     if (job.safehouse) p += 0.05;
+    if (ctx.kitLeft.scanner > 0) p += KIT.scanner.escape;
     if (ctx.coppers) p -= 0.1;
     p = clamp(p, 0.08, 0.92);
     if (rng.chance(p)) {
@@ -367,14 +385,14 @@ export function simulate(state, job, rng) {
     for (const l of byRatio) {
       if (used + l.bulk <= cap) { ctx.secured.push(l.id); used += l.bulk; } else left.push(l);
     }
-    beat({ kind: 'loot', stage: stage.id, text: `In the bag: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
+    beat({ kind: 'loot', stage: stage.id, text: `${['hack', 'fraud'].includes(job.type) ? 'Moved' : 'In the bag'}: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
   };
 
   const betrayals = () => {
     for (const d of active()) {
       if (d.quirks.includes('goodboy') || d.undercover) continue;
       if (!ctx.secured.length) break;
-      const p = Math.max(0, (d.greed - loyaltyOf(d)) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0);
+      const p = Math.max(0, (d.greed - loyaltyOf(d) - 10 * roleLevel(active(), 'leader')) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0);
       if (rng.chance(p)) {
         const lootId = ctx.secured.shift();
         ctx.runners.push({ id: d.id, lootId });
@@ -422,6 +440,11 @@ export function simulate(state, job, rng) {
     if (!ctx.pearShaped) {
       ctx.pearShaped = true;
       beat({ kind: 'pear', stage: stage.id, text: 'It\'s all gone PEAR-SHAPED!' });
+      const lead = active().filter((d) => d.role?.kind === 'leader').sort((a, b) => b.role.level - a.role.level)[0];
+      if (lead) {
+        ctx.alarm = Math.max(0, ctx.alarm - 1);
+        beat({ kind: 'good', stage: stage.id, dog: lead.id, text: `${shortName(lead)} keeps everyone calm. "Stick to the plan. We\'ve got this."` });
+      }
     }
     fallout(stage.id, false);
     if (!active().length) return null;
@@ -451,7 +474,14 @@ export function simulate(state, job, rng) {
     betrayals();
   };
 
-  // Both tries at a step failed.
+  // Both tries at a step failed. Some kinds of job tell it their own way.
+  const FAILED = {
+    con: { entry: 'The mark isn\'t biting. Everyone melts away.', vault: 'At the last moment, the mark keeps hold of it.', exit: 'The mark twigs. Scatter!' },
+    van: { entry: 'The van gets away. The job\'s off.', vault: 'The back doors won\'t budge. Empty-pawed.' },
+    smash: { entry: 'The glass holds. The job\'s off. Leg it!' },
+    hack: { entry: 'The network won\'t let them in. The job\'s off.', vault: 'The transfer bounces. Nothing moves.' },
+    fraud: { entry: 'They don\'t get the job. That\'s that.', vault: 'The books won\'t cook. Nothing to take.' },
+  }[job.type] || {};
   const botch = (stage) => {
     const id = stage.id;
     const fail = (text) => beat({ kind: 'fail', stage: id, text });
@@ -461,13 +491,14 @@ export function simulate(state, job, rng) {
     };
     switch (stage.kind) {
       case 'entry':
-        if (ctx.alarm < 6 && rng.chance(0.5)) {
+        // Only a building has a back window to put a bin through.
+        if (['breakin', 'swap'].includes(job.type || 'breakin') && ctx.alarm < 6 && rng.chance(0.5)) {
           beat({ kind: 'chaos', stage: id, text: 'Sod finesse. They put a bin through a back window and climb in. Loud, but they\'re in.' });
           ctx.clues += 1;
           addAlarm(3, id);
           return;
         }
-        fail('They can\'t get in. "Abort! ABORT!" Everyone legs it.');
+        fail(FAILED.entry || 'They can\'t get in. "Abort! ABORT!" Everyone legs it.');
         ctx.aborted = true;
         if (ctx.alarm >= 4) for (const d of active()) if (rng.chance(0.5)) escapeCheck(d, id);
         return;
@@ -475,15 +506,15 @@ export function simulate(state, job, rng) {
         fail('No finesse left. They barge straight through.');
         addAlarm(2, id);
         return;
-      case 'vault': return fail('The vault won\'t budge. They\'ll have to leave empty-pawed.');
-      case 'exit': return scatter('Every exit\'s blocked. Scatter!');
+      case 'vault': return fail(FAILED.vault || 'The vault won\'t budge. They\'ll have to leave empty-pawed.');
+      case 'exit': return scatter(FAILED.exit || 'Every exit\'s blocked. Scatter!');
       case 'getaway': return scatter('The getaway\'s blown. Every dog for himself!');
     }
   };
 
   // ---- Afterwards
   const interrogate = (d) => {
-    let pTalk = clamp((75 - loyaltyOf(d) * 0.5 - d.nerve * 0.3) / 100, 0.03, 0.9);
+    let pTalk = clamp((75 - loyaltyOf(d) * 0.5 - d.nerve * 0.3) / 100 - 0.05 * roleLevel(crew, 'leader'), 0.03, 0.9);
     if (d.quirks.includes('looselips')) pTalk += 0.3;
     if (job.fakeIds) pTalk -= 0.15;
     if (d.quirks.includes('nevergrass')) pTalk = 0;
@@ -545,9 +576,25 @@ export function simulate(state, job, rng) {
     }
   };
 
+  // Wildcards: now and then, something happens. Usually good, sometimes not.
+  const wildcards = (stage) => {
+    for (const d of active().filter((x) => x.role?.kind === 'wildcard')) {
+      if (!rng.chance(0.1 + 0.03 * d.role.level)) continue;
+      const good = rng.chance(0.5 + 0.04 * d.role.level);
+      const e = rng.pick(good ? WILD.good : WILD.bad);
+      beat({ kind: good ? 'good' : 'chaos', stage: stage.id, dog: d.id, text: e.text.replace(/\{d\}/g, shortName(d)) });
+      if (e.alarm > 0) addAlarm(e.alarm, stage.id);
+      if (e.alarm < 0) ctx.alarm = Math.max(0, ctx.alarm + e.alarm);
+      if (e.bonus) ctx.nextBonus = e.bonus;
+      if (e.clues) ctx.clues = Math.max(0, ctx.clues + e.clues);
+      if (e.smoke) ctx.kitLeft.smoke = (ctx.kitLeft.smoke || 0) + e.smoke;
+    }
+  };
+
   for (const [k, stage] of job.stages.entries()) {
     if (ctx.aborted || !active().length) break;
     if (k === troubleAt) trouble(stage);
+    wildcards(stage);
     if (!active().length) break;
     const pick = lead(stage);
     if (!pick) {

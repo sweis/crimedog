@@ -41,11 +41,17 @@ export function smartJob(s) {
   if (!s.crew.length) return;
   // Check out strangers when heat is up
   if (s.heat >= 25) for (const d of E.crewDogs(s)) if (d.jobs === 0 && s.cash > 200) { E.surveil(s, d.id); if (d.known.undercover && d.undercover) E.dismiss(s, d.id); }
-  const caser = E.crewDogs(s).sort((a, b) => skillOf(b, 'nose') - skillOf(a, 'nose'))[0];
+  const caser = E.crewDogs(s).sort((a, b) => E.caseOdds(s, b).expected - E.caseOdds(s, a).expected)[0];
   for (let k = 0; k < 2 && s.cash > 250 && job.daysLeft > 1; k++) E.caseJoint(s, caser?.id);
   // Kit the plan wants
   E.autoPlan(s);
   for (const p of Object.values(job.plan)) { const a = APPROACHES[p.approach]; if (a.kitBonus && !s.kit[a.kitBonus] && s.cash > KIT[a.kitBonus].price + 300) E.buy(s, a.kitBonus); }
+  // Kit a step can't be done without, when someone on the crew could use it.
+  const known = (sk) => E.crewDogs(s).some((d) => d.known.skills[sk] && skillOf(d, sk) >= 3);
+  for (const st of visibleStages(job)) {
+    const want = st.options.map((ap) => APPROACHES[ap]).find((a) => a.needKit && !s.kit[a.needKit] && known(a.skill));
+    if (want && s.cash > KIT[want.needKit].price + 300) E.buy(s, want.needKit);
+  }
   if (s.cash > 800) E.buy(s, 'bags');
   if (s.cash > 1500 && job.daysLeft) E.lineUpBuyer(s);
   if (s.cash > 1500 && s.heat > 20) E.buySafehouse(s);

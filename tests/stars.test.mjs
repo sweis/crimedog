@@ -110,21 +110,30 @@ test('a secret option only shows once its owner is hired, and they do it on the 
 });
 
 test('stars leave after the job and can only be hired while in town', () => {
-  const s = E.newGame(4);
-  takeJob(s);
-  const star = stars(s)[0];
-  s.cash = 10000;
-  assert.ok(E.hire(s, star.id).ok);
-  E.dismiss(s, star.id);
-  E.nextJob(s);
-  takeJob(s);
-  assert.ok(!s.pub.includes(star.id));
-  const r = E.hire(s, star.id);
-  assert.equal(r.ok, false);
-  assert.match(r.msg, /out of town/);
-  // A star is never a regular: they only come back through a new visit.
-  for (let i = 0; i < 5; i++) { s.job.daysLeft = 5; E.askAround(s); }
-  assert.ok(stars(s).length <= 1);
+  const seen = { gone: 0, back: 0 };
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = E.newGame(seed);
+    takeJob(s);
+    const star = stars(s)[0];
+    s.cash = 10000;
+    assert.ok(E.hire(s, star.id).ok);
+    E.dismiss(s, star.id);
+    E.nextJob(s);
+    takeJob(s);
+    const r = E.hire(s, star.id);
+    if (s.pub.includes(star.id) || r.ok) {
+      // Came back on a new visit: hireable while in town.
+      assert.ok(r.ok, r.msg);
+      seen.back++;
+    } else {
+      assert.match(r.msg, /out of town/);
+      seen.gone++;
+    }
+    // A star is never a regular: they only come back through a new visit.
+    for (let i = 0; i < 5; i++) { s.job.daysLeft = 5; E.askAround(s); }
+    assert.ok(stars(s).length <= 1);
+  }
+  assert.ok(seen.gone > 10, `stars that left: ${seen.gone}/40`);
 });
 
 test('every signature move is a real approach that fits at least one stage type', () => {
