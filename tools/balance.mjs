@@ -41,7 +41,7 @@ export function smartJob(s) {
   if (!s.crew.length) return;
   // Check out strangers when heat is up
   if (s.heat >= 25) for (const d of E.crewDogs(s)) if (d.jobs === 0 && s.cash > 200) { E.surveil(s, d.id); if (d.known.undercover && d.undercover) E.dismiss(s, d.id); }
-  const caser = E.crewDogs(s).sort((a, b) => skillOf(b, 'nose') - skillOf(a, 'nose'))[0];
+  const caser = E.crewDogs(s).sort((a, b) => E.caseOdds(s, b).expected - E.caseOdds(s, a).expected)[0];
   for (let k = 0; k < 2 && s.cash > 250 && job.daysLeft > 1; k++) E.caseJoint(s, caser?.id);
   // Kit the plan wants
   E.autoPlan(s);

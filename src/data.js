@@ -596,24 +596,25 @@ export const DISTRICTS = ['Bonechapel', 'Kennelworth', 'Pawcaster Square', 'Fetc
 
 export const JOB_CODEWORDS = ['Walkies', 'Fetch', 'Belly Rub', 'Good Boy', 'Roll Over', 'Dinnertime', 'Sit Stay', 'Tennis Ball', 'Postman', 'Bath Night', 'Squirrel', 'Muddy Paws'];
 
-// Intel that can be gathered by casing the joint.
+// Intel that can be gathered by casing the joint. `skill` is what finds it best
+// (nose for smells, tech for systems, sneak for watching, charm for chatting).
 export const INTEL = {
-  guard_rota: { label: 'Guard rota', blurb: 'When the patrols change. Sneaking past guards is much easier.' },
-  camera_map: { label: 'Camera layout', blurb: 'Where the blind spots are.' },
-  blueprints: { label: 'Blueprints', blurb: 'Unlocks sewer and vent entries; easier to short circuits.' },
-  combo: { label: 'Vault combination', blurb: 'Scribbled on a sticky note by the manager. Unlocks the combination option.' },
-  plate_map: { label: 'Pressure plate map', blurb: 'Which tiles are live.' },
-  loot_value: { label: 'Loot valuation', blurb: 'What the goods are really worth.' },
-  escape_routes: { label: 'Escape routes', blurb: '+1 on the getaway.' },
-  hz_cat: { label: 'Hazard: Security Cat', blurb: 'There\'s a cat. Plan for it or be surprised.', hazard: 'cat' },
-  hz_plates: { label: 'Hazard: Pressure plates', blurb: 'Hidden plates by the vault. Plan for them.', hazard: 'plates' },
-  hz_silent: { label: 'Hazard: Silent alarm', blurb: 'The vault has a silent alarm. Known, it only makes the vault harder; unknown, it rings the Old Bill.', hazard: 'silent' },
-  mark_file: { label: 'File on the mark', blurb: 'What the mark wants to hear. Easier pitches.' },
-  van_route: { label: 'The van\'s route', blurb: 'Where and when it stops. Easier to stop the van.' },
-  hz_butler: { label: 'Hazard: Suspicious butler', blurb: 'The mark\'s butler trusts nobody. Plan for him.', hazard: 'butler' },
-  hz_hero: { label: 'Hazard: Have-a-go hero', blurb: 'A local hero drinks next door. He will have a go.', hazard: 'hero' },
-  hz_escort: { label: 'Hazard: Police escort', blurb: 'A police car follows the van. Plan for it.', hazard: 'escort' },
-  hz_stakeout: { label: 'Hazard: Police stakeout', blurb: 'The Inspector has a car watching the street at one time of day.', hazard: 'stakeout' },
+  guard_rota: { skill: 'sneak', label: 'Guard rota', blurb: 'When the patrols change. Sneaking past guards is much easier.' },
+  camera_map: { skill: 'tech', label: 'Camera layout', blurb: 'Where the blind spots are.' },
+  blueprints: { skill: 'tech', label: 'Blueprints', blurb: 'Unlocks sewer and vent entries; easier to short circuits.' },
+  combo: { skill: 'nose', label: 'Vault combination', blurb: 'Scribbled on a sticky note by the manager. Unlocks the combination option.' },
+  plate_map: { skill: 'nose', label: 'Pressure plate map', blurb: 'Which tiles are live.' },
+  loot_value: { skill: 'charm', label: 'Loot valuation', blurb: 'What the goods are really worth.' },
+  escape_routes: { skill: 'wheels', label: 'Escape routes', blurb: '+1 on the getaway.' },
+  hz_cat: { skill: 'nose', label: 'Hazard: Security Cat', blurb: 'There\'s a cat. Plan for it or be surprised.', hazard: 'cat' },
+  hz_plates: { skill: 'nose', label: 'Hazard: Pressure plates', blurb: 'Hidden plates by the vault. Plan for them.', hazard: 'plates' },
+  hz_silent: { skill: 'tech', label: 'Hazard: Silent alarm', blurb: 'The vault has a silent alarm. Known, it only makes the vault harder; unknown, it rings the Old Bill.', hazard: 'silent' },
+  mark_file: { skill: 'charm', label: 'File on the mark', blurb: 'What the mark wants to hear. Easier pitches.' },
+  van_route: { skill: 'sneak', label: 'The van\'s route', blurb: 'Where and when it stops. Easier to stop the van.' },
+  hz_butler: { skill: 'charm', label: 'Hazard: Suspicious butler', blurb: 'The mark\'s butler trusts nobody. Plan for him.', hazard: 'butler' },
+  hz_hero: { skill: 'charm', label: 'Hazard: Have-a-go hero', blurb: 'A local hero drinks next door. He will have a go.', hazard: 'hero' },
+  hz_escort: { skill: 'sneak', label: 'Hazard: Police escort', blurb: 'A police car follows the van. Plan for it.', hazard: 'escort' },
+  hz_stakeout: { skill: 'sneak', label: 'Hazard: Police stakeout', blurb: 'The Inspector has a car watching the street at one time of day.', hazard: 'stakeout' },
 };
 
 export const FENCES = {

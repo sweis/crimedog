@@ -254,7 +254,7 @@ export function acceptOffer(state, offerId) {
   const p = state.job.patron;
   if (p?.front) state.cash += p.front;
   if (state.sabotage) {
-    state.job.alert += state.sabotage;
+    raiseAlert(state.job, 'Someone tipped off security', state.sabotage);
     state.sabotage = 0;
   }
   state.offers = [];
@@ -295,6 +295,24 @@ export function buy(state, kitId) {
   return done(`Bought ${k.name}.`);
 }
 
+// Security on alert makes every step harder. Each rise remembers why.
+function raiseAlert(job, why, n = 1) {
+  job.alert += n;
+  (job.alertWhy ||= []).push(why);
+}
+
+// How a dog would do casing this job: the chance of turning up each unknown piece
+// of intel (by the skill that finds it best) and of being spotted doing it.
+export function caseOdds(state, d) {
+  const job = state.job;
+  const intelBoost = hasSpecial(d, 'intel') ? 0.15 : 0;
+  const finds = Object.keys(job.intel).filter((k) => !job.intel[k])
+    .map((k) => ({ k, p: Math.min(0.9, 0.1 + 0.16 * skillOf(d, INTEL[k].skill) + intelBoost) }));
+  const cover = Math.max(skillOf(d, 'sneak'), skillOf(d, 'disguise'));
+  return { finds, expected: finds.reduce((a, f) => a + f.p, 0), spotted: Math.max(0.03, 0.35 - 0.08 * cover) };
+}
+
+const CASE_MAX = 3;
 export function caseJoint(state, who) {
   const job = state.job;
   const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
@@ -313,20 +331,25 @@ export function caseJoint(state, who) {
   if (state.cash < 40) return fail('Expenses are £40.');
   if (!useDay(state)) return fail('No days left before the job.');
   spend(state, 40);
-  d.known.skills.nose = true;
-  d.known.skills.sneak = true;
-  let n = 1 + Math.floor(skillOf(d, 'nose') / 2) + (hasSpecial(d, 'intel') ? 1 : 0);
+  const odds = caseOdds(state, d);
   if (hasSpecial(d, 'intel')) {
     const t = d.talents.find((x) => ['radio', 'bloodhound', 'casing'].includes(x));
     if (t && !d.known.talents.includes(t)) d.known.talents.push(t);
   }
-  const got = rng.sample(unknown, Math.min(n, unknown.length));
-  for (const k of got) revealIntel(job, k);
+  // Each piece of intel turns up on its own roll; the best bet always does.
+  let got = rng.shuffle(odds.finds).filter((f) => rng.chance(f.p)).map((f) => f.k).slice(0, CASE_MAX);
+  if (!got.length) got = [odds.finds.slice().sort((a, b) => b.p - a.p)[0].k];
+  for (const k of got) {
+    revealIntel(job, k);
+    d.known.skills[INTEL[k].skill] = true;
+  }
   let msg = `🔎 ${got.map((k) => INTEL[k].label.replace('Hazard: ', '⚠️ ')).join(', ')}`;
-  const spotted = rng.chance(Math.max(0.03, 0.35 - 0.08 * skillOf(d, 'sneak')));
+  const spotted = rng.chance(odds.spotted);
+  const cover = skillOf(d, 'sneak') >= skillOf(d, 'disguise') ? 'sneak' : 'disguise';
+  d.known.skills[cover] = true;
   if (spotted) {
-    job.alert += 1;
-    msg += ` · 👀 ${shortName(d)} was spotted: +1 difficulty`;
+    raiseAlert(job, `${shortName(d)} was spotted casing the joint`);
+    msg += ` · 👀 ${shortName(d)} was spotted! Security's on alert: every step +1 harder`;
   }
   return done(msg, { revealed: got, spotted });
 }
@@ -376,7 +399,7 @@ export function plantInsider(state, id) {
     job.insider = id;
     return done(`${shortName(d)} gets a job at ${job.venueName} as a cleaner. They're on the inside.`);
   }
-  job.alert += 1;
+  raiseAlert(job, `${shortName(d)} flunked a job interview there`);
   return done(`${shortName(d)}'s interview goes badly. Security's been told to look out for "a suspicious applicant".`);
 }
 

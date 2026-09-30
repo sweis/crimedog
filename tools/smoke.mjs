@@ -354,6 +354,40 @@ console.log('1h. Kinds of job: a long con on the board, taken and planned with r
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1i. casing
+console.log('1i. Casing: the picker says what to look for; being spotted is explained');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=31`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(31); window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew'); window.cd.teleport('job'); });
+  await tap(page, 'main [data-act="pick"][data-purpose="case"]');
+  const note = await page.locator('.modal p.muted').first().textContent();
+  check(/Finds/.test(note) && /unseen/.test(note), `case picker lists what to look for (${note})`);
+  await shot(page, 'casing-picker');
+  // A clumsy caser: keep casing until someone's spotted.
+  const spotted = await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    const d = s.dogs[s.crew[0]];
+    for (const k of Object.keys(d.skills)) d.skills[k] = 0;
+    d.talents = [];
+    s.cash += 5000;
+    for (let i = 0; i < 20 && !s.job.alert; i++) { s.job.daysLeft = 5; for (const k of Object.keys(s.job.intel)) s.job.intel[k] = false; E.caseJoint(s, d.id); }
+    window.cd.teleport('job');
+    return s.job.alert;
+  });
+  const alertText = await page.locator('main .alert-note').textContent().catch(() => '');
+  check(spotted > 0 && /spotted casing the joint/.test(alertText), `job screen explains the alert (${alertText.trim()})`);
+  await page.evaluate(() => { document.querySelector('main .alert-note').scrollIntoView({ block: 'center' }); });
+  await shot(page, 'casing-alert');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

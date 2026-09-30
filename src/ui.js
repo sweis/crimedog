@@ -210,7 +210,7 @@ function jobScreen(G) {
     <div class="row spread mt"><div><b>Days left</b><div class="days mt">${days}</div></div>
     <div class="seg" role="group" aria-label="Time of the job">${timeSeg(job)}</div></div>
     ${stake}
-    ${job.alert ? `<p class="chip bad mt">⚠️ Security on alert: +${job.alert} difficulty</p>` : ''}
+    ${alertNote(job)}
   </section>
   ${job.patron || job.owner ? `<section class="card deal-card">${job.patron ? `<div class="offer-from"><div class="boss-pic">${portraitSVG(bossDog(job.patron.group), { size: 48 })}</div><div><b>${esc(GROUPS[job.patron.group].boss)}</b><div class="muted">${esc(GROUPS[job.patron.group].name)}</div></div></div>` : ''}<div class="dm-chips mt">${dealTerms(G, job)}</div></section>` : ''}
   <section class="card">
@@ -223,6 +223,13 @@ function jobScreen(G) {
   </section>
   <button class="btn big block red" data-act="go" data-to="plan">📋 Plan the heist</button>
   <div class="btn-row mt"><button class="btn ghost small" data-act="walk-away">Walk away from this job</button></div>`;
+}
+
+// Why security is on alert (each reason made every step 1 harder).
+function alertNote(job) {
+  if (!job.alert) return '';
+  const why = job.alertWhy?.length ? job.alertWhy : ['Security is jumpy'];
+  return `<div class="alert-note mt"><b>⚠️ Security on alert: every step +${job.alert} harder</b>${why.map((w) => `<div>· ${esc(w)}</div>`).join('')}</div>`;
 }
 
 function timeSeg(job) {
@@ -387,7 +394,7 @@ function planScreen(G) {
   if (!crew.length) {
     return h + '<section class="card"><p>No crew yet.</p><button class="btn block" data-act="go" data-to="pub">🍺 Go to the pub</button></section>';
   }
-  if (unknownIntel) h += `<p><span class="chip warn">❓ ${unknownIntel} intel unknown</span></p>`;
+  if (unknownIntel || job.alert) h += `<p>${unknownIntel ? `<span class="chip warn">❓ ${unknownIntel} intel unknown</span> ` : ''}${job.alert ? `<span class="chip bad">⚠️ Alert +${job.alert}</span>` : ''}</p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
     // A specialist step says what it takes, and whether anyone on the crew has it.
@@ -814,8 +821,14 @@ function pickModal(G, purpose) {
   const s = G.state;
   const crew = E.crewDogs(s);
   const title = purpose === 'case' ? 'Who cases the joint?' : 'Who goes undercover as staff?';
-  let h = `<h2>${title}</h2><p class="muted">${purpose === 'case' ? '👃 finds more · 🐾 avoids being spotted · £40' : '🥸 or 🎩 helps · £100'}</p><div class="pick-list">`;
-  h += crew.map((d) => dogCard(G, d, { act: 'picked', extra: `data-purpose="${purpose}"`, skill: purpose === 'case' ? ['nose', 'sneak'] : ['disguise', 'charm'] })).join('') || '<p>Nobody on the crew yet.</p>';
+  // Casing: what's still unknown decides which skills are worth sending.
+  const want = {};
+  for (const [k, v] of Object.entries(s.job.intel)) if (!v) want[INTEL[k].skill] = (want[INTEL[k].skill] || 0) + 1;
+  const finds = Object.keys(want).sort((a, b) => want[b] - want[a]).slice(0, 3);
+  const skills = purpose === 'case' ? [...new Set([...finds, 'sneak'])] : ['disguise', 'charm'];
+  const note = purpose === 'case' ? `Finds ${finds.map((sk) => `${SKILL_INFO[sk].icon}${want[sk]}`).join(' ')} · 🐾🥸 unseen · £40` : '🥸 or 🎩 helps · £100';
+  let h = `<h2>${title}</h2><p class="muted">${note}</p><div class="pick-list">`;
+  h += crew.map((d) => dogCard(G, d, { act: 'picked', extra: `data-purpose="${purpose}"`, skill: skills })).join('') || '<p>Nobody on the crew yet.</p>';
   h += '</div>';
   if (purpose === 'case') h += '<button class="btn block ghost" data-act="picked" data-purpose="case" data-id="tipster">💰 Pay a tipster instead · £120</button>';
   return h;
