@@ -1,19 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
-import { TALENTS, APPROACHES, KIT, INTEL, OBSTACLES, VAULTS, VENUES, QUIRKS, SKILLS } from '../src/data.js';
+import { TALENTS, APPROACHES, KIT, INTEL, OBSTACLES, VAULTS, SKILLS } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
-import { odds } from '../src/sim.js';
+import { stageOptions } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
+import { genOffers } from '../src/groups.js';
+import { takeJob } from './helpers.mjs';
 
 // Play one job with a simple policy. mode: 'smart' | 'reckless'
-export function takeJob(s, mode = 'reckless') {
-  if (s.phase !== 'select') return;
-  const pick = mode === 'smart' ? (s.offers.find((o) => o.source !== 'own') || s.offers[0]) : s.offers[0];
-  const r = E.acceptOffer(s, pick.id);
-  assert.ok(r.ok, r.msg);
-}
-
 export function playJob(s, mode) {
   const rng = makeRng({ s: s.seed * 7 + s.stats.jobs });
   takeJob(s, mode);
@@ -74,7 +69,7 @@ test('every generated job: each visible stage has an ungated option; intel keys 
   for (let seed = 1; seed <= 300; seed++) {
     const s = E.newGame(seed);
     s.rep = 80; // unlock every group so their offers are covered too
-    E.nextJob(s);
+    genOffers(s, E.rngOf(s));
     for (const j of s.offers.map((o) => o.job)) {
     assert.ok(j.name && j.loot.length >= 2, `seed ${seed}`);
     for (const st of j.stages) {
@@ -141,7 +136,7 @@ test('assignToStage keeps the chosen approach or picks one the dog can do', () =
   assert.ok(E.assignToStage(s, st1.id, id).ok);
   const p1 = s.job.plan[st1.id];
   assert.equal(p1.dog, id);
-  assert.ok(p1.approach && st1.options.includes(p1.approach));
+  assert.ok(p1.approach && stageOptions(st1, E.crewDogs(s)).includes(p1.approach));
   // Approach already chosen: it's kept.
   const ap = st2.options.find((a) => !APPROACHES[a].needKit && !APPROACHES[a].needIntel && !APPROACHES[a].needInsider && !APPROACHES[a].needBribe);
   E.setPlan(s, st2.id, { approach: ap });

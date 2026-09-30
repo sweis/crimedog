@@ -1,9 +1,9 @@
 // Shareable "wanted poster" snapshot of a crew member, rendered as SVG then
 // rasterised to PNG for the Web Share API (or a download fallback).
-import { BREEDS, FACTIONS, SKILL_INFO, TALENTS, QUIRKS } from './data.js';
-import { portraitSVG, displayName, relationLabel, skillOf, topSkills } from './dogs.js';
+import { BREEDS, FACTIONS, SKILL_INFO, TALENTS, QUIRKS, RARITY, SIGNATURES } from './data.js';
+import { portraitSVG, displayName, relationLabel, topSkills } from './dogs.js';
+import { esc } from './util.js';
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 function wrap(text, max) {
   const words = String(text).split(/\s+/);
@@ -16,7 +16,7 @@ function wrap(text, max) {
   return lines;
 }
 
-export function cardSVG(dog) {
+function cardSVG(dog) {
   const W = 600, H = 860;
   const b = BREEDS[dog.breed];
   const known = topSkills(dog, 10).filter(([s]) => dog.known.skills[s]);
@@ -40,14 +40,18 @@ export function cardSVG(dog) {
   const quirks = dog.known.quirks.map((x) => QUIRKS[x]?.name).filter(Boolean);
   t += row('Known for', talents.slice(0, 2).join(', ') || quirks[0] || '???');
   y += 6;
+  // Stars get a ribbon across the foot of the portrait and a matching frame.
+  const frame = dog.rarity === 'legendary' ? '#d6a93b' : dog.rarity === 'rare' ? '#6fa8dc' : '#d6a93b';
+  const ribbon = dog.rarity ? `<rect x="70" y="388" width="460" height="40" rx="8" fill="${frame}" stroke="#1d1b22" stroke-width="2"/><text x="300" y="414" text-anchor="middle" font-size="17" font-weight="900" letter-spacing="1" font-family="system-ui,sans-serif" fill="#1d1b22">${esc(`${RARITY[dog.rarity].icon} ${RARITY[dog.rarity].label.toUpperCase()}${dog.signature ? ` · ${SIGNATURES[dog.signature].name.toUpperCase()}` : ''}`)}</text>` : '';
   for (const l of wrap(`"${dog.catchphrase}"`, 40)) { t += `<text x="300" y="${y}" text-anchor="middle" font-size="21" font-style="italic" font-family="Georgia,serif" fill="#1d1b22">${esc(l)}</text>`; y += 28; }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <rect width="${W}" height="${H}" fill="#101a30"/>
   <rect x="20" y="20" width="${W - 40}" height="${H - 40}" rx="22" fill="#f4ead3"/>
-  <rect x="34" y="34" width="${W - 68}" height="${H - 68}" rx="16" fill="none" stroke="#d6a93b" stroke-width="4"/>
+  <rect x="34" y="34" width="${W - 68}" height="${H - 68}" rx="16" fill="none" stroke="${frame}" stroke-width="${dog.rarity ? 8 : 4}"/>
   <text x="300" y="92" text-anchor="middle" font-size="44" font-weight="900" letter-spacing="6" font-family="Georgia,serif" fill="#a57e1f">CRIMEDOG</text>
   ${portrait}
   <rect x="150" y="118" width="300" height="300" fill="none" stroke="#1d1b22" stroke-width="3" rx="14"/>
+  ${ribbon}
   ${t}
   <text x="300" y="${H - 50}" text-anchor="middle" font-size="16" fill="#5a5347" font-family="system-ui,sans-serif">A heist game. For dogs.</text>
   </svg>`;

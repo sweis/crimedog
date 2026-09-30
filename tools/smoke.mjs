@@ -129,7 +129,16 @@ console.log('1. Cold boot, real touch play-through');
   await tap(page, '[data-act="pull"]');
   check(await page.locator('main[data-screen="heist"]').count() === 1, 'heist playback screen');
   await tap(page, '[data-act="heist-toggle"]'); // pause
-  for (let k = 0; k < 5; k++) if (await page.locator('[data-act="heist-step"]').count()) await tap(page, '[data-act="heist-step"]');
+  for (let k = 0; k < 12; k++) if (await page.locator('[data-act="heist-step"]').count()) await tap(page, '[data-act="heist-step"]');
+  // The log grows downwards: the newest beat should be in view between the sticky header and controls.
+  await page.waitForTimeout(700);
+  const seen = await page.evaluate(() => {
+    const b = document.querySelector('.beat[data-latest]').getBoundingClientRect();
+    const head = document.querySelector('.heist-head').getBoundingClientRect();
+    const ctl = document.querySelector('.heist-controls').getBoundingClientRect();
+    return { top: Math.round(b.top), bottom: Math.round(b.bottom), head: Math.round(head.bottom), ctl: Math.round(ctl.top), scrolled: scrollY };
+  });
+  check(seen.scrolled > 0 && seen.top >= seen.head - 2 && seen.bottom <= seen.ctl + 2, `latest beat in view after stepping (${JSON.stringify(seen)})`);
   await shot(page, '09-heist');
   if (await page.locator('[data-act="heist-skip"]').count()) await tap(page, '[data-act="heist-skip"]');
   await shot(page, '10-heist-end');
@@ -205,6 +214,96 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
   check(!toastHitsActions, `${w}x${h}: toast does not cover the profile's buttons`);
   check(b.scroll <= 1 && b.bottom <= b.vh && !b.overflow, `${w}x${h}: tailed dog (more traits) still fits (scroll ${b.scroll})`);
   if (w === 375) await shot(page, 'profile-375x667');
+  // A legendary: every talent known, plus a signature line.
+  await page.evaluate(() => { window.cd.spawn('dog', 'legend'); window.cd.teleport('pub'); document.getElementById('toast').innerHTML = ''; });
+  await tap(page, 'main .dog-card.legendary');
+  await page.waitForTimeout(300);
+  const c = await measure();
+  check(c.scroll <= 1 && c.bottom <= c.vh && !c.overflow, `${w}x${h}: legendary profile fits (scroll ${c.scroll}, bottom ${Math.round(c.bottom)}/${c.vh})`);
+  if (w === 375) await shot(page, 'profile-legendary-375x667');
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1f. stars
+console.log('1f. A star in the first pub; hiring them opens a secret option');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=12`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(12); window.cd.teleport('pub'); });
+  const st = await page.evaluate(() => window.cd.getState());
+  check(st.stars.length === 1 && st.stars[0].rarity === 'rare' && st.stars[0].signature, `first pub has a rare star (${JSON.stringify(st.stars)})`);
+  check(await page.locator('main .dog-card.rare .rar').count() === 1, 'star card carries the Rare badge');
+  await shot(page, 'star-pub');
+  await tap(page, 'main .dog-card.rare');
+  await tap(page, '.modal [data-act="hire"]');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  if (await page.locator('.modal [data-act="close-modal"]').count()) await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  await page.waitForTimeout(200);
+  check(await page.locator('.opt.secret').count() >= 1, 'plan shows a secret option once the star is hired');
+  await tap(page, '.opt.secret');
+  const after = await page.evaluate(() => {
+    const s = window.cd.getState();
+    const star = s.crew.find((c) => c.id === s.stars[0]?.id) || null;
+    const step = document.querySelector('.opt.secret.on')?.closest('.plan-step')?.dataset.stage;
+    return { step, plan: step ? s.job.plan[step] : null };
+  });
+  check(after.plan && after.plan.approach.startsWith('s_') && after.plan.dog === st.stars[0].id, `picking it puts the star on that step (${JSON.stringify(after)})`);
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; document.querySelector('.opt.secret.on').scrollIntoView({ block: 'center' }); });
+  await shot(page, 'star-plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1g. crew drama
+console.log('1g. Crew drama: a scene on the job board, answered with a real tap');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=8`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(8); window.cd.spawn('cash', 2000); window.cd.teleport('select'); window.cd.spawn('arc', 'debt'); window.cd.teleport('select'); });
+  await page.waitForTimeout(200);
+  check(await page.locator('.modal.story [data-act="drama"]').count() === 2, 'debt scene shows two choices');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  await shot(page, 'drama-scene');
+  const before = await page.evaluate(() => window.cd.getState());
+  await tap(page, '.modal.story [data-act="drama"][data-i="0"]');
+  const after = await page.evaluate(() => window.cd.getState());
+  const arc = after.arcs.find((a) => a.id === before.arcs[0].id);
+  check(after.cash < before.cash && after.drama.some((d) => d.id === before.arcs[0].dog && d.edge === 1) && arc && arc.node !== 'start',
+    `paying the debt costs cash, fires the dog up and moves the story on (${before.cash}->${after.cash}, ${arc?.node})`);
+  check(await page.locator('.modal.story').count() === 0, 'scene closes');
+  // The fired-up dog shows it on the crew page.
+  await page.evaluate(() => { window.cd.teleport('crew'); });
+  check(await page.locator('main .dog-card .chip.good', { hasText: 'Fired up' }).count() === 1, 'crew page shows "Fired up"');
+  await shot(page, 'drama-crew');
+  // A regular who has earned it gets promoted after a clean job.
+  const promo = await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    window.cd.teleport('plan');
+    const s = window.cd.live();
+    const d = Object.values(s.dogs).find((x) => x.met && !x.rarity);
+    for (const k of Object.keys(d.skills)) d.skills[k] = Math.min(d.skills[k], 3);
+    Object.assign(d, { jobs: 5, relation: 40 });
+    d.skills.sneak = 5;
+    s.cash += 5000;
+    E.hire(s, d.id);
+    window.cd.win();
+    window.cd.teleport('aftermath');
+    return { promoted: s.after.promoted, rarity: d.rarity, signature: d.signature };
+  });
+  check(promo.rarity === 'rare' && promo.promoted?.length === 1 && promo.signature === 'phantom', `a regular who earned it is promoted (${JSON.stringify(promo)})`);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, 'drama-promoted');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }
 
@@ -220,7 +319,7 @@ console.log('1d. Hiring from a planning step returns to that step');
   await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.spawn('cash', 5000); window.cd.spawn('dog', 'crew'); window.cd.teleport('plan'); });
   const stageId = await page.evaluate(() => window.cd.getState().job.stages.filter((st) => !st.hidden)[2].id);
   const crewBefore = (await page.evaluate(() => window.cd.getState().crew)).length;
-  await tap(page, `.stage[data-stage="${stageId}"] [data-act="hire-for"]`);
+  await tap(page, `.plan-step[data-stage="${stageId}"] [data-act="hire-for"]`);
   check(await page.locator('main[data-screen="pub"] .hire-banner').count() === 1, 'plan step opens the pub in hiring-for mode');
   check((await page.locator('.hire-banner').innerText()).includes('step 3'), 'banner names the step');
   await shot(page, 'hire-for-step');
@@ -232,11 +331,11 @@ console.log('1d. Hiring from a planning step returns to that step');
   const hired = st.crew[st.crew.length - 1].id;
   check(st.screen === 'plan' && st.crew.length === crewBefore + 1, `back on the plan with a new hire (${st.screen}, crew ${st.crew.length})`);
   check(st.job.plan[stageId]?.dog === hired && !!st.job.plan[stageId]?.approach, 'new hire is assigned to that step');
-  const inView = await page.evaluate((id) => { const r = document.querySelector(`.stage[data-stage="${id}"]`).getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, stageId);
+  const inView = await page.evaluate((id) => { const r = document.querySelector(`.plan-step[data-stage="${id}"]`).getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, stageId);
   check(inView, 'plan is scrolled to the step');
   await shot(page, 'hire-for-step-returned');
   // Back without hiring also returns to the step
-  await tap(page, `.stage[data-stage="${stageId}"] [data-act="hire-for"]`);
+  await tap(page, `.plan-step[data-stage="${stageId}"] [data-act="hire-for"]`);
   await tap(page, '[data-act="hire-back"]');
   const back = await page.evaluate(() => window.cd.getState().screen);
   check(back === 'plan', 'back button returns to the plan');

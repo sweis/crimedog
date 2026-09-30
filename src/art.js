@@ -2,6 +2,7 @@
 // board banner) and the rooftop skyline on the title screen. Seeded, so a
 // given job always looks the same.
 import { makeRng, hashString } from './rng.js';
+import { esc } from './util.js';
 
 let artUid = 0;
 const f1 = (n) => n.toFixed(1);
@@ -183,7 +184,7 @@ export function venueSVG(job) {
   let rain = '';
   for (let i = 0; i < 40; i++) { const x = rng.float(0, W), y = rng.float(0, H); rain += `M${f1(x)} ${f1(y)} l-3 10 `; }
   s += `<path d="${rain}" stroke="#bcd3f5" stroke-opacity=".18" stroke-width=".8"/>`;
-  return `<svg class="venue-art" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${job.venueName.replace(/[&<>"]/g, "")} at night">${s}</svg>`;
+  return `<svg class="venue-art" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(job.venueName)} at night">${s}</svg>`;
 }
 
 export function skylineSVG(seed = 7) {

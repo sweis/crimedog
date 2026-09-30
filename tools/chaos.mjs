@@ -1,14 +1,11 @@
 // Chaos probe: how often heists go wrong, and what that costs the crew.
 // `node tools/chaos.mjs [careers]`
 import { career } from './balance.mjs';
-import * as E from '../src/engine.js';
 
 export function chaosStats(n = 120, maxJobs = 10) {
   const t = { jobs: 0, pear: 0, pearWithLoss: 0, captured: 0, lost: 0, withCat: 0, surprise: 0, hazards: 0 };
   for (let seed = 1; seed <= n; seed++) {
-    const s = E.newGame(seed);
     // Reuse the careful career policy, sampling each job's result as it resolves.
-    const orig = E.resolveHeist;
     career(seed, 'smart', maxJobs, (st) => {
       const r = st.result;
       t.jobs++;

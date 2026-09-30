@@ -72,7 +72,7 @@ function toast(msg, bad) {
 }
 G.toast = toast;
 
-const QUIET = new Set([E.setPlan, E.autoPlan, E.resolveHeist, E.setTime]);
+const QUIET = new Set([E.setPlan, E.autoPlan, E.resolveHeist, E.setTime, E.nextJob]);
 function run(fn, ...args) {
   const r = fn(G.state, ...args);
   if (r && r.msg && (!r.ok || !QUIET.has(fn))) toast(r.msg, !r.ok);
@@ -81,6 +81,11 @@ function run(fn, ...args) {
 }
 
 // ------------------------------------------------------------------ heist playback
+// The log grows downwards; keep the newest beat in view, just above the sticky controls.
+function scrollToLatest(smooth) {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+}
+
 G.advanceBeat = (doRender = true) => {
   const r = G.state?.result;
   if (!r) return;
@@ -88,84 +93,98 @@ G.advanceBeat = (doRender = true) => {
   if (G.ui.heist.i >= r.beats.length - 1) G.ui.heist.playing = false;
   if (doRender) {
     G.commit();
-    document.querySelector('.beat[data-latest]')?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    scrollToLatest(true);
   }
 };
 
 // ------------------------------------------------------------------ actions
+function show(screen) {
+  G.ui.screen = screen;
+  G.ui.modal = null;
+  G.ui.hireFor = null;
+  G.commit();
+  window.scrollTo(0, 0);
+}
+
 // Back to the plan, scrolled to (and briefly highlighting) the step we hired for.
 function returnToPlan(stageId) {
-  G.ui.hireFor = null;
-  G.ui.modal = null;
-  G.ui.screen = 'plan';
-  G.commit();
-  const el = stageId && document.querySelector(`.stage[data-stage="${stageId}"]`);
+  show('plan');
+  const el = stageId && document.querySelector(`.plan-step[data-stage="${stageId}"]`);
   if (el) {
     el.scrollIntoView({ block: 'center' });
     el.classList.add('flash');
-  } else window.scrollTo(0, 0);
+  }
 }
+
+// Buttons that just call one engine action, optionally with a data-* argument.
+const SIMPLE = {
+  'dig-leads': [E.digLeads],
+  'borrow': [E.borrow],
+  'pay-debt': [E.payDebt, 'g'],
+  'deliver': [E.deliver],
+  'time': [E.setTime, 't'],
+  'ask-around': [E.askAround],
+  'buy': [E.buy, 'kit'],
+  'bribe': [E.bribeGuard],
+  'safehouse': [E.buySafehouse],
+  'fakeids': [E.buyFakeIds],
+  'buyer': [E.lineUpBuyer],
+  'vet': [E.vetFence],
+  'laylow': [E.layLow],
+  'dismiss': [E.dismiss, 'id'],
+  'surveil': [E.surveil, 'id'],
+  'lawyer': [E.lawyer, 'id'],
+  'autoplan': [E.autoPlan],
+  'fence': [E.fence, 'f'],
+};
 
 const A = {
   'go'(el) {
     G.clearToasts();
-    G.ui.hireFor = null;
-    G.ui.screen = el.dataset.to;
-    G.ui.modal = null;
     // First look at the plan: have the crew pencil one in, so there's something to tweak.
     const s = G.state;
     if (el.dataset.to === 'plan' && s?.phase === 'plan' && s.crew.length && !Object.keys(s.job.plan).length) {
       E.autoPlan(s);
       toast('The crew pencilled in a plan. Tweak it.');
     }
-    G.commit();
-    window.scrollTo(0, 0);
+    show(el.dataset.to);
   },
   'new-game'() {
     const seed = params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e9);
     G.state = E.newGame(seed);
-    G.ui = { ...G.ui, screen: 'intro', introPage: 0, modal: null, heist: { i: 0, playing: true } };
-    G.commit();
+    G.ui = { ...G.ui, introPage: 0, heist: { i: 0, playing: true } };
+    show('intro');
   },
   'continue'() {
     if (!G.load()) toast('No saved game.', true);
     G.render();
   },
   'intro-next'() { G.ui.introPage++; G.render(); },
-  'start'() { G.ui.screen = 'job'; G.commit(); window.scrollTo(0, 0); },
+  'start'() { show('job'); },
   'take-offer'(el) {
+    G.clearToasts();
     const r = E.acceptOffer(G.state, el.dataset.id);
     toast(r.msg, !r.ok);
-    if (r.ok) G.ui.screen = 'job';
-    G.commit();
-    window.scrollTo(0, 0);
+    show('job');
   },
-  'dig-leads'() { run(E.digLeads); },
-  'borrow'() { run(E.borrow); },
-  'pay-debt'(el) { run(E.payDebt, el.dataset.g); },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
-  'deliver'() { run(E.deliver); },
-  'time'(el) { run(E.setTime, el.dataset.t); },
+  'drama'(el) { run(E.chooseDrama, Number(el.dataset.i)); },
   'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },
   'picked'(el) {
     G.ui.modal = null;
-    if (el.dataset.purpose === 'case') run(E.caseJoint, el.dataset.id);
-    else run(E.plantInsider, el.dataset.id);
+    run(el.dataset.purpose === 'case' ? E.caseJoint : E.plantInsider, el.dataset.id);
   },
   'walk-away'(el) {
-    if (G.ui.confirmWalk) { G.ui.confirmWalk = false; run(E.nextJob); G.ui.screen = 'job'; G.render(); return; }
-    G.ui.confirmWalk = true;
-    el.textContent = 'Really walk away? (-3 rep) Tap again.';
-    el.classList.add('red');
+    if (!G.ui.confirmWalk) {
+      G.ui.confirmWalk = true;
+      el.textContent = 'Really walk away? (-3 rep) Tap again.';
+      el.classList.add('red');
+      return;
+    }
+    G.ui.confirmWalk = false;
+    run(E.nextJob);
+    show('job');
   },
-  'ask-around'() { run(E.askAround); },
-  'buy'(el) { run(E.buy, el.dataset.kit); },
-  'bribe'() { run(E.bribeGuard); },
-  'safehouse'() { run(E.buySafehouse); },
-  'fakeids'() { run(E.buyFakeIds); },
-  'buyer'() { run(E.lineUpBuyer); },
-  'vet'() { run(E.vetFence); },
-  'laylow'() { run(E.layLow); },
   'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.render(); },
   'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.render(); },
   'hire'(el) {
@@ -183,16 +202,11 @@ const A = {
   },
   'hire-for'(el) {
     G.clearToasts();
+    show('pub');
     G.ui.hireFor = { stage: el.dataset.stage };
-    G.ui.screen = 'pub';
-    G.ui.modal = null;
     G.commit();
-    window.scrollTo(0, 0);
   },
   'hire-back'() { returnToPlan(G.ui.hireFor?.stage); },
-  'dismiss'(el) { run(E.dismiss, el.dataset.id); },
-  'surveil'(el) { run(E.surveil, el.dataset.id); },
-  'lawyer'(el) { run(E.lawyer, el.dataset.id); },
   'farm'(el) {
     const id = el.dataset.id;
     if (G.ui.confirmFarm !== id) { G.ui.confirmFarm = id; G.render(); return; }
@@ -221,19 +235,15 @@ const A = {
   },
   'plan-ap'(el) {
     const st = el.dataset.stage;
-    const ap = el.dataset.ap;
     const cur = G.state.job.plan[st] || {};
-    run(E.setPlan, st, { approach: ap, dog: cur.dog || G.state.crew[0] });
+    run(E.setPlan, st, { approach: el.dataset.ap, dog: cur.dog || G.state.crew[0] });
   },
   'plan-dog'(el) { run(E.setPlan, el.dataset.stage, { dog: el.dataset.id }); },
-  'autoplan'() { run(E.autoPlan); },
   'pull'() {
     const r = E.pullJob(G.state);
     if (!r.ok) { toast(r.msg, true); return; }
     G.ui.heist = { i: 0, playing: true };
-    G.ui.screen = 'heist';
-    G.commit();
-    window.scrollTo(0, 0);
+    show('heist');
   },
   'heist-toggle'() { G.ui.heist.playing = !G.ui.heist.playing; G.render(); },
   'heist-step'() { G.ui.heist.playing = false; G.advanceBeat(); },
@@ -241,18 +251,13 @@ const A = {
     G.ui.heist.i = G.state.result.beats.length - 1;
     G.ui.heist.playing = false;
     G.commit();
-    document.querySelector('.beat[data-latest]')?.scrollIntoView({ block: 'end' });
+    scrollToLatest(false);
   },
   'resolve'() { run(E.resolveHeist); window.scrollTo(0, 0); },
-  'fence'(el) { run(E.fence, el.dataset.f); },
   'pay'(el) { run(E.payCrew, Number(el.dataset.pct)); window.scrollTo(0, 0); },
-  'next-job'() {
-    run(E.nextJob);
-    G.ui.screen = 'job';
-    G.render();
-    window.scrollTo(0, 0);
-  },
+  'next-job'() { run(E.nextJob); show('job'); },
 };
+for (const [act, [fn, key]] of Object.entries(SIMPLE)) A[act] = (el) => run(fn, key && el.dataset[key]);
 
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act],[data-stop]');

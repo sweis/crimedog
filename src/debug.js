@@ -2,6 +2,8 @@
 // Kept working for the life of the project — tests drive the game through these.
 import * as E from './engine.js';
 import { genDog } from './dogs.js';
+import { blankResult } from './sim.js';
+import { startArc } from './drama.js';
 import { KIT } from './data.js';
 import { SCREENS, currentScreen } from './ui.js';
 
@@ -38,11 +40,14 @@ export function snapshot(G) {
     } : null,
     crew: s ? s.crew.map((id) => ({ id, name: s.dogs[id].first, undercover: s.dogs[id].undercover })) : [],
     pub: s ? s.pub.length : 0,
+    stars: s ? s.pub.map((id) => s.dogs[id]).filter((d) => d.rarity).map((d) => ({ id: d.id, rarity: d.rarity, signature: d.signature, fee: d.fee })) : [],
     dogs: s ? Object.keys(s.dogs).length : 0,
     kit: s?.kit,
     offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner })) ?? [],
     groups: s?.groups ? Object.fromEntries(Object.entries(s.groups).map(([k, g]) => [k, { standing: g.standing, met: g.met, debt: g.debt?.amount ?? 0 }])) : null,
     story: s?.story?.length ?? 0,
+    arcs: s?.arcs?.map((a) => ({ id: a.id, kind: a.kind, dog: a.dog, node: a.node, wait: a.wait, shown: a.shown })) ?? [],
+    drama: s ? Object.values(s.dogs).filter((d) => d.drama).map((d) => ({ id: d.id, ...d.drama })) : [],
     heist: r ? { beat: G.ui.heist.i, beats: r.beats.length, playing: G.ui.heist.playing, alarm: r.beats[Math.min(G.ui.heist.i, r.beats.length - 1)].alarm, outcome: r.outcome } : null,
     after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received, relations: s.after.relations } : null,
     over: s?.over ?? null,
@@ -74,8 +79,9 @@ export function installDebug(G) {
   const cd = {
     screens: () => SCREENS.slice(),
     getState: () => snapshot(G),
+    live: () => G.state, // the real state, for scripted set-ups (call cd.teleport or similar to re-render)
     teleport(spot) {
-      if (!G.state && !['title', 'intro'].includes(spot)) cd.setSeed(G.state?.seed ?? 1);
+      if (!G.state && !['title', 'intro'].includes(spot)) cd.setSeed(1);
       const s = G.state;
       if (spot === 'select') {
         if (s.phase !== 'select' && s.phase !== 'over') {
@@ -127,14 +133,24 @@ export function installDebug(G) {
       const s = G.state;
       if (!s) return null;
       if (kind === 'dog') {
-        if (at === 'crew') ensurePlan(G);
+        const rarity = at === 'rare' ? 'rare' : at === 'legend' ? 'legendary' : null;
+        if (at === 'crew' || rarity) ensurePlan(G);
         const rng = E.rngOf(s);
-        const d = genDog(s, rng, { undercover: at === 'copper', quality: 1 });
+        const d = genDog(s, rng, { undercover: at === 'copper', quality: 1, rarity, signature: !!rarity });
+        if (rarity) d.inTown = s.job?.id;
         s.dogs[d.id] = d;
         s.pub.push(d.id);
         if (at === 'crew') { s.cash += d.fee; E.hire(s, d.id); }
         G.commit();
         return d.id;
+      }
+      if (kind === 'arc') {
+        // A story for someone you know: spawn('arc', 'debt' | 'family' | 'partner' | 'mentor' | 'watched')
+        const d = Object.values(s.dogs).find((x) => x.met && x.status === 'free');
+        if (!d) return null;
+        const arc = startArc(s, at || 'debt', d.id, E.rngOf(s));
+        G.commit();
+        return arc.id;
       }
       if (kind === 'cash') { s.cash += Number(at) || 1000; G.commit(); return s.cash; }
       if (kind === 'kit') { const ids = at ? [at] : Object.keys(KIT); for (const k of ids) s.kit[k] = (s.kit[k] || 0) + 1; G.commit(); return s.kit; }
@@ -154,11 +170,10 @@ export function installDebug(G) {
       ensurePlan(G);
       if (!s.crew.length) { s.cash += 2000; E.hire(s, s.pub[0]); }
       s.job.buyer = true;
-      s.result = {
+      s.result = blankResult(s.crew, {
         beats: [{ kind: 'intro', stage: null, text: 'A perfect night.', alarm: 0, clues: 0 }, { kind: 'end', stage: null, text: 'They won\'t even know they\'ve been robbed.', alarm: 0, clues: 0 }],
-        outcome: 'clean', secured: s.job.loot.map((l) => l.id), dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: true,
-        captured: [], runners: [], exposed: [], tipped: [], escaped: s.crew.slice(), crew: s.crew.slice(), kitUsed: {}, learned: {}, heatGain: 0,
-      };
+        secured: s.job.loot.map((l) => l.id), swap: true,
+      });
       s.phase = 'heist';
       E.resolveHeist(s);
       if (s.after.step === 'deliver') E.deliver(s);
@@ -175,15 +190,14 @@ export function installDebug(G) {
       return G.state.over;
     },
     cam(name) {
+      // 'blueprint' is just the current screen from the top.
       G.ui.modal = null;
-      if (name === 'overview') { if (G.state?.phase === 'plan') G.ui.screen = 'job'; }
-      else if (name === 'hero-close') {
+      if (name === 'overview' && G.state?.phase === 'plan') G.ui.screen = 'job';
+      if (name === 'hero-close') {
         ensurePlan(G);
-        const s = G.state;
-        const id = s.crew[0] || s.pub[0];
-        G.ui.modal = { type: 'dog', id };
-      } else if (name === 'hud-check') { G.showDiag(true); }
-      else if (name === 'blueprint') { /* heist screen, top */ }
+        G.ui.modal = { type: 'dog', id: G.state.crew[0] || G.state.pub[0] };
+      }
+      if (name === 'hud-check') G.showDiag(true);
       G.commit();
       window.scrollTo(0, 0);
       return name;

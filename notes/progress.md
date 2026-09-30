@@ -29,7 +29,7 @@ All randomness goes through a seeded RNG stored in the save, so a seed + inputs 
 
 ## Debug hooks (`?dev=1`, `window.cd`)
 `screens()`, `getState()`, `teleport(screen)`, `freeze()/step(n)/resume()`, `simdt(ms)`, `setTimeOfDay(h)`,
-`setSeed(n)`, `spawn('dog'|'cash'|'kit'|'intel'|'rep', at)` (`spawn('dog','copper')` plants an undercover cop),
+`setSeed(n)`, `spawn('dog'|'cash'|'kit'|'intel'|'rep', at)` (`spawn('dog','copper')` plants an undercover cop; `'rare'`/`'legend'` a star),
 `clearAll()`, `win()/lose()`, `cam('overview'|'hero-close'|'hud-check'|'blueprint')`.
 Planning screens auto-take the first job-board offer when needed. The 3D-specific items in CLAUDE.md §2.2 are adapted: `teleport` targets named screens, `drawCalls`/`shaderPrograms`
 report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLost` is always false.
@@ -52,13 +52,19 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 6. Game over: Inspector heat 100, rep 0, or skint with nobody to hire.
 
 ## Balance (tools/balance.mjs, 150 careers × up to 10 jobs)
-- Scripted "careful" policy: ~34% B or better, ~4% S (perfect).
+- Start with £2,500 (enough to survive two busted jobs; was £1,000).
+- Scripted "careful" policy: ~41% B or better, ~7% S (perfect); 12/200 careers end inside 10 jobs (52 at £1,000).
 - Reckless (hire one stranger, no prep): ~68% F.
 - Chaos (first 5 jobs): every job has a hazard, ~36% have the security cat, ~30% spring a surprise; ~55–63% of
   pear-shaped jobs cost a dog; ~0.8 arrests and ~0.1 permanent losses per job.
 - Pinned in `tests/balance.test.mjs` (careful B+ ≥ 30%, reckless D/F ≥ 60%, S achievable but < 20%) and
   `tests/chaos.test.mjs`.
 - Grading: loyal crew doing time count half toward "crew got away".
+
+## Code conventions
+- `src/util.js` holds the shared helpers (esc, money, count, clamp, fail/done, addHeat/addRep/addRelation); `lootItem(job, id)` lives in heists.js.
+- `simulate()` is split into named phases: `lead` (who takes a step), `attempt`, `recover` (pear-shaped retry), `succeed`/`botch`, then clean-up, `interrogate`, heat and `outcomeOf`.
+- Refactor check: `node tools/snapshots.mjs <dir> --compare <baseline>` pixel-diffs every screen; hash `career()` results before and after for sim changes.
 
 ## Verified vs not
 - Verified: unit/content/balance tests pass; Playwright cold boot on a 390×844 touch viewport with real
@@ -83,10 +89,37 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
+## Rare and legendary crew (stars)
+- `RARITY` and `SIGNATURES` in data.js; `genDog(..., { rarity, primary, signature })`. Stars have primary 5 (+a +2 talent), all skills known, higher fees (rare ×2.5, legendary ×4), legendary needs rep 30 and takes its signature as a nickname.
+- Visits: `starVisit` in engine.js puts at most one star in the pub per job (`d.inTown = job.id`); they stay through Ask Around and leave after the job. They're never regulars and can't be hired from the black book while out of town. The first job always has a rare one whose signature fits the job (the teaser). Odds per job: `0.12 + rep/250` (22% at rep 25, 44% at 80); legendary share rises from 5% to 50% with rep.
+- Signature moves: one per skill, each an approach (`s_*`) that fits certain steps (`fits`: stage kind, stage id or `vault:type`). `stageOptions(stage, crew)` adds them only when the owner is on the crew; `canDo(dog, ap)` keeps them the owner's. Picked on the plan, the step goes to the owner; in the heist, if the owner is gone the step falls back to improvisation. Hidden hazard steps (cat, plates) can use one as a surprise.
+- Marker: blue (rare) / gold (legendary) card frame and portrait ring, ★ badge, ✨ signature on the pub card, a gold chip in the profile, gold "secret" options on the plan, a ribbon on the share card.
+- Debug: `spawn('dog','rare'|'legend')`; `getState().stars` lists the pub's stars. Tests: `tests/stars.test.mjs`; smoke section 1f hires the teaser with real taps and picks the secret option.
+
+## Crew drama and promotions
+- `src/drama.js`: five arcs (Borrowed Time: a debt to a group; Family Matters; The Old Crew: an old partner poaching them; The Big Break: a master's apprenticeship; Heat on the Street: the Inspector watching them). Each is 2–3 choice scenes on the job board, usually a job apart; `ARCS` holds the text, choices, effects and branches.
+- Between jobs (`advanceArcs` in `nextJob`): last job's drama effects wear off, unanswered scenes take their last (always free) choice, due scenes come up, and 40% of the time someone you know (met, free, not a known copper) starts a new arc. At most 2 arcs at once, one per dog.
+- Effects: cash, relation, loyalty, greed, group standing, heat, +1 best skill, promotion, the pound, leaving (runner with some of your cash, grass = +20 heat, poached), a relative joining your black book. Next-job effects on `dog.drama`: `edge` (±8% odds on every step; shows on the plan), `away` (can't be hired), `trouble` (heavies, a relative tagging along, a police tail: played by sim.js at one step, adding alarm/clues or an escape check).
+- Promotions: `earnedPromotion`/`promote` in dogs.js. After a job, crew who got away go common→rare at a base skill of 5, 4+ jobs and relation 20+, and rare→legendary at 8+ jobs, relation 45+ and a second base skill of 3+. Arcs can promote too (paying a debt, loyalty to you over an old partner, a master's lessons). Home-grown stars are `homegrown`: mates'-rates fees (rare ×1.4, legendary ×2) and never "out of town".
+- UI: scene modal with the dog's portrait and choice buttons (cost shown, disabled if unaffordable); 📖 Story / 🔥 Fired up / 😟 Distracted / ⚠️ Trouble / 🏠 Away chips; 🔥/😟/⚠️ on plan assignees; a 🌟 promotion line in the aftermath.
+- Probe: `node tools/drama.mjs [careers]`. Careful 12-job careers: ~0.36 arcs per job, ~0.9 home-grown rares and ~0.12 legendaries per career; the balance probe's careful player pays when it has £800 to spare, the reckless one always takes the free option.
+- Debug: `spawn('arc', kind)`, `live()` (the real state, for scripted set-ups); `getState().arcs` / `.drama`. Tests: `tests/drama.test.mjs`; smoke 1g answers a scene with a real tap and checks a promotion.
+
+## Heist playback
+- The log grows downwards; each new beat scrolls the page to the end so it sits just above the sticky controls (smoke checks this after 12 real taps on Next).
+
 ## UI text
 - Mobile-first: headers and chips over sentences. Keep story scenes, the heist log and boss quotes; cut helper text.
 
 ## Next
+Ideas from the playthrough pass (not built yet):
+- **Pound break**: a crew member doing time unlocks a "spring them" job at the pound (loyalty ++, heat ++).
+- **The Inspector as a character**: named, with a face; at heat thresholds they appear in story scenes, pin your wanted poster, raid a hideout.
+- **Crew chemistry**: pairs who've worked together get a small bonus; rival factions on one crew (Ze Germans + Bulldog Firm) squabble.
+- **Trophy room**: famous loot you kept instead of fencing, shown in the den; groups sometimes ask to buy it.
+- **Heat by district**: jobs in a hot district are harder; lying low in a district cools it.
+- **Job board timing**: offers expire after a day or two, so waiting has a cost.
+- **Replay card**: share the heist log as an image (like the crew card) — "The Fossil Job, grade B".
 - Balance group jobs separately from own leads (they're full-size, so a step up in difficulty).
 - Human playtest of the first five minutes; tune copy and pacing from that.
 - More obstacle types/venues and multi-dog steps (e.g. a lookout + a cracker on the same stage).

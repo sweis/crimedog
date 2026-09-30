@@ -4,6 +4,7 @@ import * as E from '../src/engine.js';
 import { APPROACHES, KIT } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
 import { skillOf, topSkills } from '../src/dogs.js';
+import { sceneChoices } from '../src/drama.js';
 
 export function pickOffer(s, policy) {
   if (s.phase !== 'select') return;
@@ -53,12 +54,23 @@ export function smartJob(s) {
   E.autoPlan(s);
 }
 
+// Read the job board's scenes: careful players help out when they can spare the
+// money; reckless ones stay out of it (the last choice).
+export function answerStories(s, policy) {
+  for (let guard = 0; guard < 20 && s.story.length; guard++) {
+    const st = s.story[0];
+    if (st.type !== 'drama') { E.dismissStory(s); continue; }
+    const ch = sceneChoices(s, st);
+    E.chooseDrama(s, policy === 'smart' && ch[0].ok && s.cash - ch[0].cost > 800 ? 0 : ch.length - 1);
+  }
+}
+
 export function career(seed, policy, maxJobs = 10, onResult = null) {
   const s = E.newGame(seed);
   const grades = [];
   for (let j = 0; j < maxJobs && !s.over; j++) {
     for (const gid of Object.keys(s.groups)) if (s.groups[gid].debt && s.cash > s.groups[gid].debt.amount + 500) E.payDebt(s, gid);
-    s.story = [];
+    answerStories(s, policy);
     pickOffer(s, policy);
     if (policy === 'smart') smartJob(s);
     else if (s.pub.length) { const d = s.dogs[s.pub[0]]; if (d.fee <= s.cash) E.hire(s, d.id); }

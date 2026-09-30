@@ -372,7 +372,41 @@ export const APPROACHES = {
   g_moped: { label: 'Mopeds through the alleys', skill: 'wheels', mod: 0, noise: 0, failNoise: 2, clues: 0, needKit: 'moped', ok: 'A swarm of mopeds vanishes into the back alleys.', fail: 'A moped runs out of petrol. Right outside a police box.' },
   g_crowd: { label: 'Melt into the crowd', skill: 'disguise', mod: 1, noise: 0, failNoise: 2, clues: 0, crowd: true, ok: 'Just another bunch of blokes in flat caps.', fail: 'There is no crowd. There is them, and a policeman.' },
   g_barge: { label: 'Slow canal barge', skill: 'wheels', mod: -1, noise: 0, failNoise: 1, clues: -1, slow: true, ok: 'Chug... chug... chug. Nobody suspects a barge.', fail: 'The barge is overtaken by a jogger. Then a police boat.' },
-  g_walk: { label: 'Walk. Casual. Whistle.', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
+  g_walk: { label: 'Walk. Casual. Whistle', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
+  // ---- Signature moves: secret options only a rare or legendary specialist can open (see SIGNATURES)
+  s_phantom: { label: 'Just... appear inside', skill: 'sneak', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'phantom', ok: 'Nobody saw {d} come in. Nobody ever does.', fail: '{d} appears inside. Right in front of a guard.' },
+  s_blackout: { label: 'Black out the whole street', skill: 'tech', mod: -3, noise: 0, failNoise: 3, clues: 1, signature: 'blackout', ok: '{d} flips one switch. Every light on the street dies. "Power cut, innit."', fail: 'The whole street goes dark. Except, somehow, the alarm.' },
+  s_juggernaut: { label: 'Take the door off its hinges', skill: 'muscle', mod: -3, noise: 2, failNoise: 4, clues: 1, signature: 'juggernaut', ok: '{d} takes hold of the vault door and simply... removes it.', fail: 'The door wins. First time ever. {d} is furious. Loudly.' },
+  s_oldpals: { label: 'The head of security owes us one', skill: 'charm', mod: -4, noise: 0, failNoise: 2, clues: 0, signature: 'oldpals', ok: '"Evening, old friend." The guards take an early tea break. All of them.', fail: 'The head of security has a new job. The new one is nobody\'s old pal.' },
+  s_wheelman: { label: 'The storm-drain run', skill: 'wheels', mod: -3, noise: 0, failNoise: 2, clues: -1, signature: 'wheelman', ok: '{d} drops the motor into the storm drains. Out the far side of town in six minutes.', fail: 'The storm drain is flooded. So, now, is the motor.' },
+  s_whisper: { label: 'Listen to the tumblers sing', skill: 'locks', mod: -4, noise: 0, failNoise: 1, clues: 0, signature: 'whisper', ok: '{d} puts an ear to the steel and hums along. The door swings open.', fail: 'The tumblers have gone off-key. {d} winces.' },
+  s_faces: { label: 'Walk out dressed as the Inspector', skill: 'disguise', mod: -3, noise: 0, failNoise: 2, clues: -1, signature: 'faces', ok: '"Evening, lads. Nothing to see here." {d} marches the crew out, dressed as the Inspector.', fail: 'The real Inspector is standing right there. Awkward.' },
+  s_rooftops: { label: 'Across the rooftops, no rope', skill: 'agility', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'rooftops', ok: '{d} runs the rooftops like they\'re pavement.', fail: '{d} misjudges a gap. Only just.' },
+  s_deadeye: { label: 'One tennis ball, ten ricochets', skill: 'aim', mod: -3, noise: 1, failNoise: 2, clues: 0, signature: 'deadeye', ok: 'One ball. Ten ricochets. Every lens and torch in the corridor, out.', fail: 'Eleven ricochets. The eleventh is a guard\'s nose.' },
+  s_bloodhound: { label: 'Smell the trap before it springs', skill: 'nose', mod: -4, noise: 0, failNoise: 2, clues: 0, signature: 'bloodhound', ok: '{d} sniffs once and steps round the trouble like it was never there.', fail: '{d} sneezes. At the worst possible moment.' },
+};
+
+// Rare and legendary crew only drift into the pub now and then. They cost more,
+// their skills are common knowledge, and many have a signature move.
+export const RARITY = {
+  // homeMult: fee for crew you brought up yourself (mates' rates).
+  rare: { label: 'Rare', icon: '★', feeMult: 2.5, homeMult: 1.4, minRep: 0, sigChance: 0.6 },
+  legendary: { label: 'Legendary', icon: '★★', feeMult: 4, homeMult: 2, minRep: 30, sigChance: 1 },
+};
+
+// One signature per skill. `fits` matches a stage kind, stage id or vault type:
+// the move only shows up on steps it fits, and only with its owner on the crew.
+export const SIGNATURES = {
+  phantom: { name: 'The Phantom', skill: 'sneak', blurb: 'Knows a way in nobody else does.', fits: ['entry'], approach: 's_phantom' },
+  blackout: { name: 'Blackout', skill: 'tech', blurb: 'Can kill the power to a whole street.', fits: ['obs_cameras', 'obs_lasers'], approach: 's_blackout' },
+  juggernaut: { name: 'The Juggernaut', skill: 'muscle', blurb: 'Vault doors are more of a suggestion.', fits: ['vault'], approach: 's_juggernaut' },
+  oldpals: { name: 'Old Pals', skill: 'charm', blurb: 'Knows every head of security in town.', fits: ['obs_guards'], approach: 's_oldpals' },
+  wheelman: { name: 'The Wheelman', skill: 'wheels', blurb: 'Has a route nobody else would dare.', fits: ['getaway'], approach: 's_wheelman' },
+  whisper: { name: 'The Safe Whisperer', skill: 'locks', blurb: 'Safes tell them their secrets.', fits: ['vault:safe', 'vault:strongroom'], approach: 's_whisper' },
+  faces: { name: 'A Thousand Faces', skill: 'disguise', blurb: 'Can pass for anyone. Anyone.', fits: ['exit'], approach: 's_faces' },
+  rooftops: { name: 'The Cat Burglar', skill: 'agility', blurb: 'Treats rooftops like pavement.', fits: ['entry', 'exit'], approach: 's_rooftops' },
+  deadeye: { name: 'Deadeye', skill: 'aim', blurb: 'Never needs a second shot.', fits: ['obs_guards', 'obs_cameras'], approach: 's_deadeye' },
+  bloodhound: { name: 'The Bloodhound', skill: 'nose', blurb: 'Smells a trap before it\'s set.', fits: ['haz_cat', 'haz_plates'], approach: 's_bloodhound' },
 };
 
 export const OBSTACLES = {
