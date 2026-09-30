@@ -255,11 +255,11 @@ export function caseJoint(state, who) {
   }
   const got = rng.sample(unknown, Math.min(n, unknown.length));
   for (const k of got) revealIntel(job, k);
-  let msg = `${shortName(d)} cases ${job.venueName}. Learned: ${got.map((k) => INTEL[k].label).join(', ')}.`;
+  let msg = `🔎 ${got.map((k) => INTEL[k].label.replace('Hazard: ', '⚠️ ')).join(', ')}`;
   const spotted = rng.chance(Math.max(0.03, 0.35 - 0.08 * skillOf(d, 'sneak')));
   if (spotted) {
     job.alert += 1;
-    msg += ` But ${shortName(d)} was spotted hanging about. Security is tighter (+1 difficulty).`;
+    msg += ` · 👀 ${shortName(d)} was spotted: +1 difficulty`;
   }
   return done(msg, { revealed: got, spotted });
 }
@@ -277,18 +277,18 @@ export function surveil(state, id) {
   d.known.loyalty = d.known.nerve = d.known.greed = true;
   d.known.quirks = d.quirks.slice();
   for (const [s] of SKILLS.map((s) => [s, skillOf(d, s)]).sort((a, b) => b[1] - a[1]).slice(0, 3)) d.known.skills[s] = true;
-  let msg = `You tail ${shortName(d)} for a day.`;
+  let msg = `🕵️ ${shortName(d)}:`;
   if (d.undercover) {
     if (rng.chance(0.85)) {
       d.known.undercover = true;
-      msg += ' They meet a bloke in a trench coat outside the police station. UNDERCOVER COPPER!';
+      msg += ' 👮 UNDERCOVER COPPER!';
     } else {
       d.cleared = true;
-      msg += ' Nothing suspicious. Seems legit.';
+      msg += ' seems legit.';
     }
   } else {
     d.cleared = true;
-    msg += ' Nothing suspicious. Seems legit.';
+    msg += ' seems legit.';
   }
   return done(msg);
 }
