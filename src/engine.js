@@ -75,7 +75,7 @@ export function refreshPub(state, rng = rngOf(state)) {
   const n = Math.min(6, 4 + Math.floor(state.rep / 35));
   const pub = [];
   // Some regulars come back.
-  const regulars = Object.values(state.dogs).filter((d) => d.status === 'free' && !state.crew.includes(d.id));
+  const regulars = Object.values(state.dogs).filter((d) => d.status === 'free' && !state.crew.includes(d.id) && !(d.undercover && d.known.undercover));
   for (const d of rng.shuffle(regulars)) {
     if (pub.length >= Math.floor(n / 2)) break;
     if (d.met || rng.chance(0.3)) pub.push(d.id);
@@ -280,7 +280,7 @@ export function caseJoint(state, who) {
 export function surveil(state, id) {
   const d = state.dogs[id];
   if (!d) return fail('No such dog.');
-  if (d.known.loyalty && d.known.undercover) return fail(`You already know all about ${shortName(d)}.`);
+  if (d.known.loyalty && (d.known.undercover || d.cleared)) return fail(`You already know all about ${shortName(d)}.`);
   if (state.cash < 80) return fail('Surveillance costs £80.');
   if (!useDay(state)) return fail('No days left before the job.');
   spend(state, 80);
@@ -505,6 +505,7 @@ export function resolveHeist(state) {
     d.status = 'pound';
     d.sentence = c.sentence;
     d.talked = c.talked;
+    d.caughtJob = job.id;
     if (c.talked) d.relation -= 10; else d.relation += 10;
     state.crew = state.crew.filter((x) => x !== c.id);
   }
@@ -549,15 +550,17 @@ export function deliver(state) {
   const p = state.job.patron;
   if (!a || a.step !== 'deliver' || !p?.want) return fail('Nothing to deliver.');
   a.delivered = p.want;
-  a.received += p.fee;
-  a.gross += p.fee;
-  state.cash += p.fee;
-  state.stats.earned += p.fee;
+  // Front money was an advance against the fee. A marker clears the debt instead.
+  const pay = Math.max(0, p.fee - (p.front || 0));
+  a.received += pay;
+  a.gross += p.deal === 'marker' ? p.debtClear : p.fee;
+  state.cash += pay;
+  state.stats.earned += pay;
   a.step = toFence(state).length ? 'fence' : 'pay';
   const G = GROUPS[p.group];
   const item = state.job.loot.find((l) => l.id === p.want).name;
   if (p.deal === 'marker') return done(`${G.boss} takes ${item}. Your debt is squared.`);
-  return done(`${G.boss} takes ${item} and pays £${p.fee.toLocaleString('en-GB')}.`);
+  return done(`${G.boss} takes ${item} and pays £${pay.toLocaleString('en-GB')}${p.front ? ` (£${p.fee.toLocaleString('en-GB')} less the £${p.front} advance)` : ''}.`);
 }
 
 export function fenceRate(state, fenceId) {
@@ -580,7 +583,6 @@ export function fence(state, fenceId) {
   a.fence = fenceId;
   if (fenceId === 'francesca' && state.job.stingFence) {
     a.sting = true;
-    a.received = 0;
     state.heat = Math.min(100, state.heat + 20);
     news(state, 'Fancy Francesca was a police sting. The loot is gone, and the Inspector has photos.');
     a.step = 'pay';
@@ -592,7 +594,7 @@ export function fence(state, fenceId) {
   let msg = `${FENCES[fenceId].name} pays £${got.toLocaleString()}.`;
   let net = got;
   if (p?.cut) {
-    a.patronCut = Math.round((got * p.cut) / 100);
+    a.patronCut = Math.min(got, Math.round((got * p.cut) / 100) + (p.front || 0)); // their cut, plus the advance back
     net -= a.patronCut;
     msg += ` ${GROUPS[p.group].name} take their ${p.cut}%: £${a.patronCut.toLocaleString()}.`;
   }
@@ -639,7 +641,8 @@ export function gradeJob(state) {
   parts.stealth = r.alarmMax === 0 ? 20 : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
   // Loyal crew doing time count for half; grasses and the lost count for nothing.
   const stayedQuiet = r.captured.filter((c) => !c.talked).length;
-  parts.crew = r.crew.length ? Math.round((15 * (r.escaped.length + 0.5 * stayedQuiet)) / r.crew.length) : 0;
+  const realCrew = r.crew.filter((id) => !r.exposed.includes(id) && !r.tipped.includes(id)).length;
+  parts.crew = realCrew ? Math.round((15 * (r.escaped.length + 0.5 * stayedQuiet)) / realCrew) : 0;
   parts.clues = Math.max(0, 10 - r.clues);
   parts.pay = (a.cut ?? 0) >= 30 ? 5 : (a.cut ?? 0) >= 15 ? 2 : 0;
   if (!a.securedValue) { parts.stealth = Math.min(parts.stealth, 5); parts.pay = 0; }
@@ -702,6 +705,10 @@ export function farm(state, id) {
   const wasPound = d.status === 'pound';
   d.status = 'farm';
   state.crew = state.crew.filter((x) => x !== id);
+  if (state.phase === 'plan' && state.job) {
+    for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k].dog;
+    if (state.job.insider === id) state.job.insider = null;
+  }
   state.pub = state.pub.filter((x) => x !== id);
   state.stats.farmed += 1;
   if (d.undercover) {
@@ -714,18 +721,23 @@ export function farm(state, id) {
   }
   state.rep = Math.max(0, state.rep - 8);
   for (const o of Object.values(state.dogs)) if (o.met && o.id !== id) o.relation = Math.max(-100, o.relation - 8);
-  if (wasPound && d.talked === false) state.heat = Math.max(0, state.heat - 5);
+  if (wasPound && d.talked) state.heat = Math.max(0, state.heat - 5); // one less witness
   news(state, `${displayName(d)} has gone to live on a farm. Everyone's gone very quiet.`);
   return done(`${shortName(d)} has gone to the farm. (-8 rep; the crew are nervous)`);
 }
 
 export function nextJob(state) {
+  if (!['plan', 'aftermath'].includes(state.phase)) return fail('Not now.');
   if (state.phase === 'aftermath' && state.after.step !== 'grade') return fail('Finish up first.');
+  // A full file on you ends it here, before anything has a chance to cool off.
+  if (state.heat >= 100 && checkGameOver(state)) return done('Knock knock.');
+  const walkedAway = state.phase === 'plan';
   const rng = rngOf(state);
   for (const id of state.crew) state.dogs[id].status = 'free';
   state.crew = [];
   for (const d of Object.values(state.dogs)) {
-    if (d.status === 'pound') {
+    if (d.status === 'pound' && !walkedAway) {
+      if (d.caughtJob === state.job?.id) { d.caughtJob = null; continue; }
       d.sentence -= 1;
       if (d.sentence <= 0) {
         d.status = 'free';
@@ -751,7 +763,7 @@ export function nextJob(state) {
       news(state, `${G.boss} heard you walked away. Not a good look.`);
     }
   }
-  state.heat = Math.max(0, state.heat - 6);
+  if (!walkedAway) state.heat = Math.max(0, state.heat - 6);
   state.day += 1;
   state.job = null;
   state.result = null;

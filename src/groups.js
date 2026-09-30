@@ -153,12 +153,12 @@ export function settleGroups(state) {
     } else {
       adjust(state, p.group, -15, 'Job botched', log);
       log[log.length - 1].quote = G.angry[state.stats.jobs % G.angry.length];
-      if (G.serious) {
+      if (G.serious && !(p.deal === 'marker' && !g.debt)) {
         const penalty = p.deal === 'marker' ? Math.round((g.debt?.amount || 0) * 0.5) : Math.round((p.fee || totalLootValue(job) * 0.15) * 0.5);
         const owed = (p.front || 0) + penalty;
-        g.debt = { amount: (g.debt?.amount || 0) + owed, patience: p.deal === 'marker' ? 1 : 2 };
-        log.push({ gid: p.group, delta: 0, why: `You now owe them £${g.debt.amount.toLocaleString('en-GB')}`, now: g.standing, debt: true });
-        queueStory(state, p.group, 'debt', { amount: `£${g.debt.amount.toLocaleString('en-GB')}` });
+        if (owed > 0) g.debt = { amount: (g.debt?.amount || 0) + owed, patience: p.deal === 'marker' ? 1 : 2 };
+        if (g.debt) log.push({ gid: p.group, delta: 0, why: `You now owe them £${g.debt.amount.toLocaleString('en-GB')}`, now: g.standing, debt: true });
+        if (g.debt) queueStory(state, p.group, 'debt', { amount: `£${g.debt.amount.toLocaleString('en-GB')}` });
       }
     }
   }
@@ -174,6 +174,7 @@ export function payDebt(state, gid) {
   if (state.cash < g.debt.amount) return { ok: false, msg: `You need £${g.debt.amount.toLocaleString('en-GB')}.` };
   state.cash -= g.debt.amount;
   g.debt = null;
+  state.offers = state.offers.filter((o) => !(o.source === gid && o.kind === 'marker'));
   adjust(state, gid, 3, 'Paid in full');
   return { ok: true, msg: `Paid off ${GROUPS[gid].short}. ${GROUPS[gid].boss} nods, once.` };
 }

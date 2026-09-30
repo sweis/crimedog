@@ -87,7 +87,8 @@ export function carryCapacity(crew, kit) {
 
 export function simulate(state, job, rng) {
   const plan = job.plan;
-  const crewIds = crewOf(plan);
+  // Everyone on the crew turns up: the plan says who leads each step, spares improvise.
+  const crewIds = [...new Set([...crewOf(plan), ...(state.crew || [])])];
   const crew = crewIds.map((id) => state.dogs[id]);
   const beats = [];
   const ctx = {

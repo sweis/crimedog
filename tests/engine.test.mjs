@@ -5,6 +5,7 @@ import { TALENTS, APPROACHES, KIT, INTEL, OBSTACLES, VAULTS, VENUES, QUIRKS, SKI
 import { visibleStages } from '../src/heists.js';
 import { odds } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
+import { genOffers } from '../src/groups.js';
 
 // Play one job with a simple policy. mode: 'smart' | 'reckless'
 export function takeJob(s, mode = 'reckless') {
@@ -74,7 +75,7 @@ test('every generated job: each visible stage has an ungated option; intel keys 
   for (let seed = 1; seed <= 300; seed++) {
     const s = E.newGame(seed);
     s.rep = 80; // unlock every group so their offers are covered too
-    E.nextJob(s);
+    genOffers(s, E.rngOf(s));
     for (const j of s.offers.map((o) => o.job)) {
     assert.ok(j.name && j.loot.length >= 2, `seed ${seed}`);
     for (const st of j.stages) {
