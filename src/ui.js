@@ -1,17 +1,17 @@
 // DOM rendering. Every screen is a function of (state, ui) -> HTML string;
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
-import { SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS } from './data.js';
+import { esc, money } from './util.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS } from './data.js';
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills } from './dogs.js';
-import { visibleStages, totalLootValue } from './heists.js';
+import { visibleStages } from './heists.js';
 import { odds, oddsKnown, approachAvailable, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
 import { venueSVG, skylineSVG } from './art.js';
-import { GROUPS } from './data.js';
-import { GROUP_IDS, standingLabel, canDeal, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
+import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
 
 export const SCREENS = ['title', 'intro', 'select', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
-export const PLAN_TABS = [
+const PLAN_TABS = [
   ['job', '🗺️', 'Job'],
   ['pub', '🍺', 'Pub'],
   ['crew', '🐾', 'Crew'],
@@ -19,10 +19,8 @@ export const PLAN_TABS = [
   ['fixer', '🤝', 'Fixer'],
 ];
 
-export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-export const money = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
 
-export const GUVNOR = {
+const GUVNOR = {
   id: 'guv', first: 'The Guv\'nor', last: '', breed: 'bulldog', faction: 'firm', talents: [], quirks: [],
   look: { coat: '#d8b38a', hat: 'tophat', eyes: 'monocle', neck: 'bowtie', outfit: '#23232a', brow: 'stern', seed: 1 },
 };
@@ -218,7 +216,7 @@ function timeSeg(job) {
 }
 
 // ------------------------------------------------------------------ dogs
-export function pips(v, known, max = 7) {
+function pips(v, known, max = 7) {
   if (!known) return '<span class="q">? ? ?</span>';
   let h = '<span class="pips">';
   for (let i = 0; i < max; i++) h += `<i class="${i < v ? 'on' : ''}"></i>`;
@@ -232,6 +230,11 @@ function specialtyText(d) {
   return `${SKILL_INFO[known[0]].icon} ${SKILL_INFO[known[0]].label}`;
 }
 
+// A skill's value if you've seen the dog use it, otherwise '?'.
+const knownSkill = (d, sk) => (d.known.skills[sk] ? skillOf(d, sk) : '?');
+const skillChip = (d, sk) => `<span class="chip ${d.known.skills[sk] ? 'info' : ''}">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label} ${knownSkill(d, sk)}</span>`;
+
+// opts: fee (show hire cost), skill (show that skill), act/extra (tap action; default opens the profile)
 function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
@@ -243,12 +246,12 @@ function dogCard(G, d, opts = {}) {
   const flags = [];
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
-  return `<button class="dog-card ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="dog" data-id="${d.id}">
+  return `<button class="dog-card ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
     <div class="pic">${portraitSVG(d, { size: 64 })}</div>
     <div class="grow"><div class="name">${esc(displayName(d))}</div>
       <div class="faction">${esc(FACTIONS[d.faction].label)}</div>
       <div class="sub">${esc(b.label)} · ${specialtyText(d)} · ${esc(relationLabel(d))}</div>
-      ${opts.skill ? `<span class="chip ${d.known.skills[opts.skill] ? 'info' : ''}">${SKILL_INFO[opts.skill].icon} ${SKILL_INFO[opts.skill].label} ${d.known.skills[opts.skill] ? skillOf(d, opts.skill) : '?'}</span>` : ''}
+      ${[].concat(opts.skill || []).map((sk) => skillChip(d, sk)).join(' ')}
       ${flags.join(' ')}</div>
     <div class="center">${right}</div></button>`;
 }
@@ -259,7 +262,7 @@ function pubScreen(G) {
   const hf = hiringFor(G);
   if (hf) {
     // Best known fit for the step first; unknowns after.
-    const fit = (d) => (hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1);
+    const fit = (d) => (hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1); // unknowns sort last
     const sort = (list) => list.slice().sort((a, b) => fit(b) - fit(a));
     const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id));
     const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}</b>` : 'Anyone will do';
@@ -372,7 +375,7 @@ function planScreen(G) {
     if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
     if (p.approach) {
       const skill = APPROACHES[p.approach].skill;
-      h += `<div class="assignees">${crew.map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${d.known.skills[skill] ? skillOf(d, skill) : '?'}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
+      h += `<div class="assignees">${crew.map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
       if (p.dog) {
         const d = s.dogs[p.dog];
         const o = odds(s, job, st, p.approach, d);
@@ -450,7 +453,7 @@ function beatHTML(G, b, latest) {
   return `<div class="beat ${b.kind}" ${latest ? 'data-latest' : ''}>${d && b.kind !== 'stage' ? `<div class="mini">${portraitSVG(d, { size: 40 })}</div>` : ''}<div class="txt">${esc(b.text)}${b.line ? `<div class="line">"${esc(b.line)}"</div>` : ''}</div>${pct}</div>`;
 }
 
-export function blueprintSVG(G, shown) {
+function blueprintSVG(G, shown) {
   const s = G.state;
   const job = s.job;
   const r = s.result;
@@ -752,9 +755,8 @@ function pickModal(G, purpose) {
   const s = G.state;
   const crew = E.crewDogs(s);
   const title = purpose === 'case' ? 'Who cases the joint?' : 'Who goes undercover as staff?';
-  const skill = purpose === 'case' ? 'nose' : 'disguise';
   let h = `<h2>${title}</h2><p class="muted">${purpose === 'case' ? '👃 finds more · 🐾 avoids being spotted · £40' : '🥸 or 🎩 helps · £100'}</p><div class="pick-list">`;
-  h += crew.map((d) => `<button class="dog-card" data-act="picked" data-purpose="${purpose}" data-id="${d.id}"><div class="pic">${portraitSVG(d, { size: 64 })}</div><div class="grow"><div class="name">${esc(shortName(d))}</div><div class="sub">${SKILL_INFO[skill].icon} ${SKILL_INFO[skill].label}: ${d.known.skills[skill] ? skillOf(d, skill) : '?'} · ${SKILL_INFO.sneak.icon} Sneak: ${d.known.skills.sneak ? skillOf(d, 'sneak') : '?'}</div></div></button>`).join('') || '<p>Nobody on the crew yet.</p>';
+  h += crew.map((d) => dogCard(G, d, { act: 'picked', extra: `data-purpose="${purpose}"`, skill: purpose === 'case' ? ['nose', 'sneak'] : ['disguise', 'charm'] })).join('') || '<p>Nobody on the crew yet.</p>';
   h += '</div>';
   if (purpose === 'case') h += '<button class="btn block ghost" data-act="picked" data-purpose="case" data-id="tipster">💰 Pay a tipster instead · £120</button>';
   return h;

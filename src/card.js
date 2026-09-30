@@ -1,9 +1,9 @@
 // Shareable "wanted poster" snapshot of a crew member, rendered as SVG then
 // rasterised to PNG for the Web Share API (or a download fallback).
 import { BREEDS, FACTIONS, SKILL_INFO, TALENTS, QUIRKS } from './data.js';
-import { portraitSVG, displayName, relationLabel, skillOf, topSkills } from './dogs.js';
+import { portraitSVG, displayName, relationLabel, topSkills } from './dogs.js';
+import { esc } from './util.js';
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 function wrap(text, max) {
   const words = String(text).split(/\s+/);
@@ -16,7 +16,7 @@ function wrap(text, max) {
   return lines;
 }
 
-export function cardSVG(dog) {
+function cardSVG(dog) {
   const W = 600, H = 860;
   const b = BREEDS[dog.breed];
   const known = topSkills(dog, 10).filter(([s]) => dog.known.skills[s]);

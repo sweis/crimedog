@@ -2,6 +2,7 @@
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
 import { APPROACHES, KIT, CHAOS, VOICES, TALENTS } from './data.js';
 import { skillOf, hasSpecial, shortName } from './dogs.js';
+import { clamp } from './util.js';
 
 export const ALARM_MAX = 10;
 
@@ -39,11 +40,8 @@ export function baseOdds(skill, diff) {
   return clamp(0.6 + 0.11 * (skill - diff), 0.05, 0.95);
 }
 
-function clamp(v, a, b) {
-  return Math.max(a, Math.min(b, v));
-}
 
-export function crewOf(plan) {
+function crewOf(plan) {
   return [...new Set(Object.values(plan).map((p) => p && p.dog).filter(Boolean))];
 }
 
@@ -77,7 +75,7 @@ export function oddsKnown(dog, approachId) {
   return !!dog.known.skills[APPROACHES[approachId].skill];
 }
 
-export function carryCapacity(crew, kit) {
+function carryCapacity(crew, kit) {
   let c = 3;
   for (const d of crew) c += Math.floor(skillOf(d, 'muscle') / 2) + (hasSpecial(d, 'carry') ? 2 : 0);
   if (kit.bags > 0) c += 2;
@@ -571,4 +569,13 @@ export function simulate(state, job, rng) {
 
 function skillTalent(t, skill) {
   return TALENTS[t] && TALENTS[t].skill === skill;
+}
+
+// An uneventful result for the given crew; dev hooks and tests stage outcomes with it.
+export function blankResult(crew, extra = {}) {
+  return {
+    beats: [], outcome: 'clean', secured: [], dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
+    captured: [], lost: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0,
+    ...extra,
+  };
 }

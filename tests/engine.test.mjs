@@ -1,20 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
-import { TALENTS, APPROACHES, KIT, INTEL, OBSTACLES, VAULTS, VENUES, QUIRKS, SKILLS } from '../src/data.js';
+import { TALENTS, APPROACHES, KIT, INTEL, OBSTACLES, VAULTS, SKILLS } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
-import { odds } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
 import { genOffers } from '../src/groups.js';
+import { takeJob } from './helpers.mjs';
 
 // Play one job with a simple policy. mode: 'smart' | 'reckless'
-export function takeJob(s, mode = 'reckless') {
-  if (s.phase !== 'select') return;
-  const pick = mode === 'smart' ? (s.offers.find((o) => o.source !== 'own') || s.offers[0]) : s.offers[0];
-  const r = E.acceptOffer(s, pick.id);
-  assert.ok(r.ok, r.msg);
-}
-
 export function playJob(s, mode) {
   const rng = makeRng({ s: s.seed * 7 + s.stats.jobs });
   takeJob(s, mode);

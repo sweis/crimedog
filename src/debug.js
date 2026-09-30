@@ -2,6 +2,7 @@
 // Kept working for the life of the project — tests drive the game through these.
 import * as E from './engine.js';
 import { genDog } from './dogs.js';
+import { blankResult } from './sim.js';
 import { KIT } from './data.js';
 import { SCREENS, currentScreen } from './ui.js';
 
@@ -154,11 +155,10 @@ export function installDebug(G) {
       ensurePlan(G);
       if (!s.crew.length) { s.cash += 2000; E.hire(s, s.pub[0]); }
       s.job.buyer = true;
-      s.result = {
+      s.result = blankResult(s.crew, {
         beats: [{ kind: 'intro', stage: null, text: 'A perfect night.', alarm: 0, clues: 0 }, { kind: 'end', stage: null, text: 'They won\'t even know they\'ve been robbed.', alarm: 0, clues: 0 }],
-        outcome: 'clean', secured: s.job.loot.map((l) => l.id), dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: true,
-        captured: [], runners: [], exposed: [], tipped: [], escaped: s.crew.slice(), crew: s.crew.slice(), kitUsed: {}, learned: {}, heatGain: 0,
-      };
+        secured: s.job.loot.map((l) => l.id), swap: true,
+      });
       s.phase = 'heist';
       E.resolveHeist(s);
       if (s.after.step === 'deliver') E.deliver(s);

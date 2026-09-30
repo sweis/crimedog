@@ -2,27 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
 import { genOffers } from '../src/groups.js';
-
-// Force a heist result without the dice, then resolve it.
-function fake(s, extra = {}) {
-  if (!s.crew.length) E.hire(s, s.pub.find((id) => s.dogs[id].fee <= s.cash));
-  s.result = {
-    beats: [], outcome: 'clean', secured: s.job.loot.map((l) => l.id), dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
-    captured: [], lost: [], runners: [], exposed: [], tipped: [], escaped: s.crew.slice(), crew: s.crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0, ...extra,
-  };
-  s.phase = 'heist';
-  E.resolveHeist(s);
-}
-function offer(gid, kind) {
-  for (let seed = 1; seed < 500; seed++) {
-    const s = E.newGame(seed);
-    s.rep = 80; s.cash = 5000;
-    genOffers(s, E.rngOf(s));
-    const o = s.offers.find((x) => x.source === gid && (!kind || x.kind === kind));
-    if (o) return { s, o };
-  }
-  throw new Error('no offer');
-}
+import { fakeHeist as fake, boardWith as offer } from './helpers.mjs';
 
 test('heat 100 ends the game at the next job instead of cooling off', () => {
   const s = E.newGame(2);

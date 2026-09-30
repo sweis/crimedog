@@ -133,7 +133,7 @@ export function genJob(state, rng, opts = {}) {
   };
 }
 
-export function isUngated(approachId) {
+function isUngated(approachId) {
   const a = APPROACHES[approachId];
   return !a.needKit && !a.needIntel && !a.needInsider && !a.needBribe;
 }

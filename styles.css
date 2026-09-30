@@ -47,6 +47,8 @@ body {
   overflow-x: hidden;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
+/* Portraits fill whatever frame they sit in. */
+.title-portrait svg, .dog-card .pic svg, .modal .portrait-big svg, .beat .mini svg, .boss-pic svg, .story-pic svg { width: 100%; height: 100%; display: block; }
 #app { max-width: 540px; margin: 0 auto; min-height: 100svh; display: flex; flex-direction: column; }
 
 /* ---------- header */
@@ -151,7 +153,6 @@ p { margin: 0 0 8px; }
 .title-tag { font-family: var(--font-quote); font-style: italic; font-size: 18px; color: var(--paper); margin-top: -6px; }
 .title-hero .title-portrait { position: relative; z-index: 1; }
 .title-portrait { width: 180px; height: 180px; border-radius: 50%; overflow: hidden; border: 4px solid var(--brass); background: var(--paper-2); box-shadow: 0 0 0 6px #0c1427, 0 0 0 8px var(--brass-dark), 0 18px 50px rgba(0, 0, 0, .65), 0 0 80px rgba(255, 196, 110, .25); }
-.title-portrait svg { width: 100%; height: 100%; display: block; }
 .title-actions { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 10px; }
 .fog { color: #8e9ab8; font-size: 13px; }
 .intro-text p { font-family: var(--font-title); font-size: 18px; line-height: 1.5; }
@@ -177,7 +178,6 @@ p { margin: 0 0 8px; }
 /* ---------- dog cards */
 .dog-card { display: flex; gap: 12px; align-items: center; background: var(--paper-fill); color: var(--ink); border-radius: var(--radius); padding: 10px; margin-bottom: 10px; box-shadow: var(--shadow); width: 100%; text-align: left; border: 1px solid var(--paper-edge); }
 .dog-card .pic { width: 64px; height: 64px; flex: none; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 2px var(--ink), 0 3px 8px rgba(0, 0, 0, .35); }
-.dog-card .pic svg { width: 100%; height: 100%; display: block; }
 .dog-card .name { font-weight: 800; font-family: var(--font-title); font-size: 16px; line-height: 1.15; }
 .dog-card .sub { font-size: 13px; color: var(--ink-soft); }
 .dog-card .fee { font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -210,7 +210,6 @@ p { margin: 0 0 8px; }
 .modal-bar + * { padding-right: 52px; }
 .modal .close { background: var(--paper-2); border: 2px solid var(--paper-3); border-radius: 999px; width: 44px; height: 44px; font-size: 20px; flex: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
 .modal .portrait-big { width: 120px; height: 120px; border-radius: 16px; overflow: hidden; flex: none; box-shadow: 0 0 0 3px var(--ink), 0 6px 14px rgba(0, 0, 0, .4); }
-.modal .portrait-big svg { width: 100%; height: 100%; display: block; }
 .pick-list .dog-card { box-shadow: none; border: 2px solid var(--paper-3); }
 .card-preview { display: block; width: 100%; max-width: 360px; margin: 0 auto 12px; border-radius: 14px; box-shadow: var(--shadow); }
 /* With a sheet open, toasts drop in from the top so they never cover its buttons. */
@@ -311,7 +310,6 @@ p { margin: 0 0 8px; }
 .beat { background-color: var(--paper); background-image: var(--grain); color: var(--ink); border-radius: 12px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; border-left: 6px solid var(--paper-3); box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .55); animation: pop .25s ease-out; }
 @keyframes pop { from { transform: scale(.96); opacity: 0; } }
 .beat .mini { width: 40px; height: 40px; flex: none; border-radius: 8px; overflow: hidden; box-shadow: 0 0 0 2px var(--ink); }
-.beat .mini svg { width: 100%; height: 100%; display: block; }
 .beat .txt { flex: 1; font-size: 15px; }
 .beat .line { font-family: var(--font-quote); font-style: italic; color: var(--ink-soft); margin-top: 3px; }
 .beat .pct { font-size: 12px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: var(--paper-2); white-space: nowrap; }
@@ -367,7 +365,6 @@ p { margin: 0 0 8px; }
 .offer.marker { border: 2px solid var(--red); box-shadow: var(--shadow), 0 0 18px rgba(194, 59, 46, .35); }
 .debt-card { border: 2px solid var(--red); }
 .boss-pic { width: 48px; height: 48px; border-radius: 12px; overflow: hidden; flex: none; box-shadow: 0 0 0 2px var(--ink), 0 3px 8px rgba(0, 0, 0, .35); display: grid; place-items: center; background: var(--paper-2); font-size: 24px; }
-.boss-pic svg { width: 100%; height: 100%; display: block; }
 .boss-pic.sm { width: 32px; height: 32px; border-radius: 8px; }
 .card.dark .boss-pic { box-shadow: 0 0 0 2px var(--brass-dark); }
 .player { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px dashed #2d3d66; }
@@ -376,7 +373,6 @@ p { margin: 0 0 8px; }
 .standing { position: relative; height: 6px; border-radius: 3px; margin-top: 6px; background: linear-gradient(90deg, #c23b2e, #6b6f7e 50%, #2f7d52); opacity: .85; }
 .standing i { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--paper); box-shadow: 0 0 0 1px #0c1427, 0 0 6px rgba(255, 255, 255, .6); }
 .story-pic { width: 120px; height: 120px; margin: 4px auto 10px; border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 3px var(--ink), 0 8px 20px rgba(0, 0, 0, .4); }
-.story-pic svg { width: 100%; height: 100%; display: block; }
 .story-text { font-family: var(--font-quote); font-style: italic; font-size: 16px; line-height: 1.55; margin: 8px 0 16px; }
 
 /* ---------- toast & diagnostics */

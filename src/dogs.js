@@ -1,4 +1,5 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
+import { esc } from './util.js';
 import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES } from './data.js';
 
 const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence']];
@@ -351,9 +352,6 @@ export function portraitSVG(dog, opts = {}) {
   // Frame edge
   if (opts.bg !== false) s += `<rect x=".5" y=".5" width="99" height="99" rx="${opts.round ? 49.5 : 13.5}" fill="none" stroke="#000" stroke-opacity=".18"/>`;
   const size = opts.size || 96;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${escapeAttr(dog.first)} the ${escapeAttr(b.label)}">${s}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${esc(dog.first)} the ${esc(b.label)}">${s}</svg>`;
 }
 
-function escapeAttr(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-}

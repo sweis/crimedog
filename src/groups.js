@@ -1,6 +1,7 @@
 // The city's outfits: standing, job offers, deals, debts and grudges. Pure
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
+import { clamp, fail, done, money, addHeat, addRep, addRelation } from './util.js';
 import { genJob, jobTier, revealIntel, totalLootValue } from './heists.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -26,12 +27,12 @@ export function standingLabel(v) {
 
 export function adjust(state, gid, delta, why, log) {
   const g = state.groups[gid];
-  g.standing = Math.max(-100, Math.min(100, g.standing + delta));
+  g.standing = clamp(g.standing + delta, -100, 100);
   if (log) log.push({ gid, delta, why, now: g.standing });
 }
 
 // Will this group put work your way?
-export function canDeal(state, gid) {
+function canDeal(state, gid) {
   return state.rep >= GROUPS[gid].minRep && state.groups[gid].standing > -50;
 }
 
@@ -49,7 +50,7 @@ function ownedBy(gid) {
   return Object.entries(VENUE_OWNERS).filter(([, o]) => o.includes(gid)).map(([v]) => v);
 }
 
-export function queueStory(state, gid, kind, vars = {}) {
+function queueStory(state, gid, kind, vars = {}) {
   const G = GROUPS[gid];
   const fill = (t) => t.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
   const byKind = {
@@ -157,8 +158,8 @@ export function settleGroups(state) {
         const penalty = p.deal === 'marker' ? Math.round((g.debt?.amount || 0) * 0.5) : Math.round((p.fee || totalLootValue(job) * 0.15) * 0.5);
         const owed = (p.front || 0) + penalty;
         if (owed > 0) g.debt = { amount: (g.debt?.amount || 0) + owed, patience: p.deal === 'marker' ? 1 : 2 };
-        if (g.debt) log.push({ gid: p.group, delta: 0, why: `You now owe them £${g.debt.amount.toLocaleString('en-GB')}`, now: g.standing, debt: true });
-        if (g.debt) queueStory(state, p.group, 'debt', { amount: `£${g.debt.amount.toLocaleString('en-GB')}` });
+        if (g.debt) log.push({ gid: p.group, delta: 0, why: `You now owe them ${money(g.debt.amount)}`, now: g.standing, debt: true });
+        if (g.debt) queueStory(state, p.group, 'debt', { amount: `${money(g.debt.amount)}` });
       }
     }
   }
@@ -170,13 +171,13 @@ export function settleGroups(state) {
 
 export function payDebt(state, gid) {
   const g = state.groups[gid];
-  if (!g?.debt) return { ok: false, msg: 'You don\'t owe them anything.' };
-  if (state.cash < g.debt.amount) return { ok: false, msg: `You need £${g.debt.amount.toLocaleString('en-GB')}.` };
+  if (!g?.debt) return fail('You don\'t owe them anything.');
+  if (state.cash < g.debt.amount) return fail(`You need ${money(g.debt.amount)}.`);
   state.cash -= g.debt.amount;
   g.debt = null;
   state.offers = state.offers.filter((o) => !(o.source === gid && o.kind === 'marker'));
   adjust(state, gid, 3, 'Paid in full');
-  return { ok: true, msg: `Paid off ${GROUPS[gid].short}. ${GROUPS[gid].boss} nods, once.` };
+  return done(`Paid off ${GROUPS[gid].short}. ${GROUPS[gid].boss} nods, once.`);
 }
 
 // Between jobs: debts come due and enemies make their moves.
@@ -192,9 +193,9 @@ export function betweenJobs(state, rng) {
           const take = Math.min(state.cash, Math.round(g.debt.amount / 2));
           state.cash -= take;
           g.debt.amount -= take;
-          state.heat = Math.min(100, state.heat + (take < g.debt.amount ? 10 : 5));
+          addHeat(state, (take < g.debt.amount ? 10 : 5));
         } else {
-          state.heat = Math.min(100, state.heat + 15);
+          addHeat(state, 15);
         }
         g.debt.amount = Math.round((g.debt.amount * 1.2) / 10) * 10;
         g.debt.patience = 2;
@@ -204,18 +205,18 @@ export function betweenJobs(state, rng) {
     } else if (g.standing <= -40 && rng.chance(0.35)) {
       const e = G.hostile.effect;
       const vars = {};
-      if (e === 'heat') state.heat = Math.min(100, state.heat + 10);
+      if (e === 'heat') addHeat(state, 10);
       else if (e === 'cash') {
         const take = Math.round(state.cash * 0.15);
         state.cash -= take;
-        vars.amount = `£${take.toLocaleString('en-GB')}`;
+        vars.amount = `${money(take)}`;
       } else if (e === 'alert') state.sabotage = (state.sabotage || 0) + 1;
-      else if (e === 'rep') state.rep = Math.max(0, state.rep - 5);
+      else if (e === 'rep') addRep(state, -5);
       else if (e === 'crew') {
         const pool = Object.values(state.dogs).filter((d) => d.met && d.status === 'free');
         if (!pool.length) continue;
         const d = rng.pick(pool);
-        d.relation = Math.max(-100, d.relation - 25);
+        addRelation(d, -25);
         vars.dog = d.nick || d.first;
       }
       queueStory(state, gid, 'hostile', vars);
@@ -232,10 +233,10 @@ export function canBorrow(state) {
   return g.standing > -50 && (g.debt?.amount || 0) + LOAN.owe <= LOAN.cap;
 }
 export function borrow(state) {
-  if (state.cash >= 200) return { ok: false, msg: 'The Don only lends to the desperate.' };
-  if (!canBorrow(state)) return { ok: false, msg: 'The Family won\'t lend you another penny.' };
+  if (state.cash >= 200) return fail('The Don only lends to the desperate.');
+  if (!canBorrow(state)) return fail('The Family won\'t lend you another penny.');
   const g = state.groups.family;
   state.cash += LOAN.amount;
   g.debt = { amount: (g.debt?.amount || 0) + LOAN.owe, patience: Math.max(g.debt?.patience ?? 0, 3) };
-  return { ok: true, msg: `The Family lends you £${LOAN.amount}. You owe them £${LOAN.owe}.` };
+  return done(`The Family lends you ${money(LOAN.amount)}. You owe them ${money(LOAN.owe)}.`);
 }
