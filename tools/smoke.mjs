@@ -171,6 +171,38 @@ console.log('1b. Profile close button stays reachable with browser toolbars show
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1c. profile fits without scrolling
+console.log('1c. Crew profile fits on phone screens with actions visible');
+for (const [w, h] of [[390, 844], [375, 667]]) {
+  const ctx = await browser.newContext({ ...phone, viewport: { width: w, height: h } });
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}?dev=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.teleport('pub'); });
+  await tap(page, 'main .dog-card');
+  await page.waitForTimeout(300);
+  const measure = () => page.evaluate(() => {
+    const m = document.querySelector('.modal');
+    const btns = [...m.querySelectorAll('.dm-actions .btn')].map((b) => ({ r: b.getBoundingClientRect(), over: b.scrollWidth > b.clientWidth + 1 }));
+    return { scroll: m.scrollHeight - m.clientHeight, bottom: Math.max(...btns.map((b) => b.r.bottom)), overflow: btns.some((b) => b.over), vh: innerHeight };
+  });
+  const a = await measure();
+  check(a.scroll <= 1 && a.bottom <= a.vh && !a.overflow, `${w}x${h}: new face fits, actions on screen (scroll ${a.scroll}, bottom ${Math.round(a.bottom)}/${a.vh})`);
+  await tap(page, '.modal [data-act="surveil"]');
+  await page.waitForTimeout(300);
+  const b = await measure();
+  const toastHitsActions = await page.evaluate(() => {
+    const t = document.querySelector('#toast .t');
+    if (!t) return false;
+    const tr = t.getBoundingClientRect();
+    return [...document.querySelectorAll('.dm-actions .btn')].some((el) => { const r = el.getBoundingClientRect(); return !(tr.bottom < r.top || tr.top > r.bottom || tr.right < r.left || tr.left > r.right); });
+  });
+  check(!toastHitsActions, `${w}x${h}: toast does not cover the profile's buttons`);
+  check(b.scroll <= 1 && b.bottom <= b.vh && !b.overflow, `${w}x${h}: tailed dog (more traits) still fits (scroll ${b.scroll})`);
+  if (w === 375) await shot(page, 'profile-375x667');
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 2. dev boot
 console.log('2. Dev boot: sim time advances');
 {

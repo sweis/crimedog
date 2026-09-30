@@ -399,3 +399,35 @@ p { margin: 0 0 8px; }
 .siren-a { animation: siren .5s steps(2) infinite; }
 .siren-b { animation: siren .5s steps(2) infinite reverse; }
 @keyframes siren { 50% { opacity: .05; } }
+
+/* ---------- compact dog profile */
+.dm-head { display: flex; gap: 12px; align-items: center; }
+.modal .dm-head .portrait-big { width: 84px; height: 84px; border-radius: 14px; }
+.dm-name { font-size: 18px; margin: 0 0 2px; }
+.dm-sub { font-size: 13px; color: var(--ink-soft); line-height: 1.3; }
+.dm-quote { font-size: 14px; margin: 10px 0 6px; padding: 2px 0 2px 10px; }
+.dm-h { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); margin: 10px 0 4px; }
+.dm-skills { margin: 0; gap: 2px 12px; }
+.dm-skills .skill { font-size: 13px; }
+.dm-skills .skill .lbl { width: 78px; }
+.dm-skills .pips i { width: 7px; height: 10px; }
+.dm-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.dm-chips .muted { font-size: 13px; }
+.dm-traits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dm-trait { background: rgba(255, 255, 255, .35); border: 1px solid var(--paper-3); border-radius: 8px; padding: 4px 8px; display: flex; flex-direction: column; font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em; }
+.dm-trait b { font-size: 14px; color: var(--ink); text-transform: none; letter-spacing: 0; }
+.dm-actions {
+  position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom, 0px)); z-index: 2;
+  margin: 12px -16px calc(-20px - env(safe-area-inset-bottom, 0px));
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--grain), linear-gradient(180deg, #efe2c6, #e9dcbf);
+  border-top: 1px solid #cdb88c; box-shadow: 0 -8px 16px -8px rgba(60, 40, 10, .35);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.dm-row { display: flex; gap: 8px; }
+.dm-row > .btn { flex: 1; min-width: 0; }
+.dm-row.minor .btn { min-height: 44px; padding: 4px 6px; font-size: 14px; flex-direction: column; gap: 0; line-height: 1.15; white-space: nowrap; }
+.dm-row.minor .btn small { font-size: 11px; font-weight: 600; opacity: .75; }
+.dm-confirm { font-size: 14px; color: var(--ink); }
+/* With a sheet open, toasts drop in from the top so they never cover its buttons. */
+.modal-open #toast { bottom: auto; top: calc(12px + env(safe-area-inset-top, 0px)); }

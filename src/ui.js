@@ -513,6 +513,7 @@ const SCREEN_RENDER = {
 function renderModal(G) {
   const root = document.getElementById('modal-root');
   const m = G.ui.modal;
+  document.body.classList.toggle('modal-open', !!(m && G.state));
   if (!m || !G.state) { root.innerHTML = ''; return; }
   let inner = '';
   if (m.type === 'dog') inner = dogModal(G, G.state.dogs[m.id]);
@@ -521,6 +522,8 @@ function renderModal(G) {
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
 
+// Compact profile: sized to fit a phone screen, with actions pinned to the
+// bottom of the sheet so they're always reachable.
 function dogModal(G, d) {
   const s = G.state;
   if (!d) return '';
@@ -528,30 +531,44 @@ function dogModal(G, d) {
   const inCrew = s.crew.includes(d.id);
   const planning = s.phase === 'plan';
   const skills = SKILLS.map((sk) => `<div class="skill"><span class="lbl">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}</span>${pips(skillOf(d, sk), d.known.skills[sk])}</div>`).join('');
-  const talents = d.talents.map((t) => d.known.talents.includes(t) ? `<div class="trait"><b>${esc(TALENTS[t].name)}</b><span class="muted">${SKILL_INFO[TALENTS[t].skill].icon} +${TALENTS[t].bonus} · ${esc(TALENTS[t].blurb)}</span></div>` : '<div class="trait"><b>???</b><span class="muted">A talent you haven\'t seen yet.</span></div>').join('');
-  const quirks = d.known.quirks.map((q) => `<div class="trait"><b>${esc(QUIRKS[q].name)}</b><span class="muted">${esc(QUIRKS[q].blurb)}</span></div>`).join('') || '<div class="trait"><span class="muted">No quirks known yet. Work with them, or have them followed.</span></div>';
-  const trait = (k, label) => `<div class="trait"><b>${label}</b><span>${d.known[k] ? band(d[k]) : '<span class="q">?</span>'}</span></div>`;
-  const undercover = d.known.undercover && d.undercover ? '<p class="chip bad">👮 UNDERCOVER COPPER</p>' : d.cleared ? '<p class="chip good">Checked out: seems legit</p>' : '';
-  const actions = [];
-  if (planning && d.status === 'free' && !inCrew) actions.push(`<button class="btn" data-act="hire" data-id="${d.id}">Hire · ${money(d.fee)}</button>`);
-  if (planning && inCrew) actions.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
-  if (planning && ['free', 'crew'].includes(d.status) && !(d.known.loyalty && (d.cleared || d.known.undercover))) actions.push(`<button class="btn ghost" data-act="surveil" data-id="${d.id}" ${s.job.daysLeft ? '' : 'disabled'}>🕵️ Have them followed · £80, 1 day</button>`);
-  if (d.status === 'pound') actions.push(`<button class="btn" data-act="lawyer" data-id="${d.id}">⚖️ Hire a brief · £150</button>`);
-  actions.push(`<button class="btn ghost" data-act="share" data-id="${d.id}">📸 Share card</button>`);
-  if (d.met && ['free', 'crew', 'pound'].includes(d.status) && s.phase !== 'heist') {
-    const confirm = G.ui.confirmFarm === d.id;
-    actions.push(`<button class="btn ${confirm ? 'red' : 'ghost'} small" data-act="farm" data-id="${d.id}">${confirm ? 'Really? Tap again. There\'s no coming back.' : '🚜 Send to live on a farm'}</button>`);
+  const knownT = d.talents.filter((t) => d.known.talents.includes(t));
+  const unknownT = d.talents.length - knownT.length;
+  const talents = knownT.map((t) => `<span class="chip info" title="${esc(TALENTS[t].blurb)}">${esc(TALENTS[t].name)} ${SKILL_INFO[TALENTS[t].skill].icon}+${TALENTS[t].bonus}</span>`).join('')
+    + (unknownT ? `<span class="chip">❓ ${unknownT} unknown</span>` : '');
+  const quirks = d.known.quirks.map((q) => `<span class="chip ${QUIRKS[q].good === true ? 'good' : QUIRKS[q].good === false ? 'bad' : ''}" title="${esc(QUIRKS[q].blurb)}">${esc(QUIRKS[q].name)}</span>`).join('')
+    || '<span class="muted">No quirks known yet.</span>';
+  const trait = (k, label) => `<div class="dm-trait"><span>${label}</span><b>${d.known[k] ? band(d[k]) : '?'}</b></div>`;
+  const undercover = d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '';
+  const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'crew' ? 'on your crew' : d.status;
+
+  // Actions: one primary, then compact secondaries.
+  const primary = [];
+  const minor = [];
+  if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">Hire · ${money(d.fee)}</button>`);
+  if (planning && inCrew) primary.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
+  if (d.status === 'pound') primary.push(`<button class="btn" data-act="lawyer" data-id="${d.id}">⚖️ Hire a brief · £150</button>`);
+  if (planning && ['free', 'crew'].includes(d.status) && !(d.known.loyalty && (d.cleared || d.known.undercover))) minor.push(`<button class="btn ghost small" data-act="surveil" data-id="${d.id}" ${s.job.daysLeft ? '' : 'disabled'} aria-label="Have them followed, £80, 1 day">🕵️ Tail<small>£80 · 1 day</small></button>`);
+  minor.push(`<button class="btn ghost small" data-act="share" data-id="${d.id}" aria-label="Share card">📸 Share<small>their card</small></button>`);
+  const canFarm = d.met && ['free', 'crew', 'pound'].includes(d.status) && s.phase !== 'heist';
+  if (canFarm) minor.push(`<button class="btn ghost small" data-act="farm" data-id="${d.id}" aria-label="Send to live on a farm">🚜 Farm<small>no return</small></button>`);
+  let actions;
+  if (canFarm && G.ui.confirmFarm === d.id) {
+    actions = `<div class="dm-confirm">Send ${esc(shortName(d))} to live on a farm? There's no coming back, and the others will notice.</div>
+      <div class="dm-row"><button class="btn red" data-act="farm" data-id="${d.id}">🚜 Yes, the farm</button><button class="btn ghost" data-act="dog" data-id="${d.id}">Cancel</button></div>`;
+  } else {
+    actions = `${primary.length ? `<div class="dm-row">${primary.join('')}</div>` : ''}<div class="dm-row minor">${minor.join('')}</div>`;
   }
-  return `<div class="row" style="align-items:flex-start"><div class="portrait-big">${portraitSVG(d, { size: 120 })}</div>
-    <div class="grow"><h2 style="margin-top:4px">${esc(displayName(d))}</h2><div class="faction">${esc(FACTIONS[d.faction].label)}</div>
-    <div class="muted">${esc(b.label)} · ${esc(relationLabel(d))}</div>
-    <div class="muted">${d.jobs} job${d.jobs === 1 ? '' : 's'} with you · ${d.status === 'pound' ? `in the pound (${d.sentence})` : d.status}</div></div></div>
-    <div class="quote">"${esc(d.catchphrase)}"</div>
-    ${undercover}
-    <h3>Skills</h3><div class="skill-grid">${skills}</div>
-    <h3>Talents</h3>${talents}
-    <h3 class="mt">Character</h3>${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}${quirks}
-    <div class="stack mt">${actions.join('')}</div>`;
+
+  return `<div class="dm-head"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
+    <div class="grow"><h2 class="dm-name">${esc(displayName(d))}</h2><div class="faction">${esc(FACTIONS[d.faction].label)}</div>
+    <div class="dm-sub">${esc(b.label)} · ${esc(relationLabel(d))} · ${d.jobs} job${d.jobs === 1 ? '' : 's'} · ${esc(where)}</div></div></div>
+    <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
+    ${undercover ? `<div class="dm-chips">${undercover}</div>` : ''}
+    <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
+    <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
+    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}</div>
+    <div class="dm-chips">${quirks}</div>
+    <div class="dm-actions">${actions}</div>`;
 }
 
 function cardModal(G, d) {
