@@ -6,6 +6,7 @@ import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topS
 import { visibleStages, totalLootValue } from './heists.js';
 import { odds, oddsKnown, approachAvailable, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
+import { venueSVG, skylineSVG } from './art.js';
 
 export const SCREENS = ['title', 'intro', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
 export const PLAN_TABS = [
@@ -70,7 +71,7 @@ function nav(G, screen) {
 function titleScreen(G) {
   const hasSave = G.hasSave();
   return `<section class="title-screen">
-    <div class="title-portrait">${portraitSVG(GUVNOR, { bg: '#e9dcc3', size: 180 })}</div>
+    <div class="title-hero">${skylineSVG(11)}<div class="title-portrait">${portraitSVG(GUVNOR, { bg: '#e9dcc3', size: 180 })}</div></div>
     <h1 class="title-logo">CRIMEDOG</h1>
     <div class="title-tag">A heist game. For dogs.</div>
     <p class="fog">Recruit a crew. Case the joint. Pull the job.<br>Don't get nicked.</p>
@@ -111,7 +112,8 @@ function jobScreen(G) {
   const days = Array.from({ length: 5 }, (_, i) => `<i class="${i >= job.daysLeft ? 'used' : ''}"></i>`).join('');
   const stake = job.intel.hz_stakeout ? `<p class="chip bad">🚓 Police stakeout at ${job.stakeoutTime === 'night' ? 'night' : 'daytime'}</p>` : '';
   return `
-  <section class="card">
+  <section class="card job-card">
+    ${venueSVG(job)}
     <div class="row spread"><span class="stamp">${esc(VENUE_LABELS[job.venueType])}</span><span title="Difficulty">${stars}</span></div>
     <div class="job-name mt">${esc(job.name)}</div>
     <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
@@ -147,9 +149,11 @@ export function pips(v, known, max = 7) {
   return h + '</span>';
 }
 
+// Best skill the player actually knows about (never leaks hidden stats).
 function specialtyText(d) {
-  const [top] = topSkills(d, 1);
-  return `${SKILL_INFO[top[0]].icon} ${SKILL_INFO[top[0]].label}`;
+  const known = topSkills(d, 10).find(([sk]) => d.known.skills[sk]);
+  if (!known) return '❓ Unknown';
+  return `${SKILL_INFO[known[0]].icon} ${SKILL_INFO[known[0]].label}`;
 }
 
 function dogCard(G, d, opts = {}) {
@@ -330,33 +334,56 @@ export function blueprintSVG(G, shown) {
   const gone = new Set(shown.filter((b) => b.kind === 'betray' && b.dog).map((b) => b.dog));
   const exposed = new Set(r.exposed);
   const ended = shown.some((b) => b.kind === 'end');
-  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">`;
-  svg += '<defs><pattern id="grid" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M12 0H0V12" fill="none" stroke="#9ec1f0" stroke-opacity=".12"/></pattern></defs>';
-  svg += `<rect width="${W}" height="${H}" fill="url(#grid)"/>`;
-  // path
+  const coppers = shown.some((b) => b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
+  const alarm = shown[shown.length - 1].alarm;
+  const u = `bp${++bpUid}`;
+  const foot = 16;
+  const HH = H + foot;
+  const mono = 'ui-monospace, Menlo, Consolas, monospace';
+  let svg = `<svg viewBox="0 0 ${W} ${HH}" xmlns="http://www.w3.org/2000/svg" font-family="Roboto Slab, system-ui, sans-serif">`;
+  svg += `<defs>
+    <pattern id="${u}g" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#9ec1f0" stroke-opacity=".07"/></pattern>
+    <pattern id="${u}G" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#9ec1f0" stroke-opacity=".16"/></pattern>
+    <linearGradient id="${u}room" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#21447c"/><stop offset="1" stop-color="#16305a"/></linearGradient>
+    <radialGradient id="${u}red" cx="50%" cy="50%" r="75%"><stop offset=".55" stop-color="#ff3b2a" stop-opacity="0"/><stop offset="1" stop-color="#ff3b2a" stop-opacity=".55"/></radialGradient>
+    <filter id="${u}glow" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>`;
+  svg += `<rect width="${W}" height="${HH}" fill="url(#${u}g)"/><rect width="${W}" height="${HH}" fill="url(#${u}G)"/>`;
+  // corridors, then the route taken so far
+  const ctr = (p) => [p.x + rw / 2, p.y + rh / 2];
   for (let k = 1; k < pos.length; k++) {
-    const a = pos[k - 1], b = pos[k];
-    svg += `<line x1="${a.x + rw / 2}" y1="${a.y + rh / 2}" x2="${b.x + rw / 2}" y2="${b.y + rh / 2}" stroke="#9ec1f0" stroke-width="2" stroke-dasharray="5 5" opacity="${k <= curIdx ? 0.9 : 0.35}"/>`;
+    const [x1, y1] = ctr(pos[k - 1]); const [x2, y2] = ctr(pos[k]);
+    svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#9ec1f0" stroke-opacity=".5" stroke-width="10"/><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#18356a" stroke-width="8"/>`;
+  }
+  for (let k = 1; k < pos.length; k++) {
+    const [x1, y1] = ctr(pos[k - 1]); const [x2, y2] = ctr(pos[k]);
+    const walked = k <= curIdx;
+    svg += `<line class="${walked && !ended && k === curIdx ? 'route-live' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${walked ? '#ffe3a0' : '#9ec1f0'}" stroke-width="1.6" stroke-dasharray="4 4" opacity="${walked ? 0.95 : 0.35}"/>`;
   }
   pos.forEach((p, k) => {
     const isCur = k === curIdx && !ended;
     const done = k < curIdx || (ended && k <= curIdx);
     const bad = failed.has(p.st.id);
-    const stroke = isCur ? '#d6a93b' : bad ? '#ff7a6b' : done ? '#7ee0a8' : '#9ec1f0';
-    svg += `<rect x="${p.x}" y="${p.y}" width="${rw}" height="${rh}" rx="6" fill="#16305a" stroke="${stroke}" stroke-width="${isCur ? 3 : 2}"/>`;
+    const stroke = isCur ? '#ffd27a' : bad ? '#ff7a6b' : done ? '#7ee0a8' : '#9ec1f0';
+    if (isCur) svg += `<rect class="room-glow" x="${p.x - 2}" y="${p.y - 2}" width="${rw + 4}" height="${rh + 4}" rx="7" fill="none" stroke="#ffd27a" stroke-width="4" filter="url(#${u}glow)"/>`;
+    svg += `<rect x="${p.x}" y="${p.y}" width="${rw}" height="${rh}" rx="4" fill="url(#${u}room)" stroke="${stroke}" stroke-width="${isCur ? 2.6 : 2}"/>`;
+    svg += `<rect x="${p.x + 3}" y="${p.y + 3}" width="${rw - 6}" height="${rh - 6}" rx="2" fill="none" stroke="${stroke}" stroke-opacity=".4" stroke-width=".7"/>`;
+    // corner dimension ticks
+    svg += `<path d="M${p.x - 3} ${p.y} h-3 M${p.x} ${p.y - 3} v-3 M${p.x + rw + 3} ${p.y + rh} h3 M${p.x + rw} ${p.y + rh + 3} v3" stroke="#9ec1f0" stroke-opacity=".5" stroke-width=".7"/>`;
     svg += `<text x="${p.x + 6}" y="${p.y + 20}" font-size="14">${p.st.icon}</text>`;
     svg += `<text x="${p.x + 26}" y="${p.y + 18}" font-size="10" fill="#e6efff" font-weight="700">${esc(trunc(p.st.label.replace(/^The /, ''), 13))}</text>`;
-    const mark = bad && done ? '✗ messy' : done ? '✓' : isCur ? '▶ now' : '';
-    svg += `<text x="${p.x + 6}" y="${p.y + 38}" font-size="10" fill="${bad ? '#ff9a8b' : isCur ? '#d6a93b' : '#7ee0a8'}">${mark}</text>`;
+    svg += `<text x="${p.x + rw - 5}" y="${p.y + 10}" font-size="6" text-anchor="end" fill="#9ec1f0" opacity=".6" font-family="${mono}">RM ${String(k + 1).padStart(2, '0')}</text>`;
+    const mark = bad && done ? '✗ messy' : done ? '✓ clear' : isCur ? '▶ now' : '';
+    svg += `<text x="${p.x + 6}" y="${p.y + 38}" font-size="9.5" font-weight="700" fill="${bad ? '#ff9a8b' : isCur ? '#ffd27a' : '#7ee0a8'}">${mark}</text>`;
   });
-  // tokens
+  // crew tokens
   const crew = r.crew.map((id) => s.dogs[id]);
   const here = crew.filter((d) => !captured.has(d.id) && !gone.has(d.id) && !exposed.has(d.id));
   const anchor = curIdx >= 0 ? pos[curIdx] : { x: ox, y: oy - 60 };
   here.forEach((d, k) => {
-    const tx = anchor.x + rw - 20 - (k % 4) * 15;
-    const ty = curIdx >= 0 ? anchor.y + rh - 21 - Math.floor(k / 4) * 13 : oy;
-    svg += `<g transform="translate(${tx} ${ty})"><circle cx="9" cy="9" r="9" fill="#f4ead3"/>${innerPortrait(d, 18)}</g>`;
+    const tx = anchor.x + rw - 22 - (k % 4) * 15;
+    const ty = curIdx >= 0 ? anchor.y + rh - 23 - Math.floor(k / 4) * 13 : oy;
+    svg += `<g transform="translate(${tx} ${ty})"><ellipse cx="10" cy="20" rx="8" ry="2.2" fill="#000" opacity=".4"/><circle cx="10" cy="10" r="10" fill="#f4ead3" stroke="#0c1427" stroke-width="1.4"/><g transform="translate(1 1)">${innerPortrait(d, 18)}</g></g>`;
   });
   // van / gone tray
   const tray = [...captured].map((id) => ['🚓', s.dogs[id]]).concat([...gone, ...exposed].map((id) => ['💨', s.dogs[id]]));
@@ -365,9 +392,18 @@ export function blueprintSVG(G, shown) {
   tray.forEach(([ico, d], k) => {
     svg += `<g transform="translate(${ox + 32 + k * 42} ${ty})"><text x="0" y="15" font-size="12">${ico}</text><g transform="translate(16 0)"><circle cx="10" cy="10" r="10" fill="#f4ead3" opacity=".7"/>${innerPortrait(d, 20)}</g></g>`;
   });
+  // drawing title block
+  svg += `<path d="M0 ${HH - foot + 2} H${W}" stroke="#9ec1f0" stroke-opacity=".35"/>`;
+  svg += `<text x="${ox + 2}" y="${HH - 5}" font-size="7" fill="#9ec1f0" opacity=".75" font-family="${mono}" letter-spacing=".5">DRG ${esc(job.id.toUpperCase())} · ${esc(trunc(job.venueName.toUpperCase(), 34))}</text>`;
+  svg += `<g transform="translate(${W - 16} ${HH - 9})" opacity=".75"><circle r="5.5" fill="none" stroke="#9ec1f0" stroke-width=".7"/><path d="M0 -5 L2 1 L0 0 L-2 1 Z" fill="#9ec1f0"/><text x="-12" y="3" font-size="7" fill="#9ec1f0" font-family="${mono}">N</text></g>`;
+  // alarm wash and police lights
+  if (alarm > 0 && !ended) svg += `<rect width="${W}" height="${HH}" fill="url(#${u}red)" opacity="${Math.min(1, alarm / 10).toFixed(2)}" class="${alarm >= 6 ? 'alarm-wash' : ''}"/>`;
+  if (coppers && !ended) svg += `<circle class="siren-a" cx="12" cy="10" r="16" fill="#ff3b2a" opacity=".6" filter="url(#${u}glow)"/><circle class="siren-b" cx="${W - 12}" cy="10" r="16" fill="#3b7bff" opacity=".6" filter="url(#${u}glow)"/>`;
   svg += '</svg>';
   return svg;
 }
+
+let bpUid = 0;
 
 function innerPortrait(d, size) {
   // Nested <svg> keeps the portrait self-contained inside the blueprint.
@@ -449,7 +485,7 @@ function overScreen(G) {
   const s = G.state;
   const t = E.GAME_OVER_TEXT[s.over.reason];
   return `<section class="title-screen">
-    <div class="title-portrait" style="filter:grayscale(1)">${portraitSVG(GUVNOR, { size: 180 })}</div>
+    <div class="title-hero">${skylineSVG(5)}<div class="title-portrait" style="filter:grayscale(1)">${portraitSVG(GUVNOR, { size: 180 })}</div></div>
     <h1 class="title-logo" style="font-size:38px">${esc(t.title)}</h1>
     <p>${esc(t.text)}</p>
     <section class="card" style="width:100%;text-align:left"><h2>Your Career</h2>

@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Crimedog portrait sheet</title>
+<style>body{background:#101a30;margin:0;padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;font:12px system-ui;color:#f4ead3}figure{margin:0;text-align:center}svg{width:100%;height:auto;display:block}</style>
+<body>
+<script type="module">
+// Dev contact sheet: one portrait per breed, cycling hats/eyewear. Open via the dev server.
+import { genDog, portraitSVG } from '../src/dogs.js';
+import { BREEDS } from '../src/data.js';
+import { makeRng, seedHolder } from '../src/rng.js';
+const state = { nextId: 1 };
+const rng = makeRng(seedHolder(Number(new URLSearchParams(location.search).get('seed')) || 4));
+for (const breed of Object.keys(BREEDS)) {
+  const d = genDog(state, rng, { breed });
+  const f = document.createElement('figure');
+  f.innerHTML = portraitSVG(d, { size: 120 }) + `<figcaption>${BREEDS[breed].label}</figcaption>`;
+  document.body.appendChild(f);
+}
+window.done = true;
+</script>

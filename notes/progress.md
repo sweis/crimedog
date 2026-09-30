@@ -21,6 +21,7 @@
 | `src/ui.js` | Screens as `(state, ui) → HTML`; blueprint SVG for heist playback |
 | `src/main.js` | Boot, save/load (localStorage, try/catch), input routing, fixed-step frame loop |
 | `src/debug.js` | `window.cd` hooks + overlay |
+| `src/art.js` | Seeded SVG scenery: night-time facades per venue type (job board) and the title skyline |
 | `src/card.js` | Shareable character card (SVG → PNG, Web Share API or download) |
 
 All randomness goes through a seeded RNG stored in the save, so a seed + inputs replays identically.
@@ -57,6 +58,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
   non-blank. Captures in `notes/captures/`.
 - Not verified: real phones (iOS Safari / Android Chrome), Web Share on device, human playtest for fun/pacing,
   long careers by a human past tier 3.
+
+## Graphics pass (depth & texture)
+- Portraits: outlines, shared lighting overlay (highlight/shade), fur strokes, layered eyes, lapels, hat sheen, pinstripe backdrop. Contact sheet: `tools/portraits.html` (dev server).
+- Chrome: self-hosted fonts in `assets/fonts/` (Alfa Slab One display, Roboto Slab headings, Libre Baskerville italic quotes, UnifrakturMaguntia masthead; OFL/Apache licences alongside), paper grain + rain textures as inline SVG, bevelled brass/red buttons, deeper card shadows, lit nav tab.
+- Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
+- Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
 ## Next
 - Human playtest of the first five minutes; tune copy and pacing from that.
