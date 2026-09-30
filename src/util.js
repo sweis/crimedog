@@ -3,6 +3,7 @@
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 export const money = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
+export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // Every player action returns one of these.

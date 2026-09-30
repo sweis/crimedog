@@ -77,11 +77,10 @@ export function genJob(state, rng, opts = {}) {
   if (!entry.some((e) => isUngated(e))) entry[0] = rng.pick(['e_pick', 'e_charm', 'e_delivery']);
   entry.push('e_insider');
   stages.push({ id: 'entry', kind: 'entry', label: 'Getting In', icon: '🚪', options: entry });
-  for (const o of obstacles) {
-    stages.push({ id: `obs_${o}`, kind: 'obstacle', label: OBSTACLES[o].label, icon: OBSTACLES[o].icon, options: OBSTACLES[o].options.slice() });
-  }
-  if (hazards.cat) stages.push({ id: 'haz_cat', kind: 'obstacle', label: OBSTACLES.cat.label, icon: OBSTACLES.cat.icon, options: OBSTACLES.cat.options.slice(), hidden: true, hazard: 'cat' });
-  if (hazards.plates) stages.push({ id: 'haz_plates', kind: 'obstacle', label: OBSTACLES.plates.label, icon: OBSTACLES.plates.icon, options: OBSTACLES.plates.options.slice(), hidden: true, hazard: 'plates' });
+  const obstacle = (id, o, extra) => ({ id, kind: 'obstacle', label: OBSTACLES[o].label, icon: OBSTACLES[o].icon, options: OBSTACLES[o].options.slice(), ...extra });
+  for (const o of obstacles) stages.push(obstacle(`obs_${o}`, o));
+  // Hidden hazards only show up on the plan once cased.
+  for (const h of ['cat', 'plates']) if (hazards[h]) stages.push(obstacle(`haz_${h}`, h, { hidden: true, hazard: h }));
   stages.push({ id: 'vault', kind: 'vault', label: VAULTS[vaultType].label, icon: VAULTS[vaultType].icon, options: VAULTS[vaultType].options.slice(), vaultType });
   const exit = rng.sample(EXIT_POOL.filter((e) => e !== 'x_same'), 2);
   exit.unshift('x_same');
@@ -141,6 +140,8 @@ function isUngated(approachId) {
 export function visibleStages(job) {
   return job.stages.filter((s) => !s.hidden);
 }
+
+export const lootItem = (job, id) => job.loot.find((l) => l.id === id);
 
 export function totalLootValue(job) {
   return job.loot.reduce((s, l) => s + l.value, 0);

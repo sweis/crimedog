@@ -4,7 +4,7 @@ import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, addHeat, addRep, addRelation } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName } from './dogs.js';
-import { visibleStages, totalLootValue, revealIntel } from './heists.js';
+import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { simulate, approachAvailable, odds, baseOdds } from './sim.js';
 
@@ -62,6 +62,10 @@ export function newGame(seed = Date.now() % 1e9, name = 'The Guv\'nor') {
 function news(state, text) {
   state.news.unshift({ day: state.day, text });
   state.news = state.news.slice(0, 30);
+}
+
+function leaveCrew(state, id) {
+  state.crew = state.crew.filter((x) => x !== id);
 }
 
 // Strangers you never hired or looked into drift away, so saves don't grow forever.
@@ -153,7 +157,7 @@ export function hire(state, id) {
 export function dismiss(state, id) {
   const d = state.dogs[id];
   if (!state.crew.includes(id) || state.phase !== 'plan') return fail('Not on the crew.');
-  state.crew = state.crew.filter((x) => x !== id);
+  leaveCrew(state, id);
   d.status = 'free';
   addRelation(d, -3);
   for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k];
@@ -493,29 +497,29 @@ export function resolveHeist(state) {
     d.talked = c.talked;
     d.caughtJob = job.id;
     addRelation(d, c.talked ? -10 : 10);
-    state.crew = state.crew.filter((x) => x !== c.id);
+    leaveCrew(state, c.id);
   }
   for (const l of r.lost || []) {
     const d = state.dogs[l.id];
     d.status = 'farm';
-    state.crew = state.crew.filter((x) => x !== l.id);
+    leaveCrew(state, l.id);
     news(state, `${displayName(d)} went to live on a farm after ${job.name}.`);
   }
   for (const run of r.runners) {
     const d = state.dogs[run.id];
     d.status = 'gone';
     d.relation = -100;
-    state.crew = state.crew.filter((x) => x !== run.id);
-    news(state, `${displayName(d)} did a runner with ${job.loot.find((l) => l.id === run.lootId).name}.`);
+    leaveCrew(state, run.id);
+    news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
   }
   for (const id of [...r.exposed, ...r.tipped]) {
     const d = state.dogs[id];
     d.status = 'gone';
     d.known.undercover = true;
-    state.crew = state.crew.filter((x) => x !== id);
+    leaveCrew(state, id);
   }
   addHeat(state, r.heatGain);
-  const securedValue = r.secured.reduce((s, id) => s + job.loot.find((l) => l.id === id).value, 0);
+  const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
   state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [] };
@@ -544,7 +548,7 @@ export function deliver(state) {
   state.stats.earned += pay;
   a.step = toFence(state).length ? 'fence' : 'pay';
   const G = GROUPS[p.group];
-  const item = state.job.loot.find((l) => l.id === p.want).name;
+  const item = lootItem(state.job, p.want).name;
   if (p.deal === 'marker') return done(`${G.boss} takes ${item}. Your debt is squared.`);
   return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the £${p.front} advance)` : ''}.`);
 }
@@ -555,7 +559,7 @@ export function fenceRate(state, fenceId) {
   const bonus = crewDogs(state).some((d) => hasSpecial(d, 'fence')) ? 0.1 : 0;
   let total = 0;
   for (const id of toFence(state)) {
-    const l = job.loot.find((x) => x.id === id);
+    const l = lootItem(job, id);
     total += l.value * Math.min(1, f.rates[l.kind] + (fenceId === 'collector' ? 0 : bonus));
   }
   return Math.round(total / 10) * 10;
@@ -695,7 +699,7 @@ export function farm(state, id) {
   if (state.phase === 'heist') return fail('Not now.');
   const wasPound = d.status === 'pound';
   d.status = 'farm';
-  state.crew = state.crew.filter((x) => x !== id);
+  leaveCrew(state, id);
   if (state.phase === 'plan' && state.job) {
     for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k].dog;
     if (state.job.insider === id) state.job.insider = null;

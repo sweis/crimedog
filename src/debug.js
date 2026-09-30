@@ -76,7 +76,7 @@ export function installDebug(G) {
     screens: () => SCREENS.slice(),
     getState: () => snapshot(G),
     teleport(spot) {
-      if (!G.state && !['title', 'intro'].includes(spot)) cd.setSeed(G.state?.seed ?? 1);
+      if (!G.state && !['title', 'intro'].includes(spot)) cd.setSeed(1);
       const s = G.state;
       if (spot === 'select') {
         if (s.phase !== 'select' && s.phase !== 'over') {
@@ -175,15 +175,14 @@ export function installDebug(G) {
       return G.state.over;
     },
     cam(name) {
+      // 'blueprint' is just the current screen from the top.
       G.ui.modal = null;
-      if (name === 'overview') { if (G.state?.phase === 'plan') G.ui.screen = 'job'; }
-      else if (name === 'hero-close') {
+      if (name === 'overview' && G.state?.phase === 'plan') G.ui.screen = 'job';
+      if (name === 'hero-close') {
         ensurePlan(G);
-        const s = G.state;
-        const id = s.crew[0] || s.pub[0];
-        G.ui.modal = { type: 'dog', id };
-      } else if (name === 'hud-check') { G.showDiag(true); }
-      else if (name === 'blueprint') { /* heist screen, top */ }
+        G.ui.modal = { type: 'dog', id: G.state.crew[0] || G.state.pub[0] };
+      }
+      if (name === 'hud-check') G.showDiag(true);
       G.commit();
       window.scrollTo(0, 0);
       return name;

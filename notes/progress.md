@@ -60,6 +60,11 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
   `tests/chaos.test.mjs`.
 - Grading: loyal crew doing time count half toward "crew got away".
 
+## Code conventions
+- `src/util.js` holds the shared helpers (esc, money, count, clamp, fail/done, addHeat/addRep/addRelation); `lootItem(job, id)` lives in heists.js.
+- `simulate()` is split into named phases: `lead` (who takes a step), `attempt`, `recover` (pear-shaped retry), `succeed`/`botch`, then clean-up, `interrogate`, heat and `outcomeOf`.
+- Refactor check: `node tools/snapshots.mjs <dir> --compare <baseline>` pixel-diffs every screen; hash `career()` results before and after for sim changes.
+
 ## Verified vs not
 - Verified: unit/content/balance tests pass; Playwright cold boot on a 390×844 touch viewport with real
   `touchscreen.tap` plays one full job with no console errors; save/continue survives reload; dev boot 10 s

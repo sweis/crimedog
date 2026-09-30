@@ -96,3 +96,28 @@ test('walking away is not a free way to cool off', () => {
   E.nextJob(s);
   assert.equal(s.heat, 40);
 });
+
+test('the dog who eats the evidence is one who was actually on the job', async () => {
+  const { simulate } = await import('../src/sim.js');
+  const { makeRng } = await import('../src/rng.js');
+  const s = E.newGame(5);
+  E.acceptOffer(s, s.offers[0].id);
+  s.cash = 5000;
+  const [a, b] = s.pub.slice(0, 2);
+  E.hire(s, a); E.hire(s, b);
+  for (const id of [a, b]) s.dogs[id].quirks = ['eatsevidence'];
+  // a is first on the plan but only drives the getaway, so on jobs that stop short a never acts.
+  const getaway = s.job.stages.find((st) => st.id === 'getaway');
+  E.setPlan(s, 'getaway', { dog: a, approach: getaway.options[0] });
+  for (const st of s.job.stages) if (st !== getaway) E.setPlan(s, st.id, { dog: b, approach: st.options[0] });
+  let ate = 0;
+  for (let seed = 1; seed <= 200; seed++) {
+    const r = simulate(s, s.job, makeRng({ s: seed }));
+    const acted = new Set(r.beats.filter((x) => x.kind === 'ok' || x.kind === 'fail').map((x) => x.dog));
+    for (const x of r.beats.filter((y) => /eats a glove/.test(y.text))) {
+      assert.ok(acted.has(x.dog), `seed ${seed}: ${x.dog} ate evidence without acting`);
+      ate++;
+    }
+  }
+  assert.ok(ate > 0);
+});
