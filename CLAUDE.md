@@ -73,6 +73,13 @@ Failing the Greyhound Family or the Shiba Syndicate puts the mastermind in their
 jobs that pay nothing but clear the debt. Ignore them for too long and they escalate: the debt grows, and they take cash or try to get the mastermind caught by
 tipping off the Inspector. A debt can also be paid off in cash.
 
+### Rare and legendary crew
+
+Now and then a rare or legendary criminal drifts into the pub for a single job, then moves on. They cost far more, their skills are common knowledge, and
+they're marked out on sight. They turn up more often (and more of them are legendary) as the mastermind's reputation grows, and one always appears on
+the very first job as a teaser. Many have a signature move: a secret way through certain steps of a job (a way in nobody else knows, a vault door taken off
+its hinges, walking out dressed as the Inspector). Those options stay hidden until the mastermind hires a star whose move fits the job.
+
 ## Graphics
 
 Graphically, it can be stylized and does not need to be 3d or complex. It should be easy to render and play on a phone, so the interface should be simple and playable with a

@@ -2,10 +2,10 @@
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
 import { esc, money, count } from './util.js';
-import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS } from './data.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES } from './data.js';
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
-import { odds, oddsKnown, approachAvailable, ALARM_MAX } from './sim.js';
+import { odds, oddsKnown, approachAvailable, stageOptions, canDo, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
@@ -234,23 +234,29 @@ function specialtyText(d) {
 const knownSkill = (d, sk) => (d.known.skills[sk] ? skillOf(d, sk) : '?');
 const skillChip = (d, sk) => `<span class="chip ${d.known.skills[sk] ? 'info' : ''}">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label} ${knownSkill(d, sk)}</span>`;
 
+// Rare/legendary badge and signature move.
+const rarityBadge = (d) => (d.rarity ? `<span class="rar ${d.rarity}">${RARITY[d.rarity].icon} ${RARITY[d.rarity].label}</span>` : '');
+
 // opts: fee (show hire cost), skill (show that skill), act/extra (tap action; default opens the profile)
 function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
   const hired = s.crew.includes(d.id);
+  const away = d.rarity && d.status === 'free' && d.inTown !== s.job?.id;
   let right = '';
-  if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
+  if (opts.fee && away) right = '<div class="chip">Out of town</div>';
+  else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
   if (d.status === 'pound') right = `<div class="chip bad">Pound: ${d.sentence} job${d.sentence > 1 ? 's' : ''}</div>`;
   if (d.known.undercover && d.undercover) right = '<div class="chip bad">COPPER</div>';
   const flags = [];
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
-  return `<button class="dog-card ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
+  return `<button class="dog-card ${d.rarity || ''} ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
     <div class="pic">${portraitSVG(d, { size: 64 })}</div>
     <div class="grow"><div class="name">${esc(displayName(d))}</div>
-      <div class="faction">${esc(FACTIONS[d.faction].label)}</div>
+      <div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
       <div class="sub">${esc(b.label)} · ${specialtyText(d)} · ${esc(relationLabel(d))}</div>
+      ${d.signature && opts.fee ? `<div class="sig">✨ <b>${esc(SIGNATURES[d.signature].name)}</b></div>` : ''}
       ${[].concat(opts.skill || []).map((sk) => skillChip(d, sk)).join(' ')}
       ${flags.join(' ')}</div>
     <div class="center">${right}</div></button>`;
@@ -358,10 +364,13 @@ function planScreen(G) {
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
     h += `<section class="plan-step" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3></div><div class="opts">`;
-    for (const ap of st.options) {
+    // Secret options (a star's signature move) go first.
+    for (const ap of stageOptions(st, crew).sort((x, y) => !!APPROACHES[y].signature - !!APPROACHES[x].signature)) {
       const a = APPROACHES[ap];
       const av = approachAvailable(s, job, ap);
       const tags = [];
+      const owner = a.signature && crew.find((d) => canDo(d, ap));
+      if (owner) tags.push(`✨ ${shortName(owner)} only`);
       if (!av.ok) tags.push(`🔒 ${av.reason}`);
       if (a.kitBonus && s.kit[a.kitBonus]) tags.push(`+${KIT[a.kitBonus].name}`);
       if (a.intelBonus && job.intel[a.intelBonus]) tags.push(`+${INTEL[a.intelBonus].label}`);
@@ -369,13 +378,13 @@ function planScreen(G) {
       else if (a.noise > 0) tags.push('🔉 Noisy');
       if (a.clues >= 2) tags.push('🔍 Messy');
       if (a.swap) tags.push('🤫 They won\'t notice');
-      h += `<button class="opt ${p.approach === ap ? 'on' : ''}" data-act="plan-ap" data-stage="${st.id}" data-ap="${ap}" ${av.ok ? '' : 'disabled'}><span class="ski">${SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
+      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''}" data-act="plan-ap" data-stage="${st.id}" data-ap="${ap}" ${av.ok ? '' : 'disabled'}><span class="ski">${SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
     }
     h += '</div>';
     if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
     if (p.approach) {
       const skill = APPROACHES[p.approach].skill;
-      h += `<div class="assignees">${crew.map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
+      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitSVG(d, { size: 44 })}${esc(shortName(d))}<br><b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
       if (p.dog) {
         const d = s.dogs[p.dog];
         const o = odds(s, job, st, p.approach, d);
@@ -699,7 +708,8 @@ function dogModal(G, d) {
   const skills = SKILLS.map((sk) => `<div class="skill"><span class="lbl">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}</span>${pips(skillOf(d, sk), d.known.skills[sk])}</div>`).join('');
   const knownT = d.talents.filter((t) => d.known.talents.includes(t));
   const unknownT = d.talents.length - knownT.length;
-  const talents = knownT.map((t) => `<span class="chip info" title="${esc(TALENTS[t].blurb)}">${esc(TALENTS[t].name)} ${SKILL_INFO[TALENTS[t].skill].icon}+${TALENTS[t].bonus}</span>`).join('')
+  const sig = d.signature ? `<span class="chip sig-chip" title="${esc(SIGNATURES[d.signature].blurb)}">✨ ${esc(SIGNATURES[d.signature].name)}</span>` : '';
+  const talents = sig + knownT.map((t) => `<span class="chip info" title="${esc(TALENTS[t].blurb)}">${esc(TALENTS[t].name)} ${SKILL_INFO[TALENTS[t].skill].icon}+${TALENTS[t].bonus}</span>`).join('')
     + (unknownT ? `<span class="chip">❓ ${unknownT} unknown</span>` : '');
   const quirks = d.known.quirks.map((q) => `<span class="chip ${QUIRKS[q].good === true ? 'good' : QUIRKS[q].good === false ? 'bad' : ''}" title="${esc(QUIRKS[q].blurb)}">${esc(QUIRKS[q].name)}</span>`).join('')
     || '<span class="muted">No quirks known yet.</span>';
@@ -711,7 +721,9 @@ function dogModal(G, d) {
   const primary = [];
   const minor = [];
   const hf = hiringFor(G);
-  if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);
+  const away = d.rarity && d.status === 'free' && d.inTown !== s.job?.id;
+  if (planning && d.status === 'free' && !inCrew && away) primary.push('<span class="chip">Out of town. Stars come and go.</span>');
+  else if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);
   if (planning && inCrew) primary.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
   if (d.status === 'pound') primary.push(`<button class="btn" data-act="lawyer" data-id="${d.id}">⚖️ Hire a brief · £150</button>`);
   if (planning && ['free', 'crew'].includes(d.status) && !(d.known.loyalty && (d.cleared || d.known.undercover))) minor.push(`<button class="btn ghost small" data-act="surveil" data-id="${d.id}" ${s.job.daysLeft ? '' : 'disabled'} aria-label="Have them followed, £80, 1 day">🕵️ Tail<small>£80 · 1 day</small></button>`);
@@ -726,15 +738,14 @@ function dogModal(G, d) {
     actions = `${primary.length ? `<div class="dm-row">${primary.join('')}</div>` : ''}<div class="dm-row minor">${minor.join('')}</div>`;
   }
 
-  return `<div class="dm-head"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
-    <div class="grow"><h2 class="dm-name">${esc(displayName(d))}</h2><div class="faction">${esc(FACTIONS[d.faction].label)}</div>
+  return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
+    <div class="grow"><h2 class="dm-name">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
     <div class="dm-sub">${esc(b.label)} · ${esc(relationLabel(d))} · ${count(d.jobs, 'job')} · ${esc(where)}</div></div></div>
     <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
-    ${undercover ? `<div class="dm-chips">${undercover}</div>` : ''}
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
     <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}</div>
-    <div class="dm-chips">${quirks}</div>
+    <div class="dm-chips">${undercover}${quirks}</div>
     <div class="dm-actions">${actions}</div>`;
 }
 

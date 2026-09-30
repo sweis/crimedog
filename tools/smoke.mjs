@@ -214,6 +214,49 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
   check(!toastHitsActions, `${w}x${h}: toast does not cover the profile's buttons`);
   check(b.scroll <= 1 && b.bottom <= b.vh && !b.overflow, `${w}x${h}: tailed dog (more traits) still fits (scroll ${b.scroll})`);
   if (w === 375) await shot(page, 'profile-375x667');
+  // A legendary: every talent known, plus a signature line.
+  await page.evaluate(() => { window.cd.spawn('dog', 'legend'); window.cd.teleport('pub'); document.getElementById('toast').innerHTML = ''; });
+  await tap(page, 'main .dog-card.legendary');
+  await page.waitForTimeout(300);
+  const c = await measure();
+  check(c.scroll <= 1 && c.bottom <= c.vh && !c.overflow, `${w}x${h}: legendary profile fits (scroll ${c.scroll}, bottom ${Math.round(c.bottom)}/${c.vh})`);
+  if (w === 375) await shot(page, 'profile-legendary-375x667');
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1f. stars
+console.log('1f. A star in the first pub; hiring them opens a secret option');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=12`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(12); window.cd.teleport('pub'); });
+  const st = await page.evaluate(() => window.cd.getState());
+  check(st.stars.length === 1 && st.stars[0].rarity === 'rare' && st.stars[0].signature, `first pub has a rare star (${JSON.stringify(st.stars)})`);
+  check(await page.locator('main .dog-card.rare .rar').count() === 1, 'star card carries the Rare badge');
+  await shot(page, 'star-pub');
+  await tap(page, 'main .dog-card.rare');
+  await tap(page, '.modal [data-act="hire"]');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  if (await page.locator('.modal [data-act="close-modal"]').count()) await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  await page.waitForTimeout(200);
+  check(await page.locator('.opt.secret').count() >= 1, 'plan shows a secret option once the star is hired');
+  await tap(page, '.opt.secret');
+  const after = await page.evaluate(() => {
+    const s = window.cd.getState();
+    const star = s.crew.find((c) => c.id === s.stars[0]?.id) || null;
+    const step = document.querySelector('.opt.secret.on')?.closest('.plan-step')?.dataset.stage;
+    return { step, plan: step ? s.job.plan[step] : null };
+  });
+  check(after.plan && after.plan.approach.startsWith('s_') && after.plan.dog === st.stars[0].id, `picking it puts the star on that step (${JSON.stringify(after)})`);
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; document.querySelector('.opt.secret.on').scrollIntoView({ block: 'center' }); });
+  await shot(page, 'star-plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }
 

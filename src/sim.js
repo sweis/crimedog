@@ -1,15 +1,37 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS } from './data.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES } from './data.js';
 import { skillOf, hasSpecial, shortName } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
 
 export const ALARM_MAX = 10;
 
-export function approachAvailable(state, job, approachId, kitLeft) {
+// Signature moves: a rare or legendary dog's secret way through the steps it fits.
+export function signatureFits(sigId, stage) {
+  return SIGNATURES[sigId].fits.some((t) => t === stage.kind || t === stage.id || t === `vault:${stage.vaultType}`);
+}
+
+// Only a signature's owner can pull it off.
+export const canDo = (dog, approachId) => !APPROACHES[approachId].signature || dog.signature === APPROACHES[approachId].signature;
+
+// A step's options: the usual ones, plus secret ones this crew can open.
+export function stageOptions(stage, crew) {
+  const opts = stage.options.slice();
+  for (const d of crew) {
+    const ap = d.signature && signatureFits(d.signature, stage) && SIGNATURES[d.signature].approach;
+    if (ap && !opts.includes(ap)) opts.push(ap);
+  }
+  return opts;
+}
+
+const hiredDogs = (state) => (state.crew || []).map((id) => state.dogs[id]);
+
+// crew: who's available to do it (defaults to the hired crew).
+export function approachAvailable(state, job, approachId, kitLeft, crew = hiredDogs(state)) {
   const a = APPROACHES[approachId];
   const kit = kitLeft || state.kit;
+  if (a.signature && !crew.some((d) => d.signature === a.signature)) return { ok: false, reason: `Needs ${SIGNATURES[a.signature].name}` };
   if (a.needKit && !(kit[a.needKit] > 0)) return { ok: false, reason: `Needs ${KIT[a.needKit].name}` };
   if (a.needIntel && !job.intel[a.needIntel]) return { ok: false, reason: 'Needs intel' };
   if (a.needInsider && !job.insider) return { ok: false, reason: 'Needs an inside dog' };
@@ -265,10 +287,11 @@ export function simulate(state, job, rng) {
 
   const bestFor = (stage, exclude = [], extra = 0) => {
     let best = null;
-    for (const ap of stage.options) {
+    for (const ap of stageOptions(stage, active())) {
       if (exclude.includes(ap)) continue;
-      if (!approachAvailable(state, job, ap, ctx.kitLeft).ok) continue;
+      if (!approachAvailable(state, job, ap, ctx.kitLeft, active()).ok) continue;
       for (const d of active()) {
+        if (!canDo(d, ap)) continue;
         const o = odds(state, job, stage, ap, d, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra });
         if (!best || o.p > best.p) best = { approach: ap, dog: d, p: o.p };
       }
@@ -380,12 +403,15 @@ export function simulate(state, job, rng) {
       dog = b.dog;
       approach ||= b.approach;
     }
-    if (!approach || !approachAvailable(state, job, approach, ctx.kitLeft).ok) {
+    if (!approach || !approachAvailable(state, job, approach, ctx.kitLeft, active()).ok) {
       const b = bestFor(stage);
       if (!b) return null;
       beat({ kind: 'improv', stage: stage.id, text: `The plan called for ${approach ? APPROACHES[approach].label.toLowerCase() : 'something'}, but that's off the table now.` });
       approach = b.approach;
+      if (!canDo(dog, approach)) dog = b.dog;
     }
+    // A signature move is its owner's to pull off.
+    if (!canDo(dog, approach)) dog = active().find((d) => canDo(d, approach));
     return { dog, approach, extra: 0 };
   };
 

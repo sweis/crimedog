@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
 import { TALENTS, APPROACHES, KIT, INTEL, OBSTACLES, VAULTS, SKILLS } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
+import { stageOptions } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
 import { genOffers } from '../src/groups.js';
 import { takeJob } from './helpers.mjs';
@@ -135,7 +136,7 @@ test('assignToStage keeps the chosen approach or picks one the dog can do', () =
   assert.ok(E.assignToStage(s, st1.id, id).ok);
   const p1 = s.job.plan[st1.id];
   assert.equal(p1.dog, id);
-  assert.ok(p1.approach && st1.options.includes(p1.approach));
+  assert.ok(p1.approach && stageOptions(st1, E.crewDogs(s)).includes(p1.approach));
   // Approach already chosen: it's kept.
   const ap = st2.options.find((a) => !APPROACHES[a].needKit && !APPROACHES[a].needIntel && !APPROACHES[a].needInsider && !APPROACHES[a].needBribe);
   E.setPlan(s, st2.id, { approach: ap });

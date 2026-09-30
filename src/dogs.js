@@ -1,6 +1,6 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
 import { esc } from './util.js';
-import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES } from './data.js';
+import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES } from './data.js';
 
 const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence']];
 
@@ -17,7 +17,8 @@ export function genDog(state, rng, opts = {}) {
   // Skills: 0-1 baseline, breed-biased primary/secondary.
   const quality = opts.quality ?? 0; // 0..3, from rep / tier
   const skills = Object.fromEntries(SKILLS.map((s) => [s, rng.chance(0.35) ? 1 : 0]));
-  const primary = rng.chance(0.75) ? rng.pick(breed.bias) : rng.pick(SKILLS);
+  const rarity = opts.undercover ? null : opts.rarity || null; // null | 'rare' | 'legendary'
+  const primary = opts.primary || (rng.chance(0.75) ? rng.pick(breed.bias) : rng.pick(SKILLS));
   const secondaryPool = SKILLS.filter((s) => s !== primary);
   const biasRest = breed.bias.filter((s) => s !== primary);
   const secondary = biasRest.length && rng.chance(0.5) ? rng.pick(biasRest) : rng.pick(secondaryPool);
@@ -28,11 +29,21 @@ export function genDog(state, rng, opts = {}) {
     skills[primary] = 5;
     skills[secondary] = Math.max(skills[secondary], 3);
   }
+  if (rarity) {
+    skills[primary] = 5;
+    skills[secondary] = Math.max(skills[secondary], rarity === 'legendary' ? 4 : 3);
+    if (rarity === 'legendary') {
+      const third = rng.pick(SKILLS.filter((x) => x !== primary && x !== secondary));
+      skills[third] = Math.max(skills[third], 3);
+    }
+  }
 
   // Talents: mostly aligned with what they're good at.
-  const nTalents = rng.int(2, 3) + (quality >= 2 ? 1 : 0);
+  const nTalents = rng.int(2, 3) + (quality >= 2 ? 1 : 0) + (rarity ? 1 : 0);
   const talents = [];
   const all = Object.values(TALENTS);
+  // Stars always have a big talent in their speciality.
+  if (rarity) talents.push(rng.pick(all.filter((t) => t.skill === primary && t.bonus === 2)).id);
   while (talents.length < nTalents) {
     const pool = rng.chance(0.7) ? all.filter((t) => t.skill === primary || t.skill === secondary) : all;
     const t = rng.pick(pool);
@@ -72,6 +83,8 @@ export function genDog(state, rng, opts = {}) {
     nerve,
     greed,
     undercover: !!opts.undercover,
+    rarity,
+    signature: null,
     archetype: archetype.id,
     catchphrase: archetype.line,
     status: 'free', // free | crew | pound | farm | gone
@@ -85,10 +98,20 @@ export function genDog(state, rng, opts = {}) {
     known: { skills: { [primary]: true }, talents: [], quirks: [], loyalty: false, nerve: false, greed: false, undercover: false },
     notes: [],
   };
+  if (rarity) {
+    // Their reputation precedes them: every skill is common knowledge.
+    for (const sk of SKILLS) dog.known.skills[sk] = true;
+    dog.known.talents = rarity === 'legendary' ? talents.slice() : talents.slice(0, 1);
+    if (opts.signature || rng.chance(RARITY[rarity].sigChance)) {
+      dog.signature = Object.keys(SIGNATURES).find((id) => SIGNATURES[id].skill === primary);
+      if (rarity === 'legendary') dog.nick = SIGNATURES[dog.signature].name;
+    }
+  }
   dog.fee = feeFor(dog, opts.undercover);
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
   dog.minRep = power >= 14 ? 40 : power >= 12 ? 20 : 0;
   if (opts.undercover) dog.minRep = 0;
+  if (rarity) dog.minRep = RARITY[rarity].minRep;
   return dog;
 }
 
@@ -139,7 +162,7 @@ export function hasSpecial(dog, special) {
 
 export function feeFor(dog, cheap) {
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
-  const base = 30 + power * 18 + (dog.relation > 30 ? -20 : 0);
+  const base = (30 + power * 18 + (dog.relation > 30 ? -20 : 0)) * (dog.rarity ? RARITY[dog.rarity].feeMult : 1);
   return Math.max(30, Math.round((cheap ? base * 0.6 : base) / 10) * 10);
 }
 

@@ -29,7 +29,7 @@ All randomness goes through a seeded RNG stored in the save, so a seed + inputs 
 
 ## Debug hooks (`?dev=1`, `window.cd`)
 `screens()`, `getState()`, `teleport(screen)`, `freeze()/step(n)/resume()`, `simdt(ms)`, `setTimeOfDay(h)`,
-`setSeed(n)`, `spawn('dog'|'cash'|'kit'|'intel'|'rep', at)` (`spawn('dog','copper')` plants an undercover cop),
+`setSeed(n)`, `spawn('dog'|'cash'|'kit'|'intel'|'rep', at)` (`spawn('dog','copper')` plants an undercover cop; `'rare'`/`'legend'` a star),
 `clearAll()`, `win()/lose()`, `cam('overview'|'hero-close'|'hud-check'|'blueprint')`.
 Planning screens auto-take the first job-board offer when needed. The 3D-specific items in CLAUDE.md §2.2 are adapted: `teleport` targets named screens, `drawCalls`/`shaderPrograms`
 report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLost` is always false.
@@ -88,6 +88,13 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Chrome: self-hosted fonts in `assets/fonts/` (Alfa Slab One display, Roboto Slab headings, Libre Baskerville italic quotes, UnifrakturMaguntia masthead; OFL/Apache licences alongside), paper grain + rain textures as inline SVG, bevelled brass/red buttons, deeper card shadows, lit nav tab.
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
+
+## Rare and legendary crew (stars)
+- `RARITY` and `SIGNATURES` in data.js; `genDog(..., { rarity, primary, signature })`. Stars have primary 5 (+a +2 talent), all skills known, higher fees (rare ×2.5, legendary ×4), legendary needs rep 30 and takes its signature as a nickname.
+- Visits: `starVisit` in engine.js puts at most one star in the pub per job (`d.inTown = job.id`); they stay through Ask Around and leave after the job. They're never regulars and can't be hired from the black book while out of town. The first job always has a rare one whose signature fits the job (the teaser). Odds per job: `0.12 + rep/250` (22% at rep 25, 44% at 80); legendary share rises from 5% to 50% with rep.
+- Signature moves: one per skill, each an approach (`s_*`) that fits certain steps (`fits`: stage kind, stage id or `vault:type`). `stageOptions(stage, crew)` adds them only when the owner is on the crew; `canDo(dog, ap)` keeps them the owner's. Picked on the plan, the step goes to the owner; in the heist, if the owner is gone the step falls back to improvisation. Hidden hazard steps (cat, plates) can use one as a surprise.
+- Marker: blue (rare) / gold (legendary) card frame and portrait ring, ★ badge, ✨ signature on the pub card, a gold chip in the profile, gold "secret" options on the plan, a ribbon on the share card.
+- Debug: `spawn('dog','rare'|'legend')`; `getState().stars` lists the pub's stars. Tests: `tests/stars.test.mjs`; smoke section 1f hires the teaser with real taps and picks the secret option.
 
 ## Heist playback
 - The log grows downwards; each new beat scrolls the page to the end so it sits just above the sticky controls (smoke checks this after 12 real taps on Next).

@@ -39,6 +39,7 @@ export function snapshot(G) {
     } : null,
     crew: s ? s.crew.map((id) => ({ id, name: s.dogs[id].first, undercover: s.dogs[id].undercover })) : [],
     pub: s ? s.pub.length : 0,
+    stars: s ? s.pub.map((id) => s.dogs[id]).filter((d) => d.rarity).map((d) => ({ id: d.id, rarity: d.rarity, signature: d.signature, fee: d.fee })) : [],
     dogs: s ? Object.keys(s.dogs).length : 0,
     kit: s?.kit,
     offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner })) ?? [],
@@ -128,9 +129,11 @@ export function installDebug(G) {
       const s = G.state;
       if (!s) return null;
       if (kind === 'dog') {
-        if (at === 'crew') ensurePlan(G);
+        const rarity = at === 'rare' ? 'rare' : at === 'legend' ? 'legendary' : null;
+        if (at === 'crew' || rarity) ensurePlan(G);
         const rng = E.rngOf(s);
-        const d = genDog(s, rng, { undercover: at === 'copper', quality: 1 });
+        const d = genDog(s, rng, { undercover: at === 'copper', quality: 1, rarity, signature: !!rarity });
+        if (rarity) d.inTown = s.job?.id;
         s.dogs[d.id] = d;
         s.pub.push(d.id);
         if (at === 'crew') { s.cash += d.fee; E.hire(s, d.id); }
