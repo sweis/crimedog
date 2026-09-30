@@ -87,6 +87,14 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Mobile-first: headers and chips over sentences. Keep story scenes, the heist log and boss quotes; cut helper text.
 
 ## Next
+Ideas from the playthrough pass (not built yet):
+- **Pound break**: a crew member doing time unlocks a "spring them" job at the pound (loyalty ++, heat ++).
+- **The Inspector as a character**: named, with a face; at heat thresholds they appear in story scenes, pin your wanted poster, raid a hideout.
+- **Crew chemistry**: pairs who've worked together get a small bonus; rival factions on one crew (Ze Germans + Bulldog Firm) squabble.
+- **Trophy room**: famous loot you kept instead of fencing, shown in the den; groups sometimes ask to buy it.
+- **Heat by district**: jobs in a hot district are harder; lying low in a district cools it.
+- **Job board timing**: offers expire after a day or two, so waiting has a cost.
+- **Replay card**: share the heist log as an image (like the crew card) — "The Fossil Job, grade B".
 - Balance group jobs separately from own leads (they're full-size, so a step up in difficulty).
 - Human playtest of the first five minutes; tune copy and pacing from that.
 - More obstacle types/venues and multi-dog steps (e.g. a lookout + a cracker on the same stage).
