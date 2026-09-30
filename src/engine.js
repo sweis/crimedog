@@ -7,6 +7,7 @@ import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor,
 import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
+import { buildRecap, HISTORY_MAX } from './recap.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -778,7 +779,8 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
-  state.history.unshift({ name: state.job.name, venue: state.job.venueName, grade: g.letter, score: g.score, take: a.received, day: state.day });
+  state.history.unshift(buildRecap(state));
+  state.history.length = Math.min(state.history.length, HISTORY_MAX);
   news(state, `${state.job.name}: grade ${g.letter}. ${a.headline}`);
 }
 
