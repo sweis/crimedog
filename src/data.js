@@ -466,9 +466,9 @@ export const INTEL = {
 };
 
 export const FENCES = {
-  hal: { name: 'Honest Hal\'s Pawnbrokers', blurb: 'Pays peanuts. Never asks. Never grasses.', rates: { cash: 0.85, jewel: 0.5, art: 0.3, oddity: 0.5 } },
-  francesca: { name: 'Fancy Francesca', blurb: 'Glamorous, generous, new in town. A bit too keen?', rates: { cash: 0.9, jewel: 0.8, art: 0.65, oddity: 0.75 } },
-  collector: { name: 'The Collector', blurb: 'Pays full whack, but only if you line him up in advance.', rates: { cash: 1, jewel: 1, art: 1, oddity: 1 } },
+  hal: { name: 'Honest Hal\'s Pawnbrokers', blurb: 'Pays peanuts. Never grasses.', rates: { cash: 0.85, jewel: 0.5, art: 0.3, oddity: 0.5 } },
+  francesca: { name: 'Fancy Francesca', blurb: 'Pays well. New in town.', rates: { cash: 0.9, jewel: 0.8, art: 0.65, oddity: 0.75 } },
+  collector: { name: 'The Collector', blurb: 'Full value. By appointment.', rates: { cash: 1, jewel: 1, art: 1, oddity: 1 } },
 };
 
 export const CUTS = [
@@ -496,10 +496,9 @@ export const CHAOS = {
 };
 
 export const INTRO = [
-  'Dogsbury. Rain on the cobbles, sausages on the grill, and a fortune in every vault.',
-  'They call you the Guv\'nor. You don\'t get your paws dirty. You find the job, pick the crew, buy the kit, lay the plan... and watch.',
-  'Somewhere in the fog, the Inspector is watching too. Every clue brings them closer. Every grass in the pound is a thread to your door.',
-  'Keep your cash up, your rep solid, and your name out of the Inspector\'s notebook.',
+  'Dogsbury. Rain on the cobbles, and a fortune in every vault.',
+  'You\'re the Guv\'nor. You pick the job, the crew and the plan. Then you watch.',
+  'Keep your cash up, your name clean, and the Inspector off your tail.',
 ];
 
 // ------------------------------------------------------------------ groups

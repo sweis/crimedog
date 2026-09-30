@@ -113,56 +113,54 @@ function standingBar(v) {
 function dealTerms(G, job) {
   const p = job.patron;
   const chips = [];
-  if (!p) chips.push('<span class="chip">🔎 Your own lead</span><span class="chip">Small job</span>');
-  else {
+  if (p) {
     const G2 = GROUPS[p.group];
-    if (p.deal === 'marker') chips.push(`<span class="chip bad">📜 Marker: clears your £${p.debtClear.toLocaleString('en-GB')} debt</span>`);
+    if (p.deal === 'marker') chips.push(`<span class="chip bad">📜 Clears £${p.debtClear.toLocaleString('en-GB')} debt</span>`);
     if (p.want) {
       const item = job.loot.find((l) => l.id === p.want);
-      chips.push(`<span class="chip warn">🎯 Wants: ${esc(item.name)}</span>`);
-      if (p.fee) chips.push(`<span class="chip good">💷 Pays ${money(p.fee)} on delivery</span>`);
+      chips.push(`<span class="chip warn">🎯 ${esc(item.name)}</span>`);
+      if (p.fee) chips.push(`<span class="chip good">💷 ${money(p.fee)}</span>`);
     }
-    if (p.cut) chips.push(`<span class="chip info">✂️ They take ${p.cut}% of the fence</span><span class="chip good">🗺️ Tip-off: intel shared</span>`);
-    if (p.front) chips.push(`<span class="chip warn">💰 Fronts you ${money(p.front)}${G2.serious ? ' (fail and you owe it)' : ''}</span>`);
-    if (p.rivalHit) chips.push(`<span class="chip bad">⚔️ Hit on ${esc(GROUPS[p.rivalHit].name)}</span>`);
+    if (p.cut) chips.push(`<span class="chip info">✂️ ${p.cut}% cut</span><span class="chip good">🗺️ Intel</span>`);
+    if (p.front) chips.push(`<span class="chip warn">💰 ${money(p.front)} up front${G2.serious ? ' · fail = debt' : ''}</span>`);
+    if (p.rivalHit) chips.push(`<span class="chip bad">⚔️ vs ${GROUPS[p.rivalHit].emblem} ${esc(GROUPS[p.rivalHit].short)}</span>`);
   }
-  if (job.owner && (!p || p.rivalHit !== job.owner)) chips.push(`<span class="chip bad">⚠️ Owned by ${esc(GROUPS[job.owner].name)}</span>`);
+  if (job.owner && (!p || p.rivalHit !== job.owner)) chips.push(`<span class="chip bad">⚠️ ${GROUPS[job.owner].emblem} ${esc(GROUPS[job.owner].short)}'s place</span>`);
   return chips.join('');
 }
 
 function selectScreen(G) {
   const s = G.state;
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
-  let h = `<h2>The Job Board</h2><p class="muted">Day ${s.day}. Word travels. Pick your next job.</p>`;
+  let h = `<div class="row spread"><h2>The Job Board</h2><span class="chip dark">📅 Day ${s.day}</span></div>`;
   for (const gid of debts) {
     const d = s.groups[gid].debt;
-    h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${esc(GROUPS[gid].name)} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `They'll wait ${d.patience} more job${d.patience === 1 ? '' : 's'}.` : 'Their patience has run out.'} Pay up, or take their marker job.</div></div></div>
+    h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${GROUPS[gid].emblem} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `⏳ ${d.patience} job${d.patience === 1 ? '' : 's'} left` : '⏳ Out of patience'}</div></div></div>
       <button class="btn small mt" data-act="pay-debt" data-g="${gid}" ${s.cash >= d.amount ? '' : 'disabled'}>Pay ${money(d.amount)}</button></section>`;
   }
   for (const o of s.offers) {
     const job = o.job;
     const stars = '★'.repeat(job.tier) + '☆'.repeat(3 - job.tier);
-    const who = o.source === 'own'
-      ? '<div class="offer-from"><div class="boss-pic own">🔎</div><div><b>Your own lead</b><div class="muted">You\'ll have to scout it yourself.</div></div></div>'
-      : `<div class="offer-from"><div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div><div><b>${esc(GROUPS[o.source].boss)}</b><div class="muted">${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].name)} · ${standingLabel(s.groups[o.source].standing)}</div></div></div>`;
+    const pic = o.source === 'own' ? '<div class="boss-pic own">🔎</div>' : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
+    const whoName = o.source === 'own' ? 'Your own lead' : `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}`;
     h += `<section class="card offer ${o.kind === 'marker' ? 'marker' : ''}" data-offer="${o.id}">
-      ${who}
-      <div class="row spread mt"><span class="stamp">${esc(VENUE_LABELS[job.venueType])}</span><span>${stars}</span></div>
+      <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
-      <div class="quote">${esc(o.pitch)}</div>
-      <div class="dm-chips">${dealTerms(G, job)}</div>
+      ${o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : ''}
+      ${job.patron || job.owner ? `<div class="dm-chips">${dealTerms(G, job)}</div>` : ''}
       <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
   }
   h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button></div>`;
-  h += `<section class="card dark mt"><h2>The Players</h2><p class="muted">The outfits that run Dogsbury. Earn a name and they'll come to you.</p>`;
+  h += `<section class="card dark mt"><h2>The Players</h2>`;
   for (const gid of GROUP_IDS) {
     const Gp = GROUPS[gid];
     const g = s.groups[gid];
-    const status = s.rep < Gp.minRep ? `Won't deal with you until your rep hits ${Gp.minRep}` : g.standing <= -50 ? 'Won\'t deal with you' : canDeal(s, gid) ? 'Open for business' : '';
-    const rivals = Gp.rivals.length ? ` · Rivals: ${Gp.rivals.map((r) => GROUPS[r].name).join(', ')}` : '';
+    const status = s.rep < Gp.minRep ? `🔒 Rep ${Gp.minRep}+` : g.standing <= -50 ? '🚫 Won\'t deal' : '';
+    const rivals = Gp.rivals.length ? `⚔️ ${Gp.rivals.map((r) => GROUPS[r].emblem).join(' ')}` : '';
+    const meta = [status, rivals, g.debt ? `📜 ${money(g.debt.amount)}` : ''].filter(Boolean).join(' · ');
     h += `<div class="player"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 44 })}</div><div class="grow"><div class="row spread"><b>${Gp.emblem} ${esc(Gp.name)}</b><span class="chip ${g.standing >= 20 ? 'good' : g.standing <= -20 ? 'bad' : ''}">${standingLabel(g.standing)}</span></div>
-      ${standingBar(g.standing)}<div class="muted">${esc(Gp.boss)} · ${esc(status)}${esc(rivals)}${g.debt ? ` · Owed ${money(g.debt.amount)}` : ''}</div></div></div>`;
+      ${standingBar(g.standing)}${meta ? `<div class="muted">${meta}</div>` : ''}</div></div>`;
   }
   h += '</section>';
   return h;
@@ -192,23 +190,22 @@ function jobScreen(G) {
     <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
     <h3 class="mt">The Goods</h3>
     <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">Wanted by ${esc(GROUPS[job.patron.group].boss)}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}</ul>
-    <div class="row spread mt"><div><b>Days until the window closes</b><div class="days mt">${days}</div></div>
+    <div class="row spread mt"><div><b>Days left</b><div class="days mt">${days}</div></div>
     <div class="seg" role="group" aria-label="Time of the job">${timeSeg(job)}</div></div>
     ${stake}
     ${job.alert ? `<p class="chip bad mt">⚠️ Security on alert: +${job.alert} difficulty</p>` : ''}
   </section>
-  ${job.patron || job.owner ? `<section class="card deal-card"><h2>The Deal</h2>${job.patron ? `<div class="offer-from"><div class="boss-pic">${portraitSVG(bossDog(job.patron.group), { size: 48 })}</div><div><b>${esc(GROUPS[job.patron.group].boss)}</b><div class="muted">${esc(GROUPS[job.patron.group].name)}</div></div></div>` : ''}<div class="dm-chips mt">${dealTerms(G, job)}</div></section>` : ''}
+  ${job.patron || job.owner ? `<section class="card deal-card">${job.patron ? `<div class="offer-from"><div class="boss-pic">${portraitSVG(bossDog(job.patron.group), { size: 48 })}</div><div><b>${esc(GROUPS[job.patron.group].boss)}</b><div class="muted">${esc(GROUPS[job.patron.group].name)}</div></div></div>` : ''}<div class="dm-chips mt">${dealTerms(G, job)}</div></section>` : ''}
   <section class="card">
     <div class="row spread"><h2>Intel</h2><span class="chip info">${known.length}/${intelKeys.length}</span></div>
     <div class="intel-list">${intelKeys.map((k) => {
       const isHz = !!INTEL[k].hazard;
-      return job.intel[k] ? `<div class="intel known ${isHz ? 'hz' : ''}"><b>${esc(INTEL[k].label)}</b><br><span class="muted">${esc(INTEL[k].blurb)}</span></div>` : '<div class="intel">❓ <span class="muted">Unknown</span></div>';
+      return job.intel[k] ? `<div class="intel known ${isHz ? 'hz' : ''}"><b>${esc(INTEL[k].label.replace('Hazard: ', '⚠️ '))}</b></div>` : '<div class="intel">❓</div>';
     }).join('')}</div>
     <div class="btn-row mt"><button class="btn" data-act="pick" data-purpose="case" ${job.daysLeft ? '' : 'disabled'}>🔎 Case the joint <small>(1 day)</small></button></div>
   </section>
   <button class="btn big block red" data-act="go" data-to="plan">📋 Plan the heist</button>
-  <div class="btn-row mt"><button class="btn ghost small" data-act="walk-away">Walk away from this job</button></div>
-  <section class="card dark mt"><h2>The Word on the Street</h2><ul class="news">${s.news.slice(0, 4).map((n) => `<li>${esc(n.text)}</li>`).join('')}</ul></section>`;
+  <div class="btn-row mt"><button class="btn ghost small" data-act="walk-away">Walk away from this job</button></div>`;
 }
 
 function timeSeg(job) {
@@ -260,9 +257,9 @@ function pubScreen(G) {
     const fit = (d) => (hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1);
     const sort = (list) => list.slice().sort((a, b) => fit(b) - fit(a));
     const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id));
-    const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}</b> for “${esc(APPROACHES[hf.approach].label)}”.` : 'No approach picked yet, so anyone will do.';
+    const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}</b>` : 'Anyone will do';
     return `<section class="card dark hire-banner"><div class="muted">Hiring for step ${hf.n}</div><h2>${hf.stage.icon} ${esc(hf.stage.label)}</h2>
-      <p>${need} Whoever you hire goes straight onto this step.</p>
+      <p>${need}</p>
       <button class="btn ghost small" data-act="hire-back">← Back to the plan</button></section>
       ${book.length ? `<h2>Your Little Black Book</h2>${sort(book).map((d) => dogCard(G, d, { fee: true, skill: hf.skill })).join('')}` : ''}
       <h2 class="mt">At the Dog &amp; Duck</h2>
@@ -270,7 +267,6 @@ function pubScreen(G) {
       <div class="btn-row"><button class="btn ghost" data-act="ask-around" ${s.job.daysLeft ? '' : 'disabled'}>🗣️ Ask around for new faces (1 day)</button></div>`;
   }
   return `<h2>The Dog &amp; Duck</h2>
-  <p class="muted">Smoke, darts, and dogs looking for work. Tap someone to size them up.</p>
   ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty. Ask around.</p>'}
   <div class="btn-row"><button class="btn ghost" data-act="ask-around" ${s.job.daysLeft ? '' : 'disabled'}>🗣️ Ask around for new faces (1 day)</button></div>`;
 }
@@ -284,7 +280,6 @@ function crewScreen(G) {
   return `<h2>Your Crew <span class="muted">(${crew.length}/${E.MAX_CREW})</span></h2>
   ${crew.map((d) => dogCard(G, d)).join('') || '<p class="muted">Nobody yet. Head down the pub.</p>'}
   <h2 class="mt">Little Black Book</h2>
-  <p class="muted">Dogs you know. Rehire them for the retainer.</p>
   ${book.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">Empty. For now.</p>'}
   ${pound.length ? `<h2 class="mt">In the Pound</h2>${pound.map((d) => dogCard(G, d)).join('')}` : ''}
   ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}`;
@@ -292,7 +287,7 @@ function crewScreen(G) {
 
 function kitScreen(G) {
   const s = G.state;
-  return `<h2>Kit Shop</h2><p class="muted">"No questions asked, no receipts given."</p>
+  return `<h2>Kit Shop</h2>
   <section class="card">${Object.entries(KIT).map(([id, k]) => {
     const own = s.kit[id] || 0;
     const canBuy = s.cash >= k.price && (k.consumable || !own);
@@ -309,18 +304,18 @@ function fixerScreen(G) {
     `<div class="kit"><div class="ico">${icon}</div><div class="grow"><b>${name}</b> ${state ? `<span class="own">✓ ${state}</span>` : ''}<div class="muted">${desc}</div></div>
     <button class="btn small" data-act="${act}" ${extra} ${disabled ? 'disabled' : ''}>${price}</button></div>`;
   const insiderName = job.insider ? shortName(s.dogs[job.insider]) : '';
-  return `<h2>The Fixer</h2><p class="muted">A man in a camel coat who knows people who know people.</p>
+  return `<h2>The Fixer</h2>
   <section class="card">
-    ${svc('pick', '🧹', 'Plant an inside dog', 'Get a crew member a job there. Unlocks the inside entry and softens the guards.', '£100 · 1 day', insiderName ? `${esc(insiderName)} is inside` : '', !!job.insider || !job.daysLeft, 'data-purpose="insider"')}
-    ${hasGuards ? svc('bribe', '💵', 'Bribe a guard', 'Adds a "wave at the guard you bribed" option. Might backfire.', money(150 * job.tier), job.bribed ? 'Bribed' : '', job.bribed) : ''}
-    ${svc('safehouse', '🏚️', 'Safehouse', 'Somewhere to lie low. Less heat from this job, better escapes.', '£250', job.safehouse ? 'Sorted' : '', job.safehouse)}
-    ${svc('fakeids', '🪪', 'Fake IDs', 'Fewer clues; captured crew are less likely to crack.', '£200', job.fakeIds ? 'Sorted' : '', job.fakeIds)}
-    ${svc('buyer', '🎩', 'Line up The Collector', 'A buyer who pays full value. Needs arranging in advance.', '£150 · 1 day', job.buyer ? 'Waiting' : '', job.buyer || !job.daysLeft)}
-    ${svc('vet', '🔍', 'Check out Fancy Francesca', 'The new fence in town pays well. Is she too good to be true?', '£60', job.fenceVetted ? (job.stingFence ? 'STING!' : 'Legit') : '', job.fenceVetted)}
-    ${svc('laylow', '🛋️', 'Lie low for a day', 'Keep your head down. The Inspector loses the scent.', '£100 · 1 day', '', !job.daysLeft)}
+    ${svc('pick', '🧹', 'Plant an inside dog', 'Opens a way in; softer guards.', '£100 · 1 day', insiderName ? `${esc(insiderName)} is inside` : '', !!job.insider || !job.daysLeft, 'data-purpose="insider"')}
+    ${hasGuards ? svc('bribe', '💵', 'Bribe a guard', 'Guard looks away. Might backfire.', money(150 * job.tier), job.bribed ? 'Bribed' : '', job.bribed) : ''}
+    ${svc('safehouse', '🏚️', 'Safehouse', 'Less heat, better escapes.', '£250', job.safehouse ? 'Sorted' : '', job.safehouse)}
+    ${svc('fakeids', '🪪', 'Fake IDs', 'Fewer clues; nicked crew crack less.', '£200', job.fakeIds ? 'Sorted' : '', job.fakeIds)}
+    ${svc('buyer', '🎩', 'Line up The Collector', 'Pays full value.', '£150 · 1 day', job.buyer ? 'Waiting' : '', job.buyer || !job.daysLeft)}
+    ${svc('vet', '🔍', 'Check out Francesca', 'Is the new fence a sting?', '£60', job.fenceVetted ? (job.stingFence ? 'STING!' : 'Legit') : '', job.fenceVetted)}
+    ${svc('laylow', '🛋️', 'Lie low', 'Less heat.', '£100 · 1 day', '', !job.daysLeft)}
   </section>
-  <section class="card dark"><h2>The Inspector</h2><p><b>${esc(E.inspectorLabel(s.heat))}</b> (${s.heat}/100)</p>
-  <p class="muted">Clues, alarms and crew who talk all feed the Inspector's file. At 25+ they start planting undercover coppers in the pub. At 40+ some fences are stings. At 100 it's game over.</p></section>`;
+  <section class="card dark"><h2>🕵️ The Inspector</h2><p><b>${esc(E.inspectorLabel(s.heat))}</b> · ${s.heat}/100</p>
+  <div class="dm-chips"><span class="chip dark">25+ 👮 plants</span><span class="chip dark">40+ 🪤 stings</span><span class="chip dark">100 🚔 nicked</span></div></section>`;
 }
 
 // ------------------------------------------------------------------ plan
@@ -349,9 +344,9 @@ function planScreen(G) {
   const probs = E.planProblems(s);
   let h = `<div class="row spread"><h2>${esc(job.name)}</h2><div class="seg">${timeSeg(job)}</div></div>`;
   if (!crew.length) {
-    return h + '<section class="card"><p>You need a crew before you can plan. Even just one dog. Even a bad one.</p><button class="btn block" data-act="go" data-to="pub">🍺 Go to the pub</button></section>';
+    return h + '<section class="card"><p>No crew yet.</p><button class="btn block" data-act="go" data-to="pub">🍺 Go to the pub</button></section>';
   }
-  if (unknownIntel) h += `<p class="muted">${unknownIntel} bit${unknownIntel > 1 ? 's' : ''} of intel still unknown. There could be surprises.</p>`;
+  if (unknownIntel) h += `<p><span class="chip warn">❓ ${unknownIntel} intel unknown</span></p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
     h += `<section class="stage" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3></div><div class="opts">`;
@@ -379,15 +374,14 @@ function planScreen(G) {
         const known = oddsKnown(d, p.approach);
         const pct = Math.round(o.p * 100);
         const cls = !known ? 'unk' : pct >= 70 ? '' : pct >= 45 ? 'mid' : 'low';
-        h += `<div class="odds ${cls}"><span>${known ? `${pct}%` : '??%'}</span><div class="bar"><i style="width:${known ? pct : 60}%"></i></div><span class="muted">${known ? '' : 'Unknown skill'}</span></div>`;
+        h += `<div class="odds ${cls}"><span>${known ? `${pct}%` : '??%'}</span><div class="bar"><i style="width:${known ? pct : 60}%"></i></div></div>`;
       }
     }
     h += '</section>';
   });
   if (probs.length) h += `<div class="problems"><b>Loose ends</b><ul>${probs.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>`;
   h += `<div class="btn-row"><button class="btn ghost" data-act="autoplan">✏️ Pencil in the gaps</button></div>
-  <button class="btn big block red mt" data-act="pull">🚨 PULL THE JOB</button>
-  <p class="muted center mt">You won't be there. You'll be watching.</p>`;
+  <button class="btn big block red mt" data-act="pull">🚨 PULL THE JOB</button>`;
   return h;
 }
 
@@ -549,10 +543,10 @@ function aftermathScreen(G) {
     const item = job.loot.find((l) => l.id === p.want);
     const Gp = GROUPS[p.group];
     h += `<section class="card deal-card"><h2>Deliver the Goods</h2><div class="offer-from"><div class="boss-pic">${portraitSVG(bossDog(p.group), { size: 56 })}</div><div><b>${esc(Gp.boss)}</b><div class="muted">${esc(Gp.bossTitle)}</div></div></div>
-      <p class="mt">${esc(Gp.boss)} is waiting for ${esc(item.name)}.${p.deal === 'marker' ? ' Hand it over and your debt is settled.' : ` Pays ${money(p.fee)}, no fence needed.`}</p>
+      <p class="mt">🎯 ${esc(item.name)}${p.deal === 'marker' ? ' · 📜 clears your debt' : ''}</p>
       <button class="btn block" data-act="deliver">🤝 Hand it over${p.fee ? ` · ${money(p.fee)}` : ''}</button></section>`;
   } else if (a.step === 'fence') {
-    h += `<section class="card"><h2>Fence the Goods</h2><p class="muted">Who's buying?${p?.cut ? ` ${esc(GROUPS[p.group].name)} take ${p.cut}% of whatever you get.` : ''}${a.delivered ? ' The rest of the haul is yours to sell.' : ''}</p>`;
+    h += `<section class="card"><h2>Fence the Goods</h2>${p?.cut ? `<p><span class="chip info">✂️ ${GROUPS[p.group].emblem} takes ${p.cut}%</span></p>` : ''}`;
     for (const [id, f] of Object.entries(FENCES)) {
       const locked = id === 'collector' && !job.buyer;
       const flagged = id === 'francesca' && job.fenceVetted ? (job.stingFence ? '<span class="chip bad">STING!</span>' : '<span class="chip good">Checked out</span>') : '';
@@ -564,11 +558,11 @@ function aftermathScreen(G) {
     h += `<section class="card"><h2>Pay the Crew</h2>`;
     if (a.sting) h += '<p class="chip bad">Francesca was a sting. The loot is gone.</p>';
     if (!a.received) {
-      h += '<p>No take, no cut. The crew shuffle their paws.</p><button class="fence-opt" data-act="pay" data-pct="0"><b>Nothing to split. Move on.</b></button></section>';
+      h += '<button class="fence-opt" data-act="pay" data-pct="0"><b>Nothing to split. Move on.</b></button></section>';
       return h;
     }
     if (a.patronCut) h += `<p class="chip info">✂️ ${esc(GROUPS[p.group].name)} took their cut: ${money(a.patronCut)}</p>`;
-    h += `<p class="muted">You got ${money(a.received)}. ${owed.length} dog${owed.length === 1 ? '' : 's'} expect${owed.length === 1 ? 's' : ''} a cut. Loyalty is bought, one job at a time.</p><div class="stack">`;
+    h += `<p class="muted">${money(a.received)} to split · ${owed.length} dog${owed.length === 1 ? '' : 's'}</p><div class="stack">`;
     for (const c of CUTS) {
       const amt = Math.round((a.received * c.pct) / 100);
       h += `<button class="fence-opt" data-act="pay" data-pct="${c.pct}" ${amt > s.cash ? 'disabled' : ''}><div class="row spread"><b>${c.label} (${c.pct}%)</b><span class="amt">${money(amt)}</span></div></button>`;
@@ -592,7 +586,7 @@ function aftermathScreen(G) {
     // crew management
     const involved = r.crew.map((id) => s.dogs[id]).filter((d) => !['gone'].includes(d.status));
     if (involved.length) {
-      h += '<section class="card"><h2>The Crew</h2><p class="muted">Tap a dog to see what you learned about them.</p>';
+      h += '<section class="card"><h2>The Crew</h2>';
       h += involved.map((d) => dogCard(G, d)).join('');
       h += '</section>';
     }
@@ -713,7 +707,7 @@ function cardModal(G, d) {
   const name = `crimedog-${d.first.toLowerCase()}.png`;
   return `<h2>${esc(shortName(d))}'s card</h2>
     <img class="card-preview" src="${G.card.url}" alt="Character card for ${esc(displayName(d))}" data-card-preview>
-    <p class="muted center">Long-press or right-click the card to save it.</p>
+    <p class="muted center">Long-press to save</p>
     <div class="btn-row">${canShareFiles() ? '<button class="btn" data-act="share-native">📤 Share</button>' : ''}<a class="btn ghost" href="${G.card.url}" download="${esc(name)}">💾 Save</a></div>`;
 }
 
@@ -722,7 +716,7 @@ function pickModal(G, purpose) {
   const crew = E.crewDogs(s);
   const title = purpose === 'case' ? 'Who cases the joint?' : 'Who goes undercover as staff?';
   const skill = purpose === 'case' ? 'nose' : 'disguise';
-  let h = `<h2>${title}</h2><p class="muted">${purpose === 'case' ? 'A good nose finds more; a clumsy one gets spotted. £40 expenses.' : 'Disguise or charm helps. £100 for a fake reference.'}</p><div class="pick-list">`;
+  let h = `<h2>${title}</h2><p class="muted">${purpose === 'case' ? '👃 finds more · 🐾 avoids being spotted · £40' : '🥸 or 🎩 helps · £100'}</p><div class="pick-list">`;
   h += crew.map((d) => `<button class="dog-card" data-act="picked" data-purpose="${purpose}" data-id="${d.id}"><div class="pic">${portraitSVG(d, { size: 64 })}</div><div class="grow"><div class="name">${esc(shortName(d))}</div><div class="sub">${SKILL_INFO[skill].icon} ${SKILL_INFO[skill].label}: ${d.known.skills[skill] ? skillOf(d, skill) : '?'} · ${SKILL_INFO.sneak.icon} Sneak: ${d.known.skills.sneak ? skillOf(d, 'sneak') : '?'}</div></div></button>`).join('') || '<p>Nobody on the crew yet.</p>';
   h += '</div>';
   if (purpose === 'case') h += '<button class="btn block ghost" data-act="picked" data-purpose="case" data-id="tipster">💰 Pay a tipster instead · £120</button>';
