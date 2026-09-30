@@ -1,0 +1,177 @@
+// Debug hooks (window.cd) and the diagnostics overlay. Enabled with ?dev=1.
+// Kept working for the life of the project — tests drive the game through these.
+import * as E from './engine.js';
+import { genDog } from './dogs.js';
+import { KIT } from './data.js';
+import { SCREENS, currentScreen } from './ui.js';
+
+let gpuString = null;
+function gpu() {
+  if (gpuString !== null) return gpuString;
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl');
+    if (!gl) return (gpuString = 'no-webgl');
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    gpuString = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch (e) {
+    gpuString = 'error';
+  }
+  return gpuString;
+}
+
+export function snapshot(G) {
+  const s = G.state;
+  const r = s?.result;
+  return {
+    screen: currentScreen(G),
+    modal: G.ui.modal,
+    frozen: G.frozen,
+    phase: s?.phase ?? null,
+    seed: s?.seed ?? null,
+    day: s?.day, cash: s?.cash, rep: s?.rep, heat: s?.heat,
+    job: s?.job ? {
+      id: s.job.id, name: s.job.name, tier: s.job.tier, daysLeft: s.job.daysLeft, time: s.job.time, hour: s.job.hour, alert: s.job.alert,
+      stages: s.job.stages.map((st) => ({ id: st.id, hidden: !!st.hidden, options: st.options.length })),
+      intel: s.job.intel, plan: s.job.plan, loot: s.job.loot.map((l) => ({ name: l.name, value: l.value })),
+    } : null,
+    crew: s ? s.crew.map((id) => ({ id, name: s.dogs[id].first, undercover: s.dogs[id].undercover })) : [],
+    pub: s ? s.pub.length : 0,
+    dogs: s ? Object.keys(s.dogs).length : 0,
+    kit: s?.kit,
+    heist: r ? { beat: G.ui.heist.i, beats: r.beats.length, playing: G.ui.heist.playing, alarm: r.beats[Math.min(G.ui.heist.i, r.beats.length - 1)].alarm, outcome: r.outcome } : null,
+    after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received } : null,
+    over: s?.over ?? null,
+    stats: s?.stats,
+    frameMs: +G.stats.frameMs.toFixed(2),
+    frames: G.stats.frames,
+    simTime: +G.stats.simTime.toFixed(3),
+    renders: G.stats.renders,
+    domNodes: document.getElementsByTagName('*').length,
+    drawCalls: 0, // DOM/SVG renderer: no GL draw calls
+    shaderPrograms: 0,
+    renderer: gpu(),
+    contextLost: false,
+    errors: G.stats.errors.slice(-5),
+    invariants: s ? E.invariants(s) : [],
+  };
+}
+
+export function installDebug(G) {
+  const cd = {
+    screens: () => SCREENS.slice(),
+    getState: () => snapshot(G),
+    teleport(spot) {
+      if (!G.state && !['title', 'intro'].includes(spot)) cd.setSeed(G.state?.seed ?? 1);
+      const s = G.state;
+      if (spot === 'heist' || spot === 'aftermath') {
+        if (s.phase === 'plan') {
+          if (!s.crew.length) E.hire(s, s.pub.find((id) => s.dogs[id].fee <= s.cash) || s.pub[0]);
+          E.pullJob(s);
+          G.ui.heist = { i: 0, playing: false };
+        }
+        if (spot === 'aftermath' && s.phase === 'heist') { G.ui.heist.i = s.result.beats.length - 1; E.resolveHeist(s); }
+      } else if (spot === 'over') {
+        cd.lose();
+      }
+      G.ui.screen = spot;
+      G.ui.modal = null;
+      G.commit();
+      return currentScreen(G);
+    },
+    freeze() { G.frozen = true; G.render(); },
+    resume() { G.frozen = false; G.render(); },
+    step(n = 1) {
+      for (let k = 0; k < n; k++) {
+        G.stats.simTime += G.fixedDt;
+        if (G.state?.phase === 'heist') G.advanceBeat(false);
+      }
+      G.commit();
+      return snapshot(G).heist;
+    },
+    simdt(ms) { G.beatMs = ms; },
+    setTimeOfDay(h) {
+      if (!G.state) return;
+      const t = h >= 7 && h < 19 ? 'day' : 'night';
+      E.setTime(G.state, t);
+      G.state.job.hour = h;
+      G.commit();
+    },
+    setSeed(n) {
+      G.state = E.newGame(n);
+      G.ui = { ...G.ui, screen: 'job', modal: null, heist: { i: 0, playing: true } };
+      G.commit();
+      return n;
+    },
+    spawn(kind, at) {
+      const s = G.state;
+      if (!s) return null;
+      if (kind === 'dog') {
+        const rng = E.rngOf(s);
+        const d = genDog(s, rng, { undercover: at === 'copper', quality: 1 });
+        s.dogs[d.id] = d;
+        s.pub.push(d.id);
+        if (at === 'crew') { s.cash += d.fee; E.hire(s, d.id); }
+        G.commit();
+        return d.id;
+      }
+      if (kind === 'cash') { s.cash += Number(at) || 1000; G.commit(); return s.cash; }
+      if (kind === 'kit') { const ids = at ? [at] : Object.keys(KIT); for (const k of ids) s.kit[k] = (s.kit[k] || 0) + 1; G.commit(); return s.kit; }
+      if (kind === 'intel') { for (const k of Object.keys(s.job.intel)) { s.job.intel[k] = true; } for (const st of s.job.stages) st.hidden = false; G.commit(); return s.job.intel; }
+      return null;
+    },
+    clearAll() {
+      G.clearSave();
+      G.state = null;
+      G.ui = { screen: 'title', modal: null, heist: { i: 0, playing: true }, introPage: 0 };
+      G.commit();
+    },
+    win() {
+      const s = G.state;
+      if (!s) return;
+      if (!s.crew.length) { s.cash += 2000; E.hire(s, s.pub[0]); }
+      s.job.buyer = true;
+      s.result = {
+        beats: [{ kind: 'intro', stage: null, text: 'A perfect night.', alarm: 0, clues: 0 }, { kind: 'end', stage: null, text: 'They won\'t even know they\'ve been robbed.', alarm: 0, clues: 0 }],
+        outcome: 'clean', secured: s.job.loot.map((l) => l.id), dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: true,
+        captured: [], runners: [], exposed: [], tipped: [], escaped: s.crew.slice(), crew: s.crew.slice(), kitUsed: {}, learned: {}, heatGain: 0,
+      };
+      s.phase = 'heist';
+      E.resolveHeist(s);
+      E.fence(s, 'collector');
+      E.payCrew(s, 30);
+      G.commit();
+      return s.after.grade.letter;
+    },
+    lose() {
+      if (!G.state) cd.setSeed(1);
+      G.state.heat = 100;
+      E.checkGameOver(G.state);
+      G.commit();
+      return G.state.over;
+    },
+    cam(name) {
+      G.ui.modal = null;
+      if (name === 'overview') { if (G.state?.phase === 'plan') G.ui.screen = 'job'; }
+      else if (name === 'hero-close') {
+        const s = G.state;
+        const id = s.crew[0] || s.pub[0];
+        G.ui.modal = { type: 'dog', id };
+      } else if (name === 'hud-check') { G.showDiag(true); }
+      else if (name === 'blueprint') { /* heist screen, top */ }
+      G.commit();
+      window.scrollTo(0, 0);
+      return name;
+    },
+  };
+  window.cd = cd;
+  return cd;
+}
+
+export function updateOverlay(G) {
+  const el = document.getElementById('diag');
+  if (el.hidden) return;
+  const s = snapshot(G);
+  el.textContent = `CRIMEDOG dev\nscreen ${s.screen} phase ${s.phase}\nframe ${s.frameMs}ms  frames ${s.frames}\nrenders ${s.renders}  dom ${s.domNodes}\nsim ${s.simTime}s ${G.frozen ? '[FROZEN]' : ''}\ngpu ${s.renderer}\nerr ${s.errors.length ? s.errors[s.errors.length - 1] : '-'}`;
+}
