@@ -2,8 +2,8 @@
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
 import { esc, money, count } from './util.js';
-import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES } from './data.js';
-import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty } from './dogs.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES } from './data.js';
+import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty, roleLevel } from './dogs.js';
 import { visibleStages, lootItem } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, ALARM_MAX } from './sim.js';
 import { canShareFiles } from './card.js';
@@ -257,6 +257,9 @@ const skillChip = (d, sk) => `<span class="chip ${d.known.skills[sk] ? 'info' : 
 // Rare/legendary badge and signature move.
 const rarityBadge = (d) => (d.rarity ? `<span class="rar ${d.rarity}">${RARITY[d.rarity].icon} ${RARITY[d.rarity].label}</span>` : '');
 
+// Leader / wildcard, and how good they are at it.
+const roleChip = (d) => (d.role ? `<span class="chip role ${d.role.kind}" title="${esc(ROLES[d.role.kind].blurb)}">${ROLES[d.role.kind].icon} ${ROLES[d.role.kind].label} ${d.role.level}</span>` : '');
+
 // Personal drama carried into the next job, and the story a dog is caught up in.
 function dramaChips(d) {
   const dr = d.drama || {};
@@ -283,6 +286,7 @@ function dogCard(G, d, opts = {}) {
   const flags = [];
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
+  if (d.role) flags.push(roleChip(d));
   if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
   flags.push(...dramaChips(d));
   return `<button class="dog-card ${d.rarity || ''} ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
@@ -394,6 +398,10 @@ function planScreen(G) {
   if (!crew.length) {
     return h + '<section class="card"><p>No crew yet.</p><button class="btn block" data-act="go" data-to="pub">🍺 Go to the pub</button></section>';
   }
+  // What the crew's leader and wildcard bring, even without a step of their own.
+  const lead = roleLevel(crew, 'leader');
+  const wild = crew.filter((d) => d.role?.kind === 'wildcard');
+  if (lead || wild.length) h += `<p class="dm-chips">${lead ? `<span class="chip good">👑 Every step +${lead * 2}%</span>` : ''}${wild.length ? `<span class="chip warn">🃏 Expect the unexpected</span>` : ''}</p>`;
   if (unknownIntel || job.alert) h += `<p>${unknownIntel ? `<span class="chip warn">❓ ${unknownIntel} intel unknown</span> ` : ''}${job.alert ? `<span class="chip bad">⚠️ Alert +${job.alert}</span>` : ''}</p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
@@ -619,7 +627,11 @@ function aftermathScreen(G) {
     const d = s.dogs[p.id];
     lines.push(`🌟 <b>${esc(shortName(d))}</b> has made a name for themselves: <span class="rar ${p.to}">${RARITY[p.to].icon} ${RARITY[p.to].label}</span> ✨ ${esc(SIGNATURES[d.signature].name)}`);
   }
-  for (const im of a.improved || []) lines.push(`📈 <b>${esc(shortName(s.dogs[im.id]))}</b> is getting better at ${SKILL_INFO[im.skill].icon} ${SKILL_INFO[im.skill].label} (now ${skillOf(s.dogs[im.id], im.skill)}).`);
+  for (const im of a.improved || []) {
+    const d = s.dogs[im.id];
+    lines.push(im.role ? `📈 <b>${esc(shortName(d))}</b> is growing into it: ${ROLES[im.role].icon} ${ROLES[im.role].label} ${d.role.level}.`
+      : `📈 <b>${esc(shortName(d))}</b> is getting better at ${SKILL_INFO[im.skill].icon} ${SKILL_INFO[im.skill].label} (now ${skillOf(d, im.skill)}).`);
+  }
   lines.push(`🕵️ Heat +${r.heatGain} (alarm peaked at ${r.alarmMax}/10, ${count(r.clues, 'clue')} left behind).`);
   h += `<div class="events mt">${lines.map((l) => `<p class="event">${l}</p>`).join('')}</div></section>`;
 
@@ -771,7 +783,7 @@ function dogModal(G, d) {
     || '<span class="muted">No quirks known yet.</span>';
   const trait = (k, label) => `<div class="dm-trait"><span>${label}</span><b>${d.known[k] ? band(d[k]) : '?'}</b></div>`;
   const arc = (s.arcs || []).find((a) => a.dog === d.id);
-  const undercover = (d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '')
+  const undercover = roleChip(d) + (d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '')
     + (arc ? `<span class="chip info">📖 ${esc(ARCS[arc.kind].title)}</span>` : '') + dramaChips(d).join('');
   const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'crew' ? 'on your crew' : d.status;
 

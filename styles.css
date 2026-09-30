@@ -192,6 +192,8 @@ p { margin: 0 0 8px; }
 .rar.rare { background: linear-gradient(180deg, #d4ecff, #6fa8dc); color: #0d2440; }
 .rar.legendary { background: linear-gradient(180deg, #fff0b8, #d6a93b); color: #3a2a05; box-shadow: 0 0 6px rgba(233, 196, 106, .8); }
 .sig { font-size: 13px; color: var(--ink); margin-top: 2px; }
+.chip.role.leader { background: #efe1ff; border-color: #c8a6ee; color: #43206e; }
+.chip.role.wildcard { background: #ffe4cc; border-color: #f0b27a; color: #7a3a07; }
 .chip.sig-chip { background: linear-gradient(180deg, #fff0b8, #e9c46a); color: #3a2a05; border-color: var(--brass); font-weight: 800; }
 .dog-card:active, .opt:active, .assignee:active, .fence-opt:active { transform: translateY(1px); }
 .faction { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--blue); }

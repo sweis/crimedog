@@ -506,6 +506,28 @@ export const APPROACHES = {
   s_bloodhound: { label: 'Smell the trap before it springs', skill: 'nose', mod: -4, noise: 0, failNoise: 2, clues: 0, signature: 'bloodhound', ok: '{d} sniffs once and steps round the trouble like it was never there.', fail: '{d} sneezes. At the worst possible moment.' },
 };
 
+// Roles: what a dog brings just by being on the crew, whichever step they're on (or none).
+export const ROLES = {
+  leader: { label: 'Leader', icon: '👑', blurb: 'Keeps the crew together: steadier on every step, fewer runners, less talking.' },
+  wildcard: { label: 'Wildcard', icon: '🃏', blurb: 'Anything can happen, and usually does. Great at making it up as they go.' },
+};
+
+// What a wildcard gets up to mid-job.
+export const WILD = {
+  good: [
+    { text: '{d} finds a spare key in a flowerpot. Nobody asks how they knew.', alarm: -2 },
+    { text: '{d} does something nobody understands. It works. Everyone\'s fired up.', bonus: 0.25 },
+    { text: '{d} tidies up behind the crew without being asked.', clues: -1 },
+    { text: '{d} produces a smoke bomb from somewhere. "Always carry one."', smoke: 1 },
+  ],
+  bad: [
+    { text: '{d} decides this is the moment for a sing-song.', alarm: 2 },
+    { text: '{d} signs the visitors\' book. With their real name.', clues: 2 },
+    { text: '{d} knows "a little shortcut". It isn\'t one.', bonus: -0.15 },
+    { text: '{d} sets off a fire extinguisher. On purpose, apparently.', alarm: 1, clues: 1 },
+  ],
+};
+
 // Rare and legendary crew only drift into the pub now and then. They cost more,
 // their skills are common knowledge, and many have a signature move.
 export const RARITY = {

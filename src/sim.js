@@ -1,7 +1,7 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES } from './data.js';
-import { skillOf, hasSpecial, shortName } from './dogs.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD } from './data.js';
+import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
 
@@ -79,7 +79,7 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0) + outOfDepth;
   let p = baseOdds(skill, diff);
   const alarm = ctx.alarm || 0;
-  const crew = ctx.crew || crewOf(job.plan).map((id) => state.dogs[id]).filter(Boolean);
+  const crew = ctx.crew || [...new Set([...crewOf(job.plan), ...(state.crew || [])])].map((id) => state.dogs[id]).filter(Boolean);
   const q = dog.quirks;
   if (alarm >= 4) {
     if (q.includes('nervous')) p -= 0.15;
@@ -93,6 +93,7 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   const load = Object.values(job.plan).filter((p2) => p2 && p2.dog === dog.id).length;
   if (load > 3) p -= 0.05 * (load - 3);
   p += (dog.drama?.edge || 0) * 0.08; // fired up or distracted by personal drama
+  p += 0.02 * roleLevel(crew, 'leader'); // a leader steadies everyone
   p += ctx.bonus || 0;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
@@ -233,6 +234,7 @@ export function simulate(state, job, rng) {
     const o = odds(state, job, stage, approachId, dog, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra: (extra || 0) + (ctx.coppers ? 2 : 0), bonus: ctx.nextBonus });
     ctx.nextBonus = 0;
     let p = o.p;
+    if (tag === 'improv' && dog.role?.kind === 'wildcard') p = clamp(p + 0.05 * dog.role.level, 0.03, 0.97); // made for making it up
     if (hasSpecial(dog, 'wild')) {
       p = clamp(p + rng.float(-0.2, 0.2), 0.03, 0.97);
       learn(dog, 'talents', 'zoomies');
@@ -329,7 +331,7 @@ export function simulate(state, job, rng) {
     const a = APPROACHES[f.approachId];
     const risky = RISKY.has(a.skill) || ['drill', 'van', 'grapple'].includes(a.needKit);
     const goingIn = !ctx.vaultDone && ctx.alarm < 6;
-    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1);
+    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1) * (1 - 0.12 * roleLevel(active(), 'leader'));
     if (risky && f.margin > (second ? 0.2 : 0.3) && rng.chance(pLose)) loseDog(f.dog, stageId, a.skill);
     else if (rng.chance(second ? 0.55 : 0.12 + ctx.alarm * 0.04)) {
       beat({ kind: 'chaos', stage: stageId, dog: f.dog.id, text: `${shortName(f.dog)} has been spotted!` });
@@ -378,7 +380,7 @@ export function simulate(state, job, rng) {
     for (const d of active()) {
       if (d.quirks.includes('goodboy') || d.undercover) continue;
       if (!ctx.secured.length) break;
-      const p = Math.max(0, (d.greed - loyaltyOf(d)) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0);
+      const p = Math.max(0, (d.greed - loyaltyOf(d) - 10 * roleLevel(active(), 'leader')) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0);
       if (rng.chance(p)) {
         const lootId = ctx.secured.shift();
         ctx.runners.push({ id: d.id, lootId });
@@ -426,6 +428,11 @@ export function simulate(state, job, rng) {
     if (!ctx.pearShaped) {
       ctx.pearShaped = true;
       beat({ kind: 'pear', stage: stage.id, text: 'It\'s all gone PEAR-SHAPED!' });
+      const lead = active().filter((d) => d.role?.kind === 'leader').sort((a, b) => b.role.level - a.role.level)[0];
+      if (lead) {
+        ctx.alarm = Math.max(0, ctx.alarm - 1);
+        beat({ kind: 'good', stage: stage.id, dog: lead.id, text: `${shortName(lead)} keeps everyone calm. "Stick to the plan. We\'ve got this."` });
+      }
     }
     fallout(stage.id, false);
     if (!active().length) return null;
@@ -495,7 +502,7 @@ export function simulate(state, job, rng) {
 
   // ---- Afterwards
   const interrogate = (d) => {
-    let pTalk = clamp((75 - loyaltyOf(d) * 0.5 - d.nerve * 0.3) / 100, 0.03, 0.9);
+    let pTalk = clamp((75 - loyaltyOf(d) * 0.5 - d.nerve * 0.3) / 100 - 0.05 * roleLevel(crew, 'leader'), 0.03, 0.9);
     if (d.quirks.includes('looselips')) pTalk += 0.3;
     if (job.fakeIds) pTalk -= 0.15;
     if (d.quirks.includes('nevergrass')) pTalk = 0;
@@ -557,9 +564,25 @@ export function simulate(state, job, rng) {
     }
   };
 
+  // Wildcards: now and then, something happens. Usually good, sometimes not.
+  const wildcards = (stage) => {
+    for (const d of active().filter((x) => x.role?.kind === 'wildcard')) {
+      if (!rng.chance(0.1 + 0.03 * d.role.level)) continue;
+      const good = rng.chance(0.5 + 0.04 * d.role.level);
+      const e = rng.pick(good ? WILD.good : WILD.bad);
+      beat({ kind: good ? 'good' : 'chaos', stage: stage.id, dog: d.id, text: e.text.replace(/\{d\}/g, shortName(d)) });
+      if (e.alarm > 0) addAlarm(e.alarm, stage.id);
+      if (e.alarm < 0) ctx.alarm = Math.max(0, ctx.alarm + e.alarm);
+      if (e.bonus) ctx.nextBonus = e.bonus;
+      if (e.clues) ctx.clues = Math.max(0, ctx.clues + e.clues);
+      if (e.smoke) ctx.kitLeft.smoke = (ctx.kitLeft.smoke || 0) + e.smoke;
+    }
+  };
+
   for (const [k, stage] of job.stages.entries()) {
     if (ctx.aborted || !active().length) break;
     if (k === troubleAt) trouble(stage);
+    wildcards(stage);
     if (!active().length) break;
     const pick = lead(stage);
     if (!pick) {

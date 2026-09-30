@@ -1,6 +1,6 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
 import { esc } from './util.js';
-import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES } from './data.js';
+import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES } from './data.js';
 
 const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence']];
 
@@ -69,6 +69,9 @@ export function genDog(state, rng, opts = {}) {
   if (quirks.includes('goodboy')) loyalty = Math.max(loyalty, 80);
   if (quirks.includes('greedy')) greed = Math.min(100, greed + 30);
 
+  // About one in five is a leader or a wildcard, and it shows.
+  const role = rng.chance(0.2) ? { kind: rng.pick(Object.keys(ROLES)), level: rng.int(1, 2) + (quality >= 2 && rng.chance(0.3) ? 1 : 0) } : null;
+
   const archetype = rng.pick(ARCHETYPES);
   const dog = {
     id: `d${state.nextId++}`,
@@ -85,6 +88,7 @@ export function genDog(state, rng, opts = {}) {
     undercover: !!opts.undercover,
     rarity,
     signature: null,
+    role,
     archetype: archetype.id,
     catchphrase: archetype.line,
     status: 'free', // free | crew | pound | farm | gone
@@ -157,6 +161,11 @@ export function specialty(dog) {
   return topSkills(dog, SKILLS.length).find(([sk]) => dog.known.skills[sk])?.[0] ?? null;
 }
 
+// The best leader and wildcard levels among a crew (0 if none).
+export function roleLevel(crew, kind) {
+  return Math.max(0, ...crew.filter((d) => d.role?.kind === kind).map((d) => d.role.level));
+}
+
 export function topSkills(dog, n = 3) {
   return SKILLS.map((s) => [s, skillOf(dog, s)]).sort((a, b) => b[1] - a[1]).slice(0, n);
 }
@@ -168,7 +177,7 @@ export function hasSpecial(dog, special) {
 export function feeFor(dog, cheap) {
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
   const R = dog.rarity && RARITY[dog.rarity];
-  const base = (30 + power * 18 + (dog.relation > 30 ? -20 : 0)) * (R ? (dog.homegrown ? R.homeMult : R.feeMult) : 1);
+  const base = (30 + power * 18 + (dog.role?.level || 0) * 20 + (dog.relation > 30 ? -20 : 0)) * (R ? (dog.homegrown ? R.homeMult : R.feeMult) : 1);
   return Math.max(30, Math.round((cheap ? base * 0.6 : base) / 10) * 10);
 }
 

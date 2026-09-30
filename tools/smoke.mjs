@@ -388,6 +388,36 @@ console.log('1i. Casing: the picker says what to look for; being spotted is expl
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1j. leaders and wildcards
+console.log('1j. Roles: a leader and a wildcard show on the crew and the plan');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=41`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => {
+    window.cd.setSeed(41);
+    window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew');
+    const s = window.cd.live();
+    s.dogs[s.crew[0]].role = { kind: 'leader', level: 2 };
+    s.dogs[s.crew[1]].role = { kind: 'wildcard', level: 3 };
+    s.dogs[s.crew[2]].role = null;
+    window.cd.teleport('crew');
+  });
+  check(await page.locator('main .chip.role.leader').count() === 1 && await page.locator('main .chip.role.wildcard').count() === 1, 'crew cards show the leader and the wildcard');
+  await shot(page, 'roles-crew');
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  const chips = await page.locator('main > p.dm-chips .chip').allTextContents();
+  check(chips.some((c) => /Every step \+4%/.test(c)) && chips.some((c) => /unexpected/.test(c)), `plan says what they bring (${chips.join(', ')})`);
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; window.scrollTo(0, 0); });
+  await shot(page, 'roles-plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {
@@ -445,7 +475,12 @@ console.log('1e. Groups offer jobs once you have a name');
   check(st.offers.some((o) => o.source !== 'own'), `outfits make offers at high rep (${st.offers.map((o) => o.source).join(', ')})`);
   check(await page.locator('.modal.story').count() === 1, 'first contact shows a story scene');
   await shot(page, 'group-story');
-  while (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+  // Clear any scenes: group stories, and crew drama (taking the free last option).
+  for (let g = 0; g < 10; g++) {
+    if (await page.locator('[data-act="story-ok"]').count()) await tap(page, '[data-act="story-ok"]');
+    else if (await page.locator('.modal.story [data-act="drama"]').count()) await tap(page, '.modal.story [data-act="drama"]:last-of-type');
+    else break;
+  }
   await shot(page, 'group-board');
   const offerId = st.offers.find((o) => o.source !== 'own').id;
   await tap(page, `[data-act="take-offer"][data-id="${offerId}"]`);

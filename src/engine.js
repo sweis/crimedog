@@ -586,6 +586,14 @@ export function resolveHeist(state) {
       }
     }
   }
+  // Leaders and wildcards grow into it on jobs they get away from.
+  for (const id of r.escaped) {
+    const d = state.dogs[id];
+    if (d.role && d.role.level < 5 && rng.chance(0.25)) {
+      d.role.level += 1;
+      improved.push({ id, role: d.role.kind });
+    }
+  }
   for (const c of r.captured) {
     const d = state.dogs[c.id];
     d.status = 'pound';
