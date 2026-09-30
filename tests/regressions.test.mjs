@@ -100,7 +100,9 @@ test('walking away is not a free way to cool off', () => {
 test('the dog who eats the evidence is one who was actually on the job', async () => {
   const { simulate } = await import('../src/sim.js');
   const { makeRng } = await import('../src/rng.js');
+  const { genJob } = await import('../src/heists.js');
   const s = E.newGame(5);
+  s.offers[0].job = genJob(s, makeRng({ s: 5 }), { type: 'breakin' }); // needs a getaway
   E.acceptOffer(s, s.offers[0].id);
   s.cash = 5000;
   const [a, b] = s.pub.slice(0, 2);

@@ -19,6 +19,8 @@ const TYPE_NAMES = {
   swap: (w, star) => [`The ${w} Switch`, 'The Old Switcheroo', `The Other ${star}`],
   smash: (w, star, venue) => [`Smash & Grab at the ${venue}`, `The ${w} Smash`],
   van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`],
+  hack: (w) => [`The ${w} Hack`, 'The Wire Job', 'Operation Firewall', 'The Bone-Coin Caper'],
+  fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch'],
 };
 
 function jobName(rng, venueType, star, type) {
@@ -50,6 +52,8 @@ const HAZARDS = {
   con: [['butler', 3], ['cat', 2], ['stakeout', 0.5]],
   smash: [['hero', 3], ['cat', 2], ['stakeout', 0.5]],
   van: [['escort', 3], ['stakeout', 0.5]],
+  hack: [['trace', 3], ['silent', 1], ['stakeout', 0.5]],
+  fraud: [['auditor', 3], ['stakeout', 0.5]],
 };
 // Specialist steps that make sense for each kind of job.
 const SPECIALS = {
@@ -58,6 +62,8 @@ const SPECIALS = {
   con: ['doorman', 'ball'],
   smash: [],
   van: ['carpark'],
+  hack: ['biometric'],
+  fraud: [],
 };
 
 function pickType(rng, venueType) {
@@ -118,6 +124,26 @@ const LAYOUTS = {
       getaway(rng),
     ];
   },
+  hack({ rng, hazards }) {
+    return [
+      { id: 'entry', kind: 'entry', label: 'Get Into the Network', icon: '💻', noSig: true, options: options(rng, ['h_phish', 'h_wifi', 'h_sticky', 'h_usb'], 3) },
+      { id: 'obs_server', kind: 'obstacle', label: 'The Server Room', icon: '🗄️', options: options(rng, ['h_vent', 'h_badge', 'h_tailgate', 'h_heat'], 3) },
+      ...hiddenHazards(hazards),
+      { id: 'obs_accounts', kind: 'obstacle', label: 'Find the Money', icon: '🔍', options: ['h_trail', 'h_query', 'h_shoulder'] },
+      vault('wire', options(rng, VAULTS.wire.options, 3), { noSig: true }),
+      { id: 'exit', kind: 'exit', label: 'Cover Your Tracks', icon: '🧹', noSig: true, options: ['h_wipe', 'h_scent', 'h_unplug'] },
+    ];
+  },
+  fraud({ rng, hazards }) {
+    return [
+      { id: 'entry', kind: 'entry', label: 'Get a Job There', icon: '👔', noSig: true, options: options(rng, ['f_cv', 'f_interview', 'f_temp', 'f_nephew'], 3) },
+      { id: 'obs_trust', kind: 'obstacle', label: 'Earn Their Trust', icon: '☕', noSig: true, options: options(rng, ['f_tea', 'f_gossip', 'f_fixpc', 'f_late'], 3) },
+      ...hiddenHazards(hazards),
+      { id: 'obs_fund', kind: 'obstacle', label: 'Find the Slush Fund', icon: '🗂️', options: ['f_books', 'f_files', 'f_system'] },
+      vault('books', null, { noSig: true }),
+      { id: 'exit', kind: 'exit', label: 'Resign Quietly', icon: '📨', noSig: true, options: ['f_notice', 'f_shred', 'f_sniffout'] },
+    ];
+  },
   van({ rng, hazards }) {
     return [
       { id: 'entry', kind: 'entry', label: 'Stop the Van', icon: '🚦', noSig: true, options: options(rng, ['t_box', 't_roadworks', 't_granny', 't_tyres'], 3) },
@@ -128,6 +154,8 @@ const LAYOUTS = {
     ];
   },
 };
+
+const DAY_JOBS = { con: 14, fraud: 11 };
 
 // opts: tier, venueType, owner (group id or null), lootMult (small jobs < 1), type
 export function genJob(state, rng, opts = {}) {
@@ -142,8 +170,9 @@ export function genJob(state, rng, opts = {}) {
   const owner = opts.owner !== undefined ? opts.owner : owners.length && rng.chance(0.45) ? rng.pick(owners) : null;
 
   // Loot
-  const nLoot = rng.int(2, Math.min(4, V.loot.length));
-  const loot = rng.sample(V.loot, nLoot).map(([name, kind, bulk, worth], i) => ({
+  const table = T.loot || V.loot;
+  const nLoot = rng.int(2, Math.min(4, table.length));
+  const loot = rng.sample(table, nLoot).map(([name, kind, bulk, worth], i) => ({
     id: `l${i}`,
     name,
     kind,
@@ -187,6 +216,8 @@ export function genJob(state, rng, opts = {}) {
   if (hazards.plates) intel.plate_map = false;
   if (type === 'con') intel.mark_file = false;
   if (type === 'van') intel.van_route = false;
+  if (type === 'hack') intel.net_map = false;
+  if (type === 'fraud') intel.org_chart = false;
   intel.loot_value = false;
   if (has('getaway')) intel.escape_routes = false;
   for (const h of Object.keys(hazards)) intel[`hz_${h}`] = false;
@@ -223,9 +254,9 @@ export function genJob(state, rng, opts = {}) {
     stingFence: heat >= 40 && rng.chance(0.3 + (heat - 40) / 100),
     safehouse: false,
     fakeIds: false,
-    // A con is a daytime job: that's when marks are about.
-    time: type === 'con' ? 'day' : 'night',
-    hour: type === 'con' ? 14 : 2,
+    // Cons and office fraud happen in the day: that's when marks and offices are about.
+    time: DAY_JOBS[type] ? 'day' : 'night',
+    hour: DAY_JOBS[type] || 2,
     plan: {},
   };
 }

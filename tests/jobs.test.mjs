@@ -25,7 +25,7 @@ test('the job board offers every kind of job', () => {
     for (const o of s.offers) seen[o.job.type] = (seen[o.job.type] || 0) + 1;
   }
   const total = Object.values(seen).reduce((a, b) => a + b, 0);
-  for (const t of Object.keys(JOB_TYPES)) assert.ok((seen[t] || 0) / total >= 0.08, `${t}: ${seen[t]}/${total}`);
+  for (const t of Object.keys(JOB_TYPES)) assert.ok((seen[t] || 0) / total >= 0.06, `${t}: ${seen[t]}/${total}`);
 });
 
 test('each kind of job has its own shape', () => {
@@ -45,10 +45,19 @@ test('each kind of job has its own shape', () => {
     assert.equal(job.stages.find((st) => st.kind === 'vault').vaultType, 'van');
   }
   for (const { job } of jobsOf('swap')) assert.equal(job.stages.find((st) => st.kind === 'vault').vaultType, 'switch');
+  for (const t of ['hack', 'fraud']) {
+    for (const { job } of jobsOf(t)) {
+      assert.ok(!ids(job).includes('getaway') && job.noInsider, t);
+      assert.ok(job.loot.every((l) => l.bulk === 0 && l.kind === 'cash'), `${t}: money on paper`);
+      // Built for tech, sneak and nose.
+      const skills = job.stages.flatMap((st) => st.options.map((ap) => APPROACHES[ap].skill));
+      for (const sk of ['tech', 'sneak', 'nose']) assert.ok(skills.filter((x) => x === sk).length >= 2, `${t} ${sk}`);
+    }
+  }
   // Different kinds of job use different ways in.
   const entries = (type) => new Set(jobsOf(type).flatMap(({ job }) => job.stages[0].options));
   const breakin = entries('breakin');
-  for (const t of ['con', 'smash', 'van']) assert.ok([...entries(t)].every((ap) => ap === 'e_ram' || !breakin.has(ap)), `${t} entries`);
+  for (const t of ['con', 'smash', 'van', 'hack', 'fraud']) assert.ok([...entries(t)].every((ap) => ap === 'e_ram' || !breakin.has(ap)), `${t} entries`);
 });
 
 test('every visible step has an option needing no kit, intel or insider', () => {
@@ -58,7 +67,7 @@ test('every visible step has an option needing no kit, intel or insider', () => 
 });
 
 test('some jobs allow no insiders: no insider way in, and planting one is refused', () => {
-  for (const t of ['con', 'smash']) for (const { job } of jobsOf(t)) assert.ok(job.noInsider, t);
+  for (const t of ['con', 'smash', 'hack', 'fraud']) for (const { job } of jobsOf(t)) assert.ok(job.noInsider, t);
   const breakins = jobsOf('breakin', 200).map(({ job }) => job);
   const closed = breakins.filter((j) => j.noInsider);
   assert.ok(closed.length > 10 && closed.length < 80, `closed break-ins: ${closed.length}/200`);

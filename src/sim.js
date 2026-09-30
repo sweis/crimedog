@@ -275,7 +275,7 @@ export function simulate(state, job, rng) {
     if (has('glory')) { clues += 1; learn(dog, 'quirks', 'glory'); }
     if (hasSpecial(dog, 'clean')) clues -= 1;
     // Witnesses, in daylight (a con wants to be seen: that's the point).
-    if (job.time === 'day' && job.type !== 'con' && ['charm', 'disguise'].includes(a.skill)) clues += 1;
+    if (job.time === 'day' && !['con', 'fraud'].includes(job.type) && ['charm', 'disguise'].includes(a.skill)) clues += 1;
     ctx.clues += Math.max(0, clues);
     if (has('nervous') && ctx.alarm >= 4) learn(dog, 'quirks', 'nervous');
     if (has('steel') && ctx.alarm >= 4) learn(dog, 'quirks', 'steel');
@@ -371,7 +371,7 @@ export function simulate(state, job, rng) {
     for (const l of byRatio) {
       if (used + l.bulk <= cap) { ctx.secured.push(l.id); used += l.bulk; } else left.push(l);
     }
-    beat({ kind: 'loot', stage: stage.id, text: `In the bag: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
+    beat({ kind: 'loot', stage: stage.id, text: `${['hack', 'fraud'].includes(job.type) ? 'Moved' : 'In the bag'}: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
   };
 
   const betrayals = () => {
@@ -460,6 +460,8 @@ export function simulate(state, job, rng) {
     con: { entry: 'The mark isn\'t biting. Everyone melts away.', vault: 'At the last moment, the mark keeps hold of it.', exit: 'The mark twigs. Scatter!' },
     van: { entry: 'The van gets away. The job\'s off.', vault: 'The back doors won\'t budge. Empty-pawed.' },
     smash: { entry: 'The glass holds. The job\'s off. Leg it!' },
+    hack: { entry: 'The network won\'t let them in. The job\'s off.', vault: 'The transfer bounces. Nothing moves.' },
+    fraud: { entry: 'They don\'t get the job. That\'s that.', vault: 'The books won\'t cook. Nothing to take.' },
   }[job.type] || {};
   const botch = (stage) => {
     const id = stage.id;

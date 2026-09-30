@@ -159,7 +159,7 @@ function starVisit(state, rng) {
   else {
     const rarity = !teaser && rng.chance(legendShare(state.rep)) ? 'legendary' : 'rare';
     const fitting = Object.keys(SIGNATURES).filter((id) => visibleStages(job).some((st) => signatureFits(id, st)));
-    const primary = teaser ? SIGNATURES[rng.pick(fitting)].skill : undefined;
+    const primary = teaser && fitting.length ? SIGNATURES[rng.pick(fitting)].skill : undefined;
     d = genDog(state, rng, { quality: 2, rarity, primary, signature: teaser });
     state.dogs[d.id] = d;
   }

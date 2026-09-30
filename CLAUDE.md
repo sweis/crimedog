@@ -81,6 +81,8 @@ Jobs come in different shapes, each with its own steps and options, so no two fe
 - **The Long Con**: a confidence scam in daylight. Introduction, the pitch, the convincer, the hand-over, the blow-off. No doors to force.
 - **Smash & Grab**: loud and fast. Hit the shop, grab the lot, get away.
 - **The Van Job**: stop an armoured van on the road, deal with the guards, crack the back doors.
+- **The Wire Job** (online crime): get into the network, the server room, find the money, move it, cover your tracks. Tech, sneak and nose.
+- **The Paper Trail** (white collar): get a job there, earn their trust, find the slush fund, cook the books, resign quietly.
 
 Some jobs can't take an inside dog (a con has no inside; some places don't hire new staff). Some have a specialist step that only one skill can
 handle, and only a real expert (4+) does it well; when that happens, someone up to it is always in the pub, for a price.
