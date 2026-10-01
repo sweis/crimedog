@@ -25,8 +25,10 @@ const tick = (x, y, text, anchor = 'end') => `<text x="${x}" y="${y}" font-size=
 // values: [{ label, value, tip }] oldest first. fmt formats an axis value.
 export function columnChart(values, { h = 150, fmt = String, caption = '' } = {}) {
   const n = values.length;
-  const max = Math.max(1, ...values.map((v) => v.value));
+  // Zero is always on the axis; a top or bottom tick only when there are values out there.
+  let max = Math.max(0, ...values.map((v) => v.value));
   const min = Math.min(0, ...values.map((v) => v.value));
+  if (max === min) max = 1;
   const plotH = h - pad.t - pad.b;
   const y = (v) => pad.t + ((max - v) / (max - min)) * plotH;
   const zero = y(0);
@@ -34,7 +36,7 @@ export function columnChart(values, { h = 150, fmt = String, caption = '' } = {}
   const bw = Math.min(24, band - 4);
   let s = '';
   // Axis ticks: top, zero, bottom.
-  for (const v of [max, 0, min]) if (v === 0 || Math.abs(v) > 0) s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="${GRID}" stroke-width="1"/>${tick(pad.l - 4, y(v) + 3, fmt(v))}`;
+  for (const v of [...new Set([max, 0, min])]) if (v === 0 || values.some((x) => Math.sign(x.value) === Math.sign(v))) s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="${GRID}" stroke-width="1"/>${tick(pad.l - 4, y(v) + 3, fmt(v))}`;
   values.forEach((v, i) => {
     const x = pad.l + i * band + (band - bw) / 2;
     const top = Math.min(y(v.value), zero);

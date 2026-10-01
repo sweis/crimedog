@@ -182,7 +182,10 @@ const A = {
     show('job');
   },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
-  'drama'(el) { run({ inspector: E.chooseInspector, rival: E.chooseRival }[G.state.story[0]?.type] || E.chooseDrama, Number(el.dataset.i)); },
+  'drama'(el) { run({ inspector: E.chooseInspector, rival: E.chooseRival, runner: E.chooseRunner }[G.state.story[0]?.type] || E.chooseDrama, Number(el.dataset.i)); },
+  'pay-hospital'(el) { run(E.payHospitalBill, el.dataset.id); },
+  'amends'(el) { run(E.makeAmends, el.dataset.g, el.dataset.how); },
+  'runner-act'(el) { run(E.runnerAction, el.dataset.id, el.dataset.effect); },
   'calling-card'() { run(E.toggleCallingCard); },
   'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },
   'picked'(el) {
@@ -198,6 +201,7 @@ const A = {
       return;
     }
     G.ui.confirmRetire = false;
+    G.ui.modal = null;
     run(E.retireNow);
   },
   'walk-away'(el) {

@@ -9,6 +9,7 @@ export const HISTORY_MAX = 30;
 // How each crew member's night ended.
 function fateOf(r, id) {
   if (r.lost.some((l) => l.id === id)) return 'farm';
+  if ((r.hurt || []).some((l) => l.id === id)) return 'hospital';
   if (r.captured.some((c) => c.id === id)) return 'nicked';
   if (r.runners.some((x) => x.id === id)) return 'ran';
   if (r.exposed.includes(id) || r.tipped.includes(id)) return 'copper';
@@ -16,7 +17,7 @@ function fateOf(r, id) {
 }
 
 // Beats worth retelling.
-const isMoment = (b) => ['pear', 'caught', 'lost', 'betray'].includes(b.kind) || (b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
+const isMoment = (b) => ['pear', 'caught', 'lost', 'hurt', 'betray'].includes(b.kind) || (b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
 
 export function buildRecap(state) {
   const { job, result: r, after: a, dogs } = state;

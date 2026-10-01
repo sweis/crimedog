@@ -1,5 +1,6 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
 import { esc } from './util.js';
+import { startingRecord } from './justice.js';
 import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES } from './data.js';
 
 const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence']];
@@ -91,7 +92,7 @@ export function genDog(state, rng, opts = {}) {
     role,
     archetype: archetype.id,
     catchphrase: archetype.line,
-    status: 'free', // free | crew | pound | farm | gone
+    status: 'free', // free | crew | pound | hospital | farm | gone
     sentence: 0,
     relation: 0,
     jobs: 0,
@@ -111,6 +112,7 @@ export function genDog(state, rng, opts = {}) {
       if (rarity === 'legendary') dog.nick = SIGNATURES[dog.signature].name;
     }
   }
+  dog.record = startingRecord(dog.look.seed, { undercover: opts.undercover, rarity });
   dog.fee = feeFor(dog, opts.undercover);
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
   dog.minRep = power >= 14 ? 40 : power >= 12 ? 20 : 0;

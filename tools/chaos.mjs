@@ -3,15 +3,16 @@
 import { career } from './balance.mjs';
 
 export function chaosStats(n = 120, maxJobs = 10) {
-  const t = { jobs: 0, pear: 0, pearWithLoss: 0, captured: 0, lost: 0, withCat: 0, surprise: 0, hazards: 0 };
+  const t = { jobs: 0, pear: 0, pearWithLoss: 0, captured: 0, lost: 0, hurt: 0, withCat: 0, surprise: 0, hazards: 0 };
   for (let seed = 1; seed <= n; seed++) {
     // Reuse the careful career policy, sampling each job's result as it resolves.
     career(seed, 'smart', maxJobs, (st) => {
       const r = st.result;
       t.jobs++;
-      const lost = (r.lost || []).length;
+      const lost = (r.lost || []).length + (r.hurt || []).length;
       t.captured += r.captured.length;
-      t.lost += lost;
+      t.lost += (r.lost || []).length;
+      t.hurt += (r.hurt || []).length;
       if (r.pearShaped) { t.pear++; if (r.captured.length + lost > 0) t.pearWithLoss++; }
       if (st.job.hazards.cat) t.withCat++;
       if (Object.keys(st.job.hazards).length) t.hazards++;
@@ -24,6 +25,7 @@ export function chaosStats(n = 120, maxJobs = 10) {
     lossWhenPearShaped: (t.pearWithLoss / t.pear).toFixed(2),
     arrestsPerJob: (t.captured / t.jobs).toFixed(2),
     farmPerJob: (t.lost / t.jobs).toFixed(2),
+    hospitalPerJob: (t.hurt / t.jobs).toFixed(2),
     jobsWithHazard: (t.hazards / t.jobs).toFixed(2),
     jobsWithCat: (t.withCat / t.jobs).toFixed(2),
     surprises: (t.surprise / t.jobs).toFixed(2),

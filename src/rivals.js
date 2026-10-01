@@ -10,6 +10,7 @@
 import { KIT, SKILLS } from './data.js';
 import { fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
 import { genDog, shortName, displayName, feeFor } from './dogs.js';
+import { addHardness } from './repute.js';
 
 export const RIVALS = {
   jacks: {
@@ -184,10 +185,12 @@ export function chooseRival(state, i, rng, ctx = {}) {
 
 const EFFECTS = {
   peace(state, id) {
+    addHardness(state, -2);
     rivalsOf(state)[id].beef = Math.max(0, rivalsOf(state)[id].beef - 1);
     return 'Nipper drinks your beer and calls you "alright, for a newcomer". It won\'t last.';
   },
   snub(state, id) {
+    addHardness(state, 2);
     rivalsOf(state)[id].beef += 1;
     return 'They leave. Slowly. Nipper doesn\'t take his eyes off you.';
   },
@@ -209,6 +212,7 @@ const EFFECTS = {
     return `A quiet word with the Inspector. ${RIVALS[id].name} ${id === 'dan' ? 'is' : 'are'} lifted at dawn. Nobody at the Dog & Duck will look you in the eye. (-6 rep)`;
   },
   setup(state, id, rng) {
+    addHardness(state, 3);
     const r = rivalsOf(state)[id];
     if (rng.chance(0.6)) {
       r.status = 'away';

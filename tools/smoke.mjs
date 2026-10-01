@@ -747,7 +747,8 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
   await shot(page, 'rival-ghost');
   await tap(page, '.modal.rival [data-act="drama"]');
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  check((await page.locator('main').innerText()).includes('The Competition'), 'the job board lists the competition');
+  await tap(page, '.nav [data-to="players"]');
+  check((await page.locator('main').innerText()).includes('The Competition'), 'the Players tab lists the competition');
   await page.locator('main h2', { hasText: 'The Competition' }).evaluate((e) => e.scrollIntoView({ block: 'start' }));
   await shot(page, 'rivals-board');
   // The ringer at the boxing club, with a calling card ticked by tap.
@@ -791,13 +792,16 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
     window.cd.spawn('retire');
     window.cd.teleport('select');
   });
-  check(await page.locator('main .nest.ready [data-act="retire"]').count() === 1, 'the nest egg is full: retire is on offer');
-  await page.locator('main .nest').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  check(await page.locator('main .retire-note').count() === 1, 'the job board says you can retire');
+  await page.locator('main .retire-note').evaluate((e) => e.scrollIntoView({ block: 'start' }));
   await page.evaluate(() => window.scrollBy(0, -80));
   await shot(page, 'nest-egg');
-  await tap(page, 'main [data-act="retire"]');
+  await tap(page, 'main .retire-note');
+  check(await page.locator('.modal [data-act="retire"]').count() === 1, 'the 💷 pane has the nest egg and the retire button');
+  await shot(page, 'nest-egg-pane');
+  await tap(page, '.modal [data-act="retire"]');
   check(await page.evaluate(() => window.cd.getState().over === null), 'one tap only asks');
-  await tap(page, 'main [data-act="retire"]');
+  await tap(page, '.modal [data-act="retire"]');
   st = await page.evaluate(() => window.cd.getState());
   check(st.over?.reason === 'retired' && st.over.epilogues.length >= 4, `retired, with ${st.over?.epilogues?.length} epilogues`);
   check(await page.locator('main .epilogue').count() === st.over.epilogues.length, 'the ending shows every epilogue');
@@ -809,7 +813,7 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
 }
 
 // ---------------------------------------------------------------- 1p. the talent, from the job board
-console.log('1p. Look round the pub and your book from the job board, then take a job');
+console.log('1p. The bottom bar between jobs: pub, crew, players, back to the board, then take a job');
 {
   const ctx = await browser.newContext(phone);
   const page = await ctx.newPage();
@@ -818,24 +822,122 @@ console.log('1p. Look round the pub and your book from the job board, then take 
   await page.goto(`${BASE}?hooks=1&seed=63`);
   await page.waitForFunction(() => window.cd);
   await page.evaluate(() => { window.cd.setSeed(63); window.cd.teleport('select'); });
-  await shot(page, 'board-talent-buttons');
-  await tap(page, 'main [data-act="go"][data-to="pub"]');
+  check(await page.locator('.nav button').count() === 6 && await page.locator('.nav [data-to="job"].on').count() === 1, 'the bottom bar is on the job board, on the Job tab');
+  check(await page.locator('.nav [data-to="fixer"]:disabled').count() === 1, 'the fixer is shut until you pick a job');
+  await shot(page, 'board-nav');
+  await tap(page, '.nav [data-to="pub"]');
   const seen = await page.evaluate(() => [...document.querySelectorAll('main .dog-card')].map((e) => e.dataset.id));
   check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'pub' && seen.length >= 4, `the pub from the job board (${seen.length} about)`);
   await shot(page, 'board-pub');
   await tap(page, 'main .dog-card');
   check(await page.locator('.modal [data-act="hire"]').count() === 0 && (await page.locator('.modal').innerText()).includes('Pick a job to hire'), 'no hiring before a job');
   await tap(page, '.modal [data-act="close-modal"]');
-  await tap(page, 'main [data-act="go"][data-to="select"]');
-  await tap(page, 'main [data-act="go"][data-to="crew"]');
+  await tap(page, '.nav [data-to="crew"]');
   check((await page.locator('main').innerText()).includes('Little Black Book') && await page.locator('main .dog-card').count() >= 1, 'your book from the job board');
   await shot(page, 'board-crew');
-  await tap(page, 'main [data-act="go"][data-to="select"]');
-  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'select', 'back to the job board');
+  await tap(page, '.nav [data-to="players"]');
+  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'players' && (await page.locator('main').innerText()).includes('The Bulldog Firm'), 'the Players tab lists the outfits');
+  await shot(page, 'players-tab');
+  await tap(page, '.nav [data-to="job"]');
+  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'select', 'the Job tab is the job board');
   // Take a job: the faces you saw are still in the pub.
   await tap(page, 'main [data-act="take-offer"]');
   const pub = await page.evaluate(() => window.cd.live().pub);
   check(seen.every((id) => pub.includes(id)), `everyone you saw is still there (${seen.filter((id) => pub.includes(id)).length}/${seen.length}, pub now ${pub.length})`);
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1q. runners, amends, reputation
+console.log('1q. A runner hunted down and forgiven; amends with a crossed outfit; the sides of a reputation');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=71`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(71); window.cd.teleport('select'); window.cd.spawn('cash', 6000); window.cd.spawn('runner'); window.cd.teleport('select'); });
+  check(await page.locator('.modal.runner').count() === 1, 'the runner\'s scene is up');
+  await shot(page, 'runner-scene');
+  await tap(page, '.modal.runner [data-act="drama"][data-i="0"]');
+  let st = await page.evaluate(() => window.cd.getState());
+  check(st.runners[0]?.stage === 'hunting', `the word is out (${st.runners[0]?.stage})`);
+  // Two jobs' worth of leads, then they're found.
+  await page.evaluate(async () => { const R = await import('/src/runners.js'); const s = window.cd.live(); R.runnersBetweenJobs(s, { chance: () => false, pick: (a) => a[0] }); R.runnersBetweenJobs(s, { chance: () => false, pick: (a) => a[0] }); s.story = []; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="players"]');
+  check(await page.locator('main [data-act="runner-act"][data-effect="mercy"]').count() === 1, 'found: the Players tab offers mercy, the farm, or stealing it back');
+  await page.locator('main [data-act="runner-act"]').first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'runner-found');
+  await tap(page, 'main [data-act="runner-act"][data-effect="mercy"]');
+  st = await page.evaluate(() => window.cd.getState());
+  check(st.runners[0].ended === 'mercy' && st.repute.hardness < 0, `mercy: back in your book, and you\'re softer (${st.repute.hardness})`);
+  // An outfit that's turned on you: make amends with a hard job.
+  await page.evaluate(() => { const s = window.cd.live(); s.groups.firm.standing = -60; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="players"]');
+  check(await page.locator('main [data-act="amends"][data-g="firm"]').count() === 2, 'the Firm can be squared: pay up or a hard job');
+  await page.locator('main [data-act="amends"][data-g="firm"]').first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'amends');
+  await tap(page, 'main [data-act="amends"][data-g="firm"][data-how="job"]');
+  await tap(page, '.nav [data-to="job"]');
+  check(await page.locator('main .offer button', { hasText: 'Make amends' }).count() === 1, 'the amends job is on the job board');
+  // The sides of a reputation.
+  await tap(page, '.topbar [data-pane="rep"]');
+  const pane = (await page.locator('.modal').innerText()).toLowerCase();
+  check(pane.includes('track record') && pane.includes('generosity') && pane.includes('soft or hard'), 'the reputation pane shows its sides');
+  await shot(page, 'pane-rep-sides');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1r. the pound and the hospital
+console.log('1r. One nicked, one hurt: pay the hospital bill, and a brief that can only cut so much');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=81`);
+  await page.waitForFunction(() => window.cd);
+  const ids = await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const S = await import('/src/sim.js');
+    window.cd.setSeed(81);
+    window.cd.teleport('plan');
+    const s = window.cd.live();
+    s.cash += 9000;
+    const [a, b] = s.pub.filter((id) => !s.dogs[id].undercover).slice(0, 2);
+    E.hire(s, a);
+    E.hire(s, b);
+    s.dogs[a].record = 3;
+    s.result = S.blankResult(s.crew, { secured: s.job.loot.map((l) => l.id), escaped: [], captured: [{ id: a, talked: false, sentence: 6 }], hurt: [{ id: b, jobs: 3, skill: 'agility' }], outcome: 'messy' });
+    s.phase = 'heist';
+    E.resolveHeist(s);
+    window.cd.teleport('aftermath');
+    return { nicked: a, hurt: b };
+  });
+  const events = await page.locator('main .events').innerText();
+  check(events.includes('in hospital for 3 jobs') && events.includes('previous'), 'the aftermath says who\'s in hospital and who went down, and why');
+  await page.locator('main [data-act="pay-hospital"]').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'aftermath-hospital');
+  await tap(page, 'main [data-act="pay-hospital"]');
+  check(await page.evaluate((id) => window.cd.live().dogs[id].hospital.paid, ids.hurt), 'hospital bill paid with a tap');
+  // Through to the job board, then the crew tab.
+  await page.evaluate(async () => { const E = await import('/src/engine.js'); const s = window.cd.live(); if (s.after.step === 'deliver') E.deliver(s); if (s.after.step === 'fence') E.fence(s, 'hal'); E.payCrew(s, 30); E.nextJob(s); s.story = []; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="crew"]');
+  const crewText = await page.locator('main').innerText();
+  check(crewText.includes('In Hospital') && crewText.includes('In the Pound'), 'the crew tab lists the hospital and the pound');
+  await tap(page, `main .dog-card[data-id="${ids.nicked}"]`);
+  let briefs = 0;
+  while (briefs < 6 && await page.locator('.modal [data-act="lawyer"]').count()) { await tap(page, '.modal [data-act="lawyer"]'); briefs++; }
+  const left = await page.evaluate((id) => window.cd.live().dogs[id], ids.nicked);
+  check(left.status === 'pound' && left.sentence >= Math.ceil(left.sentenceStart / 2) && briefs >= 1, `briefs cut the sentence (${briefs} taps) but they still serve ${left.sentence} of ${left.sentenceStart}`);
+  check((await page.locator('.modal').innerText()).includes('No brief can shorten it'), 'the profile says no brief can shorten it further');
+  await shot(page, 'pound-brief-limit');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, `main .dog-card[data-id="${ids.hurt}"]`);
+  check((await page.locator('.modal').innerText()).includes('A bad knee'), 'the profile shows the lasting injury');
+  await shot(page, 'hospital-profile');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

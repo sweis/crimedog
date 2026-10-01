@@ -7,12 +7,13 @@ import { APPROACHES, GROUPS, RARITY } from './data.js';
 import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
 import { RETIRE } from './retire.js';
 import { VERSION } from './version.js';
+import { generosityOf, hardnessOf, generosityBonus, generosityLabel, hardnessLabel, crewFeeling } from './repute.js';
 
 // What each kind of money was for.
 const CATS = {
   fence: ['🤝', 'Fenced loot'], commission: ['🎯', 'Commissions'], front: ['💰', 'Money fronted'], loan: ['🌹', 'Family loan'],
   crew: ['🐾', 'Hiring crew'], pay: ['✂️', 'Crew\'s cut'], kit: ['🧰', 'Kit'], intel: ['🔎', 'Intel & tips'], fixer: ['🗝️', 'The fixer'],
-  pound: ['⚖️', 'Lawyers'], debts: ['📜', 'Debts'], raids: ['💥', 'Raids'], drama: ['📖', 'Crew drama'], wager: ['🎲', 'Wagers & gifts'],
+  pound: ['⚖️', 'Lawyers'], debts: ['📜', 'Debts'], raids: ['💥', 'Raids'], drama: ['📖', 'Crew drama'], wager: ['🎲', 'Wagers & gifts'], recovered: ['💨', 'Got back from runners'], hospital: ['🏥', 'Hospital bills'],
 };
 // The timeline is booked at the end of each job; things move between jobs
 // (heat cools, raids), so end the line on where it stands now.
@@ -40,13 +41,34 @@ function cashPane(s) {
     ? columnChart(recent.map((j) => ({ label: j.label, value: j.net, tip: `${j.label}: ${signed(j.net)}` })), { fmt: short, caption: 'Profit or loss per job. Tap a column.' })
     : '<p class="muted">Finish a job to see how it paid.</p>';
   return `<h2>💷 The Books</h2>
-    <div class="hero-fig">${money(s.cash)}<small>of ${money(RETIRE.goal)} to retire</small></div>
+    <div class="hero-fig">${money(s.cash)}</div>
     <div class="meter ${s.cash >= RETIRE.goal ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${Math.min(100, Math.max(0, (100 * s.cash) / RETIRE.goal))}%"></i></div>
+    <p class="muted">🏝️ The nest egg: ${Math.min(100, Math.floor((100 * Math.max(0, s.cash)) / RETIRE.goal))}% of ${money(RETIRE.goal)}. ${s.cash < RETIRE.goal ? `Put it away and retire to ${RETIRE.place}.` : s.phase === 'select' ? `Enough to retire to ${RETIRE.place}. Or one more job...` : 'Enough to retire. Finish this job first.'}</p>
+    ${s.cash >= RETIRE.goal && s.phase === 'select' ? '<button class="btn block retire-btn" data-act="retire">🏝️ Retire for good</button>' : ''}
     <div class="tiles"><div class="tile"><span>Earned</span><b>${money(earned)}</b></div><div class="tile"><span>Spent</span><b>${money(-spent)}</b></div><div class="tile"><span>Jobs</span><b>${b.jobs.length}</b></div></div>
     <div class="legend"><span><i style="background:${UP}"></i>Profit</span><span><i style="background:${DOWN}"></i>Loss</span></div>
     ${chart}
     <h3 class="dm-h">Since the last job</h3>${items(b.open)}
     ${b.jobs.length ? `<h3 class="dm-h">Job by job</h3>${b.jobs.map((j) => `<details class="pl"><summary><span>${j.grade ? `<b class="gl g${j.grade}">${j.grade}</b>` : '<b class="gl">–</b>'} ${esc(j.label)}</span><b class="${j.net < 0 ? 'out' : 'in'}">${signed(j.net)}</b></summary>${items(j.items)}</details>`).join('')}` : ''}`;
+}
+
+// The sides of a reputation: what counts towards the score, and what doesn't.
+function reputeBlock(s) {
+  const g = generosityOf(s);
+  const h = hardnessOf(s);
+  const bonus = generosityBonus(g);
+  const f = crewFeeling(s);
+  const sign = (n) => `${n >= 0 ? '+' : '−'}${Math.abs(n)}`;
+  const effect = h >= 15 ? `Crew fear you: ${Math.round(f.fear * 100)}% fewer runners and talkers, but they warm to you ${Math.abs(Math.round(f.warmth))} a job slower.`
+    : h <= -15 ? `Crew like you: they warm to you ${Math.round(f.warmth)} a job faster, but a soft touch is easier to cross.`
+      : 'Crew know where they stand with you.';
+  return `<div class="tiles two"><div class="tile"><span>Track record</span><b>${s.rep - bonus}</b></div><div class="tile"><span>Generosity</span><b>${sign(bonus)}</b></div></div>
+    <h3 class="dm-h">Generosity · ${generosityLabel(g)}</h3>
+    <div class="meter ${g >= 45 ? 'good' : g >= 25 ? 'warning' : 'serious'}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${g}"><i style="width:${g}%"></i></div>
+    <p class="muted">How much of the take you share. It counts towards your reputation.</p>
+    <h3 class="dm-h">Soft or hard · ${hardnessLabel(h)}</h3>
+    <div class="dial" role="meter" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="${h}"><span>Soft</span><div class="dial-track"><i style="left:${(h + 100) / 2}%"></i></div><span>Hard</span></div>
+    <p class="muted">Doesn't count towards the score. ${effect}</p>`;
 }
 
 const REP_WORDS = [[80, 'A legend'], [60, 'Feared'], [45, 'Respected'], [30, 'Known'], [15, 'Small-time'], [0, 'Nobody']];
@@ -61,12 +83,13 @@ function repPane(s) {
   const changes = t.slice(1).map((p, i) => ({ label: p.label, d: p.rep - t[i].rep })).reverse().slice(0, 6);
   return `<h2>⭐ Reputation</h2>
     <div class="hero-fig">${s.rep}<small>/100 · ${word}</small></div>
+    ${reputeBlock(s)}
     ${t.length > 1 ? lineChart(series(s, 'rep'), { caption: 'Reputation after each job. Tap a point.' }) : '<p class="muted">Finish a job to start the chart.</p>'}
     <h3 class="dm-h">What it opens up</h3>
     <ul class="ledger">${unlocks.map(([min, what]) => `<li><span>${s.rep >= min ? '✅' : '🔒'} ${esc(what)}</span><b>${min}+</b></li>`).join('')}
       <li><span>🌟 Chance a star's in the pub</span><b>${Math.round(starChance(s.rep) * 100)}%</b></li></ul>
     ${changes.length ? `<h3 class="dm-h">Lately</h3><ul class="ledger">${changes.map((c) => `<li><span>${esc(c.label)}</span><b class="${c.d < 0 ? 'out' : 'in'}">${c.d >= 0 ? '+' : '−'}${Math.abs(c.d)}</b></li>`).join('')}</ul>` : ''}
-    <p class="muted">Good grades raise it; flops, walking away and farming real crooks lower it. At 0, nobody will work for you.</p>`;
+    <p class="muted">Good grades and a fair cut raise it; flops, walking away, stiffing the crew and farming real crooks lower it. At 0, nobody will work for you.</p>`;
 }
 
 const HEAT_LEVELS = [
@@ -111,13 +134,14 @@ export function paneModal(G, which) {
 const HELP = [
   ['🎯 The idea', `You're the mastermind. You never go on the job: you pick it, hire the crew, case the joint, buy the kit and draw up the plan, then watch it play out. Get rich, stay respected, and keep the Inspector off your back. Put away ${money(RETIRE.goal)} and you can retire to ${RETIRE.place} for good.`],
   ['🔁 A turn', `<b>Job board</b>: pick a job (your own leads, or offers from the city's outfits once you've a name). <b>Plan</b>: hire at the pub, case the joint, buy kit, see the fixer, then choose who does each step and how. <b>The heist</b>: watch it unfold. <b>Aftermath</b>: hand over or fence the goods, pay the crew, get graded.`],
+  ['⭐ Reputation', `Your score is your track record plus how generous you are with the crew's cut. Separately, the way you treat people makes you soft or hard: hard masterminds are feared (fewer runners and grasses) but harder to love; soft ones are liked, and easier to cross. Tap ⭐ to see where you stand.`],
   ['🐾 Crew', `Each dog has skills (only the ones you've seen are shown), talents and quirks. Work together and you learn more; get on and they get better, even rare or legendary. 👑 Leaders steady everyone; 🃏 wildcards bring chaos, good and bad. ★ Stars drift through town with secret moves.`],
   ['📋 Planning', `Casing finds intel and hidden hazards: a good nose smells things out, a hacker finds the systems, a sneak watches the patrols. Get spotted and security goes on alert. The odds on each step are shown for skills you know. Kit and intel open new ways through.`],
   ['💥 When it goes wrong', `A fumbled step goes pear-shaped: someone improvises, alarms ring, the Old Bill may arrive. Crew can get nicked, end up on the farm, do a runner, or turn out to be undercover coppers.`],
   ['🕵️ The Inspector', `He makes a move between jobs: coppers planted in the pub, stakeouts, tips that are really setups, crew pulled in for questioning, regulars turned into grasses, raids. He also keeps a file on your tricks: use the same one job after job and security will be ready for it. Surveil strangers, case tips before you trust them, and mix it up.`],
   ['🦹 Rivals', `Other crews work this town too. The Jack Russell Gang make trouble: tipping off security, nicking kit, turning up on your jobs. Dandy Dan leaves notes and bets you can't pull a job. Rat them out (it costs rep), set them up, or rob them. And someone called the Grey Ghost is watching: leave your calling card on good, quiet jobs and you might win them over.`],
   ['🗺️ Kinds of job', `Break-ins, switches (swap it for a replica), long cons, smash & grabs, van jobs, wire jobs and paper trails. Each has its own steps. Some won't take an insider; some need a real specialist.`],
-  ['🏙️ The city', `Five outfits offer work once your rep clears their bar. Do right by them and they pay; cross them and they act against you. The Family and the Syndicate lend money, and they collect.`],
+  ['🏙️ The city', `Five outfits offer work once your rep clears their bar. Do right by them and they pay; cross them and they act against you, until you make amends on the Players tab: pay up, or do them a hard job for nothing. The Family and the Syndicate lend money, and they collect.`],
   ['📊 The top bar', `Tap 💷 for the books, ⭐ for your reputation and 🕵️ for the Inspector. The 📅 day (on the job board, on a phone) opens the day book. 📜 Rap sheet keeps every job, and you can share any of them.`],
 ];
 export function helpModal() {

@@ -5,6 +5,7 @@ import { APPROACHES, KIT } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
 import { skillOf, topSkills } from '../src/dogs.js';
 import { sceneChoices } from '../src/drama.js';
+import { amendsCost } from '../src/groups.js';
 
 export function pickOffer(s, policy) {
   if (s.phase !== 'select') return;
@@ -90,6 +91,8 @@ export function career(seed, policy, maxJobs = 10, onResult = null) {
   const grades = [];
   for (let j = 0; j < maxJobs && !s.over; j++) {
     for (const gid of Object.keys(s.groups)) if (s.groups[gid].debt && s.cash > s.groups[gid].debt.amount + 500) E.payDebt(s, gid);
+    // Careful players patch things up with outfits that have turned on them.
+    if (policy === 'smart') for (const gid of Object.keys(s.groups)) if (s.groups[gid].standing <= -40 && s.cash > amendsCost(s, gid) + 3000) E.makeAmends(s, gid, 'pay');
     answerStories(s, policy);
     pickOffer(s, policy);
     if (policy === 'smart') smartJob(s);

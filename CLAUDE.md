@@ -14,6 +14,12 @@ being betrayed out by disloyal crew, being overpowered by guards, or leaving too
 on their traits, they may reveal the plan or not. That doesn't guarantee the heist fails, but reveals information to investigators and gives them an advantage in catching the rest of
 the crew.
 
+Every crew member carries a criminal record. The longer it is, the longer they go down for, and each conviction adds to it.
+The mastermind can pay a brief to cut a sentence, a job at a time, but never by more than half: time is always served.
+
+Crew hurt on a job usually go to hospital rather than straight to the farm, out of play for a few jobs; some injuries last
+and take a point off a skill. Paying the hospital bill keeps them loyal; leaving them with it doesn't.
+
 Crew are also not guaranteed to succeed in a planned step and may fail. If that occurs, the plan will go "Pear Shaped" and crew members will improvise and try to succeed. There will be
 an element of chaos that is unpredictable how it turns out and heists may end up being partial successes, e.g. some of the loot is recovered or some of the crew is arrested. Crew
 members who stay loyal will be sent to the pound to do their time. The mastermind will be able to help them by sending money to reduce their sentences. 
@@ -113,10 +119,29 @@ mysteries who can be won over (the Grey Ghost: notices calling cards left on goo
 can join the crew). Each has a plotline told in scenes between jobs. Troublemakers can be ratted out (costs rep and puts the
 Ghost off), set up, or robbed (their place goes on the job board).
 
+### Reputation, and how the crew see you
+
+Reputation has more than one side. The score (it unlocks outfits and better crew) is the mastermind's track record plus how
+generous they are with the take: a fair or generous cut raises it, stiffing the crew lowers it. Separately, a soft-to-hard scale
+doesn't count towards the score but changes the crew: hard masterminds (the farm, stiffing the crew, setting people up) are feared,
+so fewer crew do runners or talk, but they're slower to warm to you; soft ones (mercy, paying for a brief, helping with drama) are
+liked, and easier to cross.
+
+### Runners
+
+A crew member who does a runner doesn't vanish: they become a rival. Put the word out and, a job or two later, they're found
+(quicker with a good nose or sneak in your book). Then steal it back (their hideout goes on the job board), send them to the
+farm, show mercy (they come back to your book, grateful), or let it go. While loose they make trouble.
+
+### Making amends
+
+An outfit that has turned on the mastermind can be squared: pay up (the debt plus interest, and something for the trouble), or
+do them a hard job for nothing. Done, they're back on side; botched, it's worse.
+
 ### Retirement
 
 The long game is the nest egg: put away a large sum (£100,000, many good jobs' worth) and the mastermind can retire to the Costa
-del Bone, ending the game. The ending tells a few epilogues: the closest crew member comes too, a runner is tracked down or a
+del Bone, ending the game. Progress and the retire button live in the money (💷) pane; the job board only mentions it once it's full. The ending tells a few epilogues: the closest crew member comes too, a runner is tracked down or a
 farm is visited to pay respects, a star who worked with you drops in, and a word on the rivals and the Inspector.
 
 ### Casing, roles and special kit

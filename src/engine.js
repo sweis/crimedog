@@ -8,9 +8,12 @@ import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabe
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
-import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
+import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
+import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
+import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
+import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -245,6 +248,7 @@ export function hire(state, id) {
   if (!d) return fail('No such dog.');
   if (state.phase !== 'plan') return fail('Not now.');
   if (state.crew.includes(id)) return fail('Already on the crew.');
+  if (d.status === 'hospital') return fail(`${shortName(d)} is in hospital for ${d.hospital.jobs} more job${d.hospital.jobs > 1 ? 's' : ''}.`);
   if (d.status !== 'free') return fail(`${shortName(d)} isn't available.`);
   if (state.crew.length >= MAX_CREW) return fail('Crew\'s full. Six is plenty.');
   if (state.rep < d.minRep && d.relation < 30) return fail(`"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`);
@@ -305,6 +309,8 @@ export function acceptOffer(state, offerId) {
   state.offers = [];
   state.phase = 'plan';
   tookRivalJob(state, state.job, false);
+  tookRunnerJob(state, state.job);
+  if (p?.deal === 'amends') state.groups[p.group].amends = null;
   gatecrash(state, state.job);
   pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
@@ -329,12 +335,16 @@ export { chooseDrama } from './drama.js';
 
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
 export const retireNow = (state) => retire(state, rngOf(state));
+export const makeAmends = (state, gid, how) => amendsWith(state, rngOf(state), gid, how);
+export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), { genJob });
+export const runnerAction = (state, dogId, effect) => actOnRunner(state, dogId, effect, rngOf(state), { genJob });
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 export function dismissStory(state) {
   const st = state.story[0];
   if (st?.type === 'inspector') return chooseInspector(state, st.choices.length - 1);
   if (st?.type === 'rival') return chooseRival(state, st.choices.length - 1);
+  if (st?.type === 'runner') return chooseRunner(state, st.choices.length - 1);
   state.story.shift();
   return done('');
 }
@@ -658,12 +668,17 @@ export function resolveHeist(state) {
   }
   for (const c of r.captured) {
     const d = state.dogs[c.id];
-    d.status = 'pound';
-    d.sentence = c.sentence;
+    sendDown(d, c.sentence);
     d.talked = c.talked;
     d.caughtJob = job.id;
     addRelation(d, c.talked ? -10 : 10);
     leaveCrew(state, c.id);
+  }
+  for (const h of r.hurt || []) {
+    const d = state.dogs[h.id];
+    const bill = admit(d, h, job.id);
+    leaveCrew(state, h.id);
+    news(state, `${displayName(d)} is in hospital after ${job.name}. The bill: ${money(bill)}.`);
   }
   for (const l of r.lost || []) {
     const d = state.dogs[l.id];
@@ -679,6 +694,8 @@ export function resolveHeist(state) {
     d.left = 'runner';
     d.ranWith = lootItem(job, run.lootId).name;
     leaveCrew(state, run.id);
+    // They don't just vanish: they become someone to hunt down.
+    newRunner(state, d, d.ranWith, lootItem(job, run.lootId).value, rng);
     news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
   }
   for (const id of [...r.exposed, ...r.tipped]) {
@@ -795,12 +812,19 @@ export function payCrew(state, pct) {
   book(state, 'pay', -share);
   a.cut = pct;
   a.paid = share;
+  // What you pay is what you're known for: generous or tight, soft or hard.
+  if (a.received > 0) {
+    const [gen, hard] = CUT_REPUTE[pct];
+    addGenerosity(state, gen);
+    addHardness(state, hard);
+  }
+  const warmth = Math.round(crewFeeling(state).warmth);
   for (const id of owed) {
     const d = state.dogs[id];
     let delta = a.received > 0 ? cut.rel : pct > 0 ? cut.rel : -2;
     if (d.quirks.includes('greedy') && pct < 45) { delta -= 8; if (!d.known.quirks.includes('greedy')) d.known.quirks.push('greedy'); }
     if (r.outcome !== 'bust' && r.outcome !== 'aborted') { d.wins += 1; delta += 5; }
-    addRelation(d, delta);
+    addRelation(d, delta + warmth);
   }
   finishGrade(state);
   a.step = 'grade';
@@ -835,7 +859,6 @@ function finishGrade(state) {
   const g = gradeJob(state);
   a.grade = g;
   let rep = REP_FOR[g.letter];
-  if (a.cut === 0 && a.received > 0) rep -= 4;
   if (state.result.runners.length) rep -= 2;
   a.repDelta = rep;
   addRep(state, rep);
@@ -844,7 +867,7 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
-  a.rivals = rivalsAfterJob(state, rngOf(state));
+  a.rivals = [...rivalsAfterJob(state, rngOf(state)), ...runnersAfterJob(state)];
   closeBooks(state, state.job.name, g.letter);
   state.history.unshift(buildRecap(state));
   state.history.length = Math.min(state.history.length, HISTORY_MAX);
@@ -879,21 +902,10 @@ function headline(state) {
 }
 
 // ------------------------------------------------------------------ aftermath extras
-export function lawyer(state, id) {
-  const d = state.dogs[id];
-  if (!d || d.status !== 'pound') return fail('Not in the pound.');
-  const cost = 150;
-  if (!spend(state, cost, 'pound')) return fail(`A brief costs £${cost}.`);
-  d.sentence -= 1;
-  addRelation(d, 8);
-  if (d.sentence <= 0) {
-    d.status = 'free';
-    d.sentence = 0;
-    addRelation(d, 10);
-    return done(`Your brief gets ${shortName(d)} out on a technicality. Grateful doesn't cover it.`);
-  }
-  return done(`${shortName(d)}'s sentence is cut to ${d.sentence} job${d.sentence > 1 ? 's' : ''}. They won't forget it.`);
-}
+export const payHospitalBill = (state, id) => payHospital(state, state.dogs[id]);
+
+// A brief cuts a sentence, never by more than half (see justice.js).
+export const lawyer = (state, id) => hireBrief(state, state.dogs[id]);
 
 // Word travels: every dog you know feels a little better or worse about you.
 function nudgeKnownDogs(state, delta, exceptId) {
@@ -914,6 +926,7 @@ export function farm(state, id) {
   }
   state.pub = state.pub.filter((x) => x !== id);
   state.stats.farmed += 1;
+  addHardness(state, d.undercover ? 5 : 15);
   if (d.undercover) {
     // Word gets round that you dealt with a copper. The underworld approves.
     d.known.undercover = true;
@@ -947,6 +960,10 @@ export function nextJob(state) {
         d.sentence = 0;
         news(state, `${displayName(d)} is out of the pound${d.talked ? '. Nobody buys them a drink.' : ' and back at the bar.'}`);
       }
+    }
+    if (d.status === 'hospital' && !walkedAway) {
+      const out = recover(state, d, state.job?.id);
+      if (out) news(state, out);
     }
   }
   if (state.phase === 'plan') {
@@ -984,6 +1001,7 @@ export function nextJob(state) {
   if (move) news(state, `🕵️ ${move.title}.`);
   const rival = rivalsBetweenJobs(state, rng, { genJob });
   if (rival) news(state, `${rival.title}.`);
+  for (const e of runnersBetweenJobs(state, rng)) news(state, `💨 ${e}`);
   refreshPub(state, rng);
   state.phase = 'select';
   checkGameOver(state);
