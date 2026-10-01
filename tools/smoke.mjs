@@ -792,13 +792,16 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
     window.cd.spawn('retire');
     window.cd.teleport('select');
   });
-  check(await page.locator('main .nest.ready [data-act="retire"]').count() === 1, 'the nest egg is full: retire is on offer');
-  await page.locator('main .nest').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  check(await page.locator('main .retire-note').count() === 1, 'the job board says you can retire');
+  await page.locator('main .retire-note').evaluate((e) => e.scrollIntoView({ block: 'start' }));
   await page.evaluate(() => window.scrollBy(0, -80));
   await shot(page, 'nest-egg');
-  await tap(page, 'main [data-act="retire"]');
+  await tap(page, 'main .retire-note');
+  check(await page.locator('.modal [data-act="retire"]').count() === 1, 'the 💷 pane has the nest egg and the retire button');
+  await shot(page, 'nest-egg-pane');
+  await tap(page, '.modal [data-act="retire"]');
   check(await page.evaluate(() => window.cd.getState().over === null), 'one tap only asks');
-  await tap(page, 'main [data-act="retire"]');
+  await tap(page, '.modal [data-act="retire"]');
   st = await page.evaluate(() => window.cd.getState());
   check(st.over?.reason === 'retired' && st.over.epilogues.length >= 4, `retired, with ${st.over?.epilogues?.length} epilogues`);
   check(await page.locator('main .epilogue').count() === st.over.epilogues.length, 'the ending shows every epilogue');
@@ -883,6 +886,58 @@ console.log('1q. A runner hunted down and forgiven; amends with a crossed outfit
   const pane = (await page.locator('.modal').innerText()).toLowerCase();
   check(pane.includes('track record') && pane.includes('generosity') && pane.includes('soft or hard'), 'the reputation pane shows its sides');
   await shot(page, 'pane-rep-sides');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1r. the pound and the hospital
+console.log('1r. One nicked, one hurt: pay the hospital bill, and a brief that can only cut so much');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=81`);
+  await page.waitForFunction(() => window.cd);
+  const ids = await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const S = await import('/src/sim.js');
+    window.cd.setSeed(81);
+    window.cd.teleport('plan');
+    const s = window.cd.live();
+    s.cash += 9000;
+    const [a, b] = s.pub.filter((id) => !s.dogs[id].undercover).slice(0, 2);
+    E.hire(s, a);
+    E.hire(s, b);
+    s.dogs[a].record = 3;
+    s.result = S.blankResult(s.crew, { secured: s.job.loot.map((l) => l.id), escaped: [], captured: [{ id: a, talked: false, sentence: 6 }], hurt: [{ id: b, jobs: 3, skill: 'agility' }], outcome: 'messy' });
+    s.phase = 'heist';
+    E.resolveHeist(s);
+    window.cd.teleport('aftermath');
+    return { nicked: a, hurt: b };
+  });
+  const events = await page.locator('main .events').innerText();
+  check(events.includes('in hospital for 3 jobs') && events.includes('previous'), 'the aftermath says who\'s in hospital and who went down, and why');
+  await page.locator('main [data-act="pay-hospital"]').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'aftermath-hospital');
+  await tap(page, 'main [data-act="pay-hospital"]');
+  check(await page.evaluate((id) => window.cd.live().dogs[id].hospital.paid, ids.hurt), 'hospital bill paid with a tap');
+  // Through to the job board, then the crew tab.
+  await page.evaluate(async () => { const E = await import('/src/engine.js'); const s = window.cd.live(); if (s.after.step === 'deliver') E.deliver(s); if (s.after.step === 'fence') E.fence(s, 'hal'); E.payCrew(s, 30); E.nextJob(s); s.story = []; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="crew"]');
+  const crewText = await page.locator('main').innerText();
+  check(crewText.includes('In Hospital') && crewText.includes('In the Pound'), 'the crew tab lists the hospital and the pound');
+  await tap(page, `main .dog-card[data-id="${ids.nicked}"]`);
+  let briefs = 0;
+  while (briefs < 6 && await page.locator('.modal [data-act="lawyer"]').count()) { await tap(page, '.modal [data-act="lawyer"]'); briefs++; }
+  const left = await page.evaluate((id) => window.cd.live().dogs[id], ids.nicked);
+  check(left.status === 'pound' && left.sentence >= Math.ceil(left.sentenceStart / 2) && briefs >= 1, `briefs cut the sentence (${briefs} taps) but they still serve ${left.sentence} of ${left.sentenceStart}`);
+  check((await page.locator('.modal').innerText()).includes('No brief can shorten it'), 'the profile says no brief can shorten it further');
+  await shot(page, 'pound-brief-limit');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, `main .dog-card[data-id="${ids.hurt}"]`);
+  check((await page.locator('.modal').innerText()).includes('A bad knee'), 'the profile shows the lasting injury');
+  await shot(page, 'hospital-profile');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

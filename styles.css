@@ -251,7 +251,8 @@ p { margin: 0 0 8px; }
 .dm-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 .dm-chips .muted { font-size: 13px; }
 .dm-chips .chip { font-size: 12px; padding: 2px 8px; }
-.dm-traits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dm-traits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dm-trait b.bad { color: #8a2419; }
 .dm-trait { background: rgba(255, 255, 255, .35); border: 1px solid var(--paper-3); border-radius: 8px; padding: 4px 8px; display: flex; flex-direction: column; font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em; }
 .dm-trait b { font-size: 14px; color: var(--ink); text-transform: none; letter-spacing: 0; }
 .dm-actions {
@@ -279,13 +280,11 @@ p { margin: 0 0 8px; }
 .plan-step.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
 .kit.locked { opacity: .7; }
-.nest { margin-bottom: 10px; }
+.retire-btn { margin: 4px 0 12px; }
+.retire-note { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 12px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--brass); background: #fbf1d6; color: var(--ink); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.retire-note span { white-space: nowrap; }
 .debt-note { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 12px; padding: 10px 12px; border-radius: 12px; border: 2px solid #b8372e; background: #fbe3df; color: #5a1610; font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
 .debt-note span { white-space: nowrap; }
-.nest .v { font-family: system-ui, sans-serif; font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.nest .row b { white-space: nowrap; }
-.nest .meter { margin: 8px 0 6px; }
-.nest.ready { box-shadow: 0 0 0 3px var(--brass), 0 0 18px rgba(233, 196, 106, .6); }
 .epilogue { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px dashed var(--paper-3); }
 .epilogue:last-child { border-bottom: 0; }
 .epilogue p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; }

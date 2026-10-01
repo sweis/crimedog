@@ -177,21 +177,13 @@ function jobTraits(job) {
   return chips.join('');
 }
 
-// The long game: enough put away to retire.
-function nestEgg(s) {
-  const pct = Math.min(100, Math.round((100 * Math.max(0, s.cash)) / RETIRE.goal));
-  const ready = s.cash >= RETIRE.goal;
-  return `<section class="card nest ${ready ? 'ready' : ''}"><div class="row spread"><b>🏝️ The Nest Egg</b><span class="v">${pct}%</span></div>
-    <div class="meter ${ready ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${pct}%"></i></div>
-    <div class="muted"><b>${money(s.cash)}</b> of ${money(RETIRE.goal)}. ${ready ? `Enough to retire to ${RETIRE.place}. Or one more job...` : `Put it away and retire to ${RETIRE.place}.`}</div>
-    ${ready ? '<button class="btn block mt" data-act="retire">🏝️ Retire for good</button>' : ''}</section>`;
-}
 
 function selectScreen(G) {
   const s = G.state;
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
   let h = `<div class="row spread"><h2>The Job Board</h2><button class="chip dark" data-act="pane" data-pane="day">📅 Day ${s.day}</button></div>`;
-  h += nestEgg(s);
+  // The nest egg lives in the 💷 pane; the board only says so once it's full.
+  if (s.cash >= RETIRE.goal) h += `<button class="retire-note" data-act="pane" data-pane="cash">🏝️ Enough put away to retire to ${esc(RETIRE.place)} <span>→ 💷</span></button>`;
   // Debts have deadlines: a reminder here, the details on the Players page.
   if (debts.length) h += `<button class="debt-note" data-act="go" data-to="players">📜 You owe ${debts.map((g) => `${GROUPS[g].emblem} ${money(s.groups[g].debt.amount)}`).join(', ')} <span>→ Players</span></button>`;
   for (const o of s.offers) {
@@ -955,7 +947,7 @@ function dogModal(G, d) {
   const undercover = roleChip(d) + (d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '')
     + (arc ? `<span class="chip info">📖 ${esc(ARCS[arc.kind].title)}</span>` : '') + dramaChips(d).join('');
   const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'hospital' ? `in hospital (${d.hospital.jobs})` : d.status === 'crew' ? 'on your crew' : d.status;
-  const record = `<span class="chip ${recordOf(d) >= 3 ? 'bad' : ''}">📁 ${esc(recordLabel(d))}</span>` + (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
+  const record = (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
 
   // Actions: one primary, then compact secondaries.
   const primary = [];
@@ -988,7 +980,7 @@ function dogModal(G, d) {
     <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
-    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}</div>
+    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}<div class="dm-trait" title="${esc(recordLabel(d))}"><span>Record</span><b class="${recordOf(d) >= 3 ? 'bad' : ''}">${recordOf(d) ? `${recordOf(d)} prev.` : 'Clean'}</b></div></div>
     <div class="dm-chips">${undercover}${record}${quirks}</div>
     <div class="dm-actions">${actions}</div>`;
 }

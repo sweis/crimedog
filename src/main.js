@@ -201,6 +201,7 @@ const A = {
       return;
     }
     G.ui.confirmRetire = false;
+    G.ui.modal = null;
     run(E.retireNow);
   },
   'walk-away'(el) {

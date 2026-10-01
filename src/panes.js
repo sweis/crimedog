@@ -41,8 +41,10 @@ function cashPane(s) {
     ? columnChart(recent.map((j) => ({ label: j.label, value: j.net, tip: `${j.label}: ${signed(j.net)}` })), { fmt: short, caption: 'Profit or loss per job. Tap a column.' })
     : '<p class="muted">Finish a job to see how it paid.</p>';
   return `<h2>💷 The Books</h2>
-    <div class="hero-fig">${money(s.cash)}<small>of ${money(RETIRE.goal)} to retire</small></div>
+    <div class="hero-fig">${money(s.cash)}</div>
     <div class="meter ${s.cash >= RETIRE.goal ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${Math.min(100, Math.max(0, (100 * s.cash) / RETIRE.goal))}%"></i></div>
+    <p class="muted">🏝️ The nest egg: ${Math.min(100, Math.floor((100 * Math.max(0, s.cash)) / RETIRE.goal))}% of ${money(RETIRE.goal)}. ${s.cash < RETIRE.goal ? `Put it away and retire to ${RETIRE.place}.` : s.phase === 'select' ? `Enough to retire to ${RETIRE.place}. Or one more job...` : 'Enough to retire. Finish this job first.'}</p>
+    ${s.cash >= RETIRE.goal && s.phase === 'select' ? '<button class="btn block retire-btn" data-act="retire">🏝️ Retire for good</button>' : ''}
     <div class="tiles"><div class="tile"><span>Earned</span><b>${money(earned)}</b></div><div class="tile"><span>Spent</span><b>${money(-spent)}</b></div><div class="tile"><span>Jobs</span><b>${b.jobs.length}</b></div></div>
     <div class="legend"><span><i style="background:${UP}"></i>Profit</span><span><i style="background:${DOWN}"></i>Loss</span></div>
     ${chart}

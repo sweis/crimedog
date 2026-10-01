@@ -14,6 +14,12 @@ being betrayed out by disloyal crew, being overpowered by guards, or leaving too
 on their traits, they may reveal the plan or not. That doesn't guarantee the heist fails, but reveals information to investigators and gives them an advantage in catching the rest of
 the crew.
 
+Every crew member carries a criminal record. The longer it is, the longer they go down for, and each conviction adds to it.
+The mastermind can pay a brief to cut a sentence, a job at a time, but never by more than half: time is always served.
+
+Crew hurt on a job usually go to hospital rather than straight to the farm, out of play for a few jobs; some injuries last
+and take a point off a skill. Paying the hospital bill keeps them loyal; leaving them with it doesn't.
+
 Crew are also not guaranteed to succeed in a planned step and may fail. If that occurs, the plan will go "Pear Shaped" and crew members will improvise and try to succeed. There will be
 an element of chaos that is unpredictable how it turns out and heists may end up being partial successes, e.g. some of the loot is recovered or some of the crew is arrested. Crew
 members who stay loyal will be sent to the pound to do their time. The mastermind will be able to help them by sending money to reduce their sentences. 
@@ -135,7 +141,7 @@ do them a hard job for nothing. Done, they're back on side; botched, it's worse.
 ### Retirement
 
 The long game is the nest egg: put away a large sum (£100,000, many good jobs' worth) and the mastermind can retire to the Costa
-del Bone, ending the game. The ending tells a few epilogues: the closest crew member comes too, a runner is tracked down or a
+del Bone, ending the game. Progress and the retire button live in the money (💷) pane; the job board only mentions it once it's full. The ending tells a few epilogues: the closest crew member comes too, a runner is tracked down or a
 farm is visited to pay respects, a star who worked with you drops in, and a word on the rivals and the Inspector.
 
 ### Casing, roles and special kit
