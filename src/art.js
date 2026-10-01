@@ -255,6 +255,8 @@ export function venueSVG(job, opts = {}) {
   const rng = makeRng({ s: hashString(job.id + job.venueName) });
   const day = job.time === 'day';
   const mood = { day, tone: rng.pick(['night', 'night', 'dusk', 'deep']), weather: rng.pick(['rain', 'rain', 'fog', 'clear', 'drizzle']) };
+  if (job.twist === 'fog') mood.weather = 'fog';
+  if (job.twist === 'storm') mood.weather = 'rain';
   let s = sky(u, W, H, rng, mood);
   s += rooftops(W, ground - 20, rng, day ? '#6e7f9e' : '#131c33', 30, 70);
   s += rooftops(W, ground, rng, day ? '#566682' : '#0e1528', 16, 44);
@@ -283,6 +285,10 @@ export function venueSVG(job, opts = {}) {
     const n = mood.weather === 'rain' ? 46 : 20;
     for (let i = 0; i < n; i++) { const x = rng.float(0, W), y = rng.float(0, H); rain += `M${f1(x)} ${f1(y)} l-3 10 `; }
     s += `<path d="${rain}" stroke="#bcd3f5" stroke-opacity="${day ? 0.3 : 0.18}" stroke-width=".8"/>`;
+  }
+  if (job.twist === 'storm') {
+    const bx = rng.float(40, W - 40);
+    s += `<rect width="${W}" height="${H}" fill="#dfe8ff" opacity=".07"/><path d="M${f1(bx)} 0 l-8 22 l7 -2 l-10 26 l6 -2 l-9 22" stroke="#fff6c8" stroke-width="2" fill="none" stroke-linejoin="round" opacity=".9"/>`;
   }
   return `<svg class="venue-art ${opts.compact ? 'compact' : ''}" viewBox="0 0 ${W} ${H}" ${opts.compact ? 'preserveAspectRatio="xMidYMid slice"' : ''} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(job.venueName)} ${day ? 'by day' : 'at night'}">${s}</svg>`;
 }

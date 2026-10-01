@@ -1,6 +1,6 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD } from './data.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS } from './data.js';
 import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
@@ -60,6 +60,8 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
   if (stage.id === 'obs_guards' && job.insider) d -= 1;
   d += specialKitBonus(kit, job, stage, a);
   d += moPenalty(state, approachId); // the Inspector has briefed security on your favourite tricks
+  const tw = TWISTS[job.twist]?.mods;
+  if (tw) d += (tw.skills?.[a.skill] || 0) + (tw.stages?.[stage.id] || 0) + (tw.kinds?.[stage.kind] || 0);
   return d;
 }
 
@@ -281,7 +283,7 @@ export function simulate(state, job, rng) {
       if (skillTalent(t, a.skill)) learn(dog, 'talents', t);
     }
     // Noise & clues
-    let noise = ok ? a.noise : a.failNoise;
+    let noise = Math.max(0, (ok ? a.noise : a.failNoise) + (TWISTS[job.twist]?.noise || 0));
     if (ok && a.skill === 'muscle' && hasSpecial(dog, 'loud')) noise += 1;
     if (ok && (hasSpecial(dog, 'hothead') || has('postmen')) && stage.kind === 'obstacle') {
       noise += 1;

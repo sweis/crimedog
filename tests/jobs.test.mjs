@@ -179,3 +179,40 @@ test('every kind of job plays through, and a good crew can pull each one off', (
     assert.ok(wins >= 12, `${type}: ${JSON.stringify(outcomes)}`);
   }
 });
+
+test('twists: common, fitting, and they change the job', async () => {
+  const { TWISTS } = await import('../src/data.js');
+  const seen = {};
+  let n = 0;
+  for (const t of Object.keys(JOB_TYPES)) {
+    for (const { job } of jobsOf(t, 60)) {
+      n++;
+      if (!job.twist) continue;
+      seen[job.twist] = (seen[job.twist] || 0) + 1;
+      const T = TWISTS[job.twist];
+      assert.ok(!T.types || T.types.includes(t), `${job.twist} on ${t}`);
+      if (job.twist === 'rush') assert.equal(job.daysLeft, 2);
+      if (job.twist === 'bigger') assert.equal(job.base, 2 + job.tier + 1);
+      if (job.twist === 'rivals') assert.ok(ids(job).includes('obs_rivals'));
+      if (job.twist === 'grudge') assert.ok(Object.values(job.intel).filter(Boolean).length >= 2);
+    }
+  }
+  const rate = Object.values(seen).reduce((a, b) => a + b, 0) / n;
+  assert.ok(rate > 0.35 && rate < 0.65, `twist rate ${rate}`);
+  for (const k of Object.keys(TWISTS)) assert.ok(seen[k], `${k} turns up`);
+  // A pea-souper makes sneaking easier and driving harder.
+  const s = E.newGame(4);
+  const job = genJob(s, makeRng({ s: 2 }), { type: 'breakin', twist: 'fog' });
+  const plain = genJob(s, makeRng({ s: 2 }), { type: 'breakin', twist: null });
+  const gw = job.stages.find((st) => st.kind === 'getaway');
+  const wheels = gw.options.find((ap) => APPROACHES[ap].skill === 'wheels') || 'g_barge';
+  const { difficulty } = await import('../src/sim.js');
+  assert.equal(difficulty(s, job, gw, wheels) - difficulty(s, plain, plain.stages.find((st) => st.kind === 'getaway'), wheels), 1);
+});
+
+test('no two break-ins alike: steps and options vary from job to job', () => {
+  const shapes = new Set(jobsOf('breakin', 40).map(({ job }) => job.stages.filter((st) => !st.hidden).map((st) => `${st.id}:${st.options.slice().sort().join(',')}`).join('|')));
+  assert.ok(shapes.size >= 38, `${shapes.size}/40 distinct`);
+  const obstacles = new Set(jobsOf('breakin', 80).flatMap(({ job }) => job.stages.filter((st) => st.kind === 'obstacle' && !st.hidden).map((st) => st.id)));
+  for (const o of ['obs_guards', 'obs_cameras', 'obs_lasers', 'obs_motion', 'obs_watchman', 'obs_gate', 'obs_glassfloor']) assert.ok(obstacles.has(o), o);
+});

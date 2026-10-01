@@ -627,6 +627,14 @@ export const APPROACHES = {
   n_lasso: { label: 'Lasso the guard\'s whistle', skill: 'aim', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistle gone before he can blow it.', fail: 'He blows it. Loudly.' },
   n_hide: { label: 'Hide in the mail sacks', skill: 'sneak', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'The railway police walk past the sacks. The sacks hold their breath.', fail: 'One of the sacks sneezes.' },
   n_overalls: { label: 'Overalls on: "Track maintenance"', skill: 'disguise', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: '"Evening, lads." "Evening, officer." They wave the railway police by.', fail: 'Track maintenance doesn\'t carry mail sacks.' },
+  // ---- Twists
+  o_rivalfight: { label: 'Settle it the old-fashioned way', skill: 'muscle', mod: 0, noise: 2, failNoise: 3, clues: 1, ok: 'Two crews, one vault. {d} settles it. The other lot leave by the window.', fail: 'The other crew have a {d} of their own. A bigger one.' },
+  o_rivaldeal: { label: 'Do a deal in the dark', skill: 'charm', mod: 0, noise: 0, failNoise: 2, clues: 1, ok: '"You take the left side, we take the right." A gentleman\'s agreement.', fail: '"No deal." Torches come on. Everyone\'s shouting.' },
+  o_rivalwait: { label: 'Let them do the hard work, then follow', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'The other crew open every door. {d} follows quietly behind.', fail: 'The other crew turn round. Awkward.' },
+  o_rivalgrass: { label: 'Ring the police about THEM', skill: 'disguise', mod: 0, noise: 1, failNoise: 2, clues: 0, ok: '"A concerned neighbour" makes a call. The police take the other lot away. Then leave.', fail: 'The police come for the other lot. And stay for a look round.' },
+  c_storerent: { label: 'Rent a room and fit it out as a bookies', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 1, ok: 'A fake bookies, ticker tape and all. The mark will think it\'s real.', fail: 'The landlord wants to know why a bookies needs blackout curtains.' },
+  c_storeextras: { label: 'Hire extras to play the punters', skill: 'disguise', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'Twenty extras in flat caps, cheering on cue. Very convincing.', fail: 'One of the extras waves at the mark. He\'s his cousin.' },
+  c_storewire: { label: 'Rig a fake results wire', skill: 'tech', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: 'The results come in ten minutes early. Only the mark doesn\'t know.', fail: 'The wire crackles and reads out the shipping forecast.' },
   n_trolley: { label: 'Off down the line on a handcar', skill: 'wheels', mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'Pump, pump, pump into the night.', fail: 'The handcar has a puncture. Somehow.' },
 };
 
@@ -700,6 +708,24 @@ export const OBSTACLES = {
   heavies: { label: 'The Bookie\'s Heavies', icon: '🦍', options: ['k_heavies', 'k_outrun', 'k_slip'], hazard: true },
   guardvan: { label: 'The Guard\'s Van', icon: '🛤️', options: ['n_guardvan', 'n_chat', 'n_lasso'], hazard: true },
   railpolice: { label: 'The Railway Police', icon: '👮', options: ['n_hide', 'n_overalls', 'n_trolley'], hazard: true },
+  rivals: { label: 'The Other Crew', icon: '🦹', options: ['o_rivalfight', 'o_rivaldeal', 'o_rivalwait', 'o_rivalgrass'] },
+};
+
+// Twists: one per job, sometimes, so the same kind of job plays differently.
+// mods: difficulty by skill, stage id or stage kind; noise: extra (or less) noise on success.
+// types: which kinds of job it can happen on (all if missing).
+const NIGHT = ['breakin', 'swap', 'smash', 'van', 'tunnel', 'roof', 'train', 'fix'];
+export const TWISTS = {
+  storm: { label: 'A Storm Tonight', icon: '⛈️', blurb: 'Thunder covers the noise. The roads are a mess.', types: NIGHT, noise: -1, mods: { kinds: { getaway: 1 }, skills: { agility: 1 } } },
+  fog: { label: 'A Pea-Souper', icon: '🌫️', blurb: 'Thick fog. Easy to sneak, hard to drive or aim.', types: NIGHT, mods: { skills: { sneak: -1, wheels: 1, aim: 1 } } },
+  party: { label: 'A Party Upstairs', icon: '🥂', blurb: 'The place is heaving. Charm and disguise are easier; sneaking is harder.', types: ['breakin', 'swap', 'roof', 'con', 'fix'], mods: { skills: { charm: -1, disguise: -1, sneak: 1 } } },
+  powercut: { label: 'A Planned Power Cut', icon: '🔌', blurb: 'The power goes off at midnight. Cameras, lasers and sensors are easy; anything electric is hard.', types: ['breakin', 'swap', 'roof', 'tunnel'], mods: { stages: { obs_cameras: -2, obs_lasers: -2, obs_motion: -2 }, skills: { tech: 1 } } },
+  doubled: { label: 'Double Shift', icon: '👮', blurb: 'Twice the guards tonight.', types: ['breakin', 'swap', 'van', 'train'], needs: 'obs_guards', mods: { stages: { obs_guards: 2 } } },
+  holiday: { label: 'Bank Holiday', icon: '🏖️', blurb: 'Everyone\'s away. Fewer people to dodge, but nobody to blend in with.', types: ['breakin', 'swap', 'tunnel', 'roof', 'fraud', 'hack'], mods: { skills: { sneak: -1, disguise: 1, charm: 1 } } },
+  rush: { label: 'Moving Tomorrow', icon: '⏰', blurb: 'The goods move soon. Only two days to plan.' },
+  bigger: { label: 'A Bigger Haul', icon: '💰', blurb: 'More in there than usual. More security too: every step +1.' },
+  rivals: { label: 'Another Crew', icon: '🦹', blurb: 'Someone else is hitting it the same night. You\'ll have to deal with them.', types: ['breakin', 'swap', 'tunnel', 'roof', 'van', 'train'] },
+  grudge: { label: 'An Inside Grudge', icon: '😤', blurb: 'Someone on the staff hates the boss. They\'ve already told you a thing or two.' },
 };
 
 // Specialist steps: every option uses one skill, and anyone below `min` in it is out of their depth.
