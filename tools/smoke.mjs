@@ -510,6 +510,83 @@ console.log('1l. Heist history: share a heist from the aftermath, read it back o
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1m. top-bar panes & help
+console.log('1m. Top bar: tap each stat for its pane; help from the title and the top bar');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  // Cold: help from the title screen, before there's a game.
+  await page.goto(BASE);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await tap(page, '.title-actions [data-act="help"]');
+  check(await page.locator('.modal details.help').count() >= 6, 'help opens from the title screen');
+  await tap(page, '.modal details.help:nth-of-type(2) summary');
+  check(await page.locator('.modal details.help[open]').count() === 2, 'a help section opens on tap');
+  await shot(page, 'help-title');
+  await tap(page, '.modal [data-act="close-modal"]');
+  check(await page.locator('.modal').count() === 0, 'help closes back to the title');
+  // A few jobs in, so the charts have something to draw.
+  await page.goto(`${BASE}?hooks=1&seed=29`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    window.cd.setSeed(29);
+    const s = window.cd.live();
+    for (let j = 0; j < 5; j++) {
+      window.cd.teleport('plan');
+      s.cash += 800;
+      for (const id of s.pub.slice(0, 3)) E.hire(s, id);
+      E.autoPlan(s);
+      E.pullJob(s);
+      E.resolveHeist(s);
+      if (s.after.step === 'deliver') E.deliver(s);
+      if (s.after.step === 'fence') E.fence(s, 'hal');
+      E.payCrew(s, s.after.received ? 30 : 0);
+      E.nextJob(s);
+      s.story = [];
+    }
+    window.cd.teleport('select');
+  });
+  const st = await page.evaluate(() => window.cd.getState());
+  check(st.books.jobs.length >= 5 && st.timeline.length === st.books.jobs.length + 1, `books kept for ${st.books.jobs.length} jobs, timeline ${st.timeline.length}`);
+  await tap(page, '.topbar [data-pane="cash"]');
+  const cols = await page.locator('.modal .chart [data-act="tip"]').count();
+  check(cols === Math.min(12, st.books.jobs.length), `the books chart one column per job (${cols})`);
+  const pl = await page.locator('.modal details.pl').count();
+  check(pl === st.books.jobs.length, `job-by-job P&L rows (${pl})`);
+  await tap(page, '.modal .chart [data-act="tip"]:last-of-type');
+  const tip = await page.locator('.modal .chart-tip').innerText();
+  check(tip.startsWith(st.books.jobs[0].label), `tapping the latest column names it (${tip})`);
+  await shot(page, 'pane-cash');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, '.topbar [data-pane="rep"]');
+  check(await page.locator('.modal .chart polyline').count() === 1 && (await page.locator('.modal .hero-fig').innerText()).startsWith(String(st.rep)), 'reputation pane: line chart and the current rep');
+  await shot(page, 'pane-rep');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, '.topbar [data-pane="heat"]');
+  const meter = await page.locator('.modal .meter').getAttribute('aria-valuenow');
+  check(meter === String(st.heat) && await page.locator('.modal .chart polyline').count() === 1, `Inspector pane: meter at ${meter}, line chart`);
+  await shot(page, 'pane-heat');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, '.topbar [data-pane="day"]');
+  check(await page.locator('.modal .news li').count() > 0, 'the day book lists the news');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, '.topbar [data-act="help"]');
+  check(await page.locator('.modal details.help').count() >= 6, 'help opens from the top bar');
+  await shot(page, 'help-topbar');
+  // Nothing in the top bar spills off a small phone.
+  await page.setViewportSize({ width: 360, height: 700 });
+  await tap(page, '.modal [data-act="close-modal"]');
+  const spill = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  check(spill <= 0, `top bar fits at 360px with no sideways scroll (${spill})`);
+  await shot(page, 'topbar-360');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

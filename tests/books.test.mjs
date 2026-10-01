@@ -29,3 +29,27 @@ test('each job closes its books and adds a point to the timeline', () => {
   assert.ok(s.books.jobs.some((j) => (j.items.fence || 0) + (j.items.commission || 0) > 0), 'something was earned');
   assert.ok(s.books.jobs.some((j) => j.items.crew < 0), 'crew were hired');
 });
+
+test('the top bar panes and help render cleanly, and the charts end where things stand now', async () => {
+  const { paneModal, helpModal } = await import('../src/panes.js');
+  for (const seed of [1, 2, 3, 4, 5]) {
+    for (const jobs of [0, 1, 12]) {
+      const { s } = career(seed, seed % 2 ? 'smart' : 'reckless', jobs);
+      for (const which of ['cash', 'rep', 'heat', 'day']) {
+        const html = paneModal({ state: s }, which);
+        assert.ok(html.length > 100, which);
+        assert.doesNotMatch(html, /undefined|NaN|\[object/, `${which} seed ${seed} jobs ${jobs}`);
+      }
+      // The latest point on each line is the number in the top bar.
+      for (const [which, key] of [['rep', 'rep'], ['heat', 'heat']]) {
+        const html = paneModal({ state: s }, which);
+        const labels = [...html.matchAll(/font-weight="700"[^>]*>(-?\d+)<\/text>/g)].map((m) => Number(m[1]));
+        if (s.timeline.length > 1) assert.equal(labels.at(-1), s[key], `${which} seed ${seed}`);
+      }
+      // Cash columns: one per job, up to 12.
+      const cols = (paneModal({ state: s }, 'cash').match(/data-act="tip"/g) || []).length;
+      assert.equal(cols, Math.min(12, s.books?.jobs.length ?? 0));
+    }
+  }
+  assert.ok((helpModal().match(/<details class="help"/g) || []).length >= 6);
+});

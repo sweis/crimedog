@@ -241,6 +241,13 @@ const A = {
     else if (how !== 'cancelled') toast('Sharing isn\'t available here. Long-press the card to save it.', true);
   },
   'history'() { G.ui.modal = { type: 'history' }; G.render(); },
+  'help'() { G.ui.modal = { type: 'help' }; G.render(); },
+  'pane'(el) { G.ui.modal = { type: 'pane', pane: el.dataset.pane }; G.render(); },
+  // Tapping a chart mark shows its value in the chart's caption (phones can't hover).
+  'tip'(el) {
+    const cap = el.closest('.chart')?.querySelector('.chart-tip');
+    if (cap) cap.textContent = el.dataset.text;
+  },
   'recap'(el) { G.ui.modal = { type: 'recap', i: Number(el.dataset.i) }; G.render(); },
   'plan-ap'(el) {
     const st = el.dataset.stage;

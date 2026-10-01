@@ -8,6 +8,7 @@ import { visibleStages, lootItem } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
 import { canShareFiles, FATES } from './card.js';
 import { ARCS, sceneChoices } from './drama.js';
+import { helpModal, paneModal } from './panes.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
 
@@ -57,11 +58,13 @@ export function render(G) {
 
 function topbar(G) {
   const s = G.state;
+  // Each stat opens a pane with the story behind the number.
   return `<header class="topbar"><div class="topbar-row"><div class="logo"><span class="full">CRIMEDOG</span><span class="short">🐕</span></div><div class="stats">
-    <span class="stat" title="Cash">💷 <b>${money(s.cash)}</b></span>
-    <span class="stat" title="Reputation">⭐ <b>${s.rep}</b></span>
-    <span class="stat ${s.heat >= 60 ? 'hot' : ''}" title="The Inspector's heat">🕵️ <b>${s.heat}</b></span>
-    <span class="stat" title="Day">📅 <b>${s.day}</b></span>
+    <button class="stat" data-act="pane" data-pane="cash" aria-label="Cash: the books">💷 <b>${money(s.cash)}</b></button>
+    <button class="stat" data-act="pane" data-pane="rep" aria-label="Reputation">⭐ <b>${s.rep}</b></button>
+    <button class="stat ${s.heat >= 60 ? 'hot' : ''}" data-act="pane" data-pane="heat" aria-label="The Inspector's heat">🕵️ <b>${s.heat}</b></button>
+    <button class="stat" data-act="pane" data-pane="day" aria-label="Day ${s.day}: the day book">📅 <b>${s.day}</b></button>
+    <button class="stat help-btn" data-act="help" aria-label="How to play">?</button>
   </div></div><div class="heatbar" title="The Inspector: ${esc(E.inspectorLabel(s.heat))}"><i style="width:${s.heat}%"></i></div></header>`;
 }
 
@@ -84,6 +87,7 @@ function titleScreen(G) {
     <div class="title-actions">
       ${hasSave ? '<button class="btn big block" data-act="continue">Continue</button>' : ''}
       <button class="btn big block ${hasSave ? 'ghost' : ''}" data-act="new-game">New Game</button>
+      <button class="btn ghost block" data-act="help">❓ How to play</button>
     </div>
   </section>`;
 }
@@ -747,8 +751,10 @@ function renderModal(G) {
   const root = document.getElementById('modal-root');
   let m = G.ui.modal;
   if (!m && G.state?.story?.length && currentScreen(G) === 'select') m = { type: 'story' };
-  document.body.classList.toggle('modal-open', !!(m && G.state));
-  if (!m || !G.state) { root.innerHTML = ''; return; }
+  // Help works from the title screen too, before there's a game.
+  const open = !!m && (!!G.state || m.type === 'help');
+  document.body.classList.toggle('modal-open', open);
+  if (!open) { root.innerHTML = ''; return; }
   if (m.type === 'story' && G.state.story[0].type === 'drama') {
     const st = G.state.story[0];
     const d = G.state.dogs[st.dog];
@@ -775,6 +781,8 @@ function renderModal(G) {
   else if (m.type === 'pick') inner = pickModal(G, m.purpose);
   else if (m.type === 'card') inner = cardModal(G);
   else if (m.type === 'history') inner = historyModal(G);
+  else if (m.type === 'help') inner = helpModal();
+  else if (m.type === 'pane') inner = paneModal(G, m.pane);
   else if (m.type === 'recap') inner = recapModal(G, m.i);
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
