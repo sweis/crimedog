@@ -258,6 +258,27 @@ let portraitUid = 0;
 // Layered, shaded portrait. Colour comes from flat fills; form comes from
 // shared overlay gradients (highlight top-left, shade bottom-right) so every
 // breed/coat gets the same lighting. Ids are unique per SVG instance.
+// Backdrops, chosen per dog (seeded) unless the caller asks for a plain colour.
+// Each is a base colour plus a pattern; dark ones get a spotlight behind the head.
+const BACKDROPS = {
+  damask: { base: '#efe3c8', dark: false, tile: [16, 16], draw: (c) => `<path d="M8 1 L15 8 L8 15 L1 8 Z" fill="none" stroke="${c}" stroke-width=".7" opacity=".28"/><circle cx="8" cy="8" r="1.4" fill="${c}" opacity=".22"/>`, ink: '#9c8556' },
+  brick: { base: '#b8694d', dark: true, tile: [20, 10], draw: (c) => `<path d="M0 .4H20M0 5.4H20M5 .4V5.4M15 5.4V10.4" stroke="${c}" stroke-width=".9" opacity=".55"/><rect x="1" y="1.2" width="3" height="1" fill="#fff" opacity=".07"/>`, ink: '#6d3423' },
+  lineup: { base: '#cfd3d9', dark: false, tile: [100, 10], draw: (c) => `<path d="M0 .5H100" stroke="${c}" stroke-width=".6" opacity=".55"/><path d="M0 .5H8M92 .5H100" stroke="${c}" stroke-width="1.4" opacity=".7"/>`, ink: '#4b5563' },
+  panel: { base: '#7c5034', dark: true, tile: [25, 100], draw: (c) => `<path d="M.5 0V100" stroke="${c}" stroke-width="1.2" opacity=".5"/><path d="M6 0 Q9 30 6 60 T7 100M15 0 Q12 35 16 70 T14 100" stroke="#fff" stroke-width=".5" fill="none" opacity=".09"/>`, ink: '#3e2615' },
+  baize: { base: '#2f6b4a', dark: true, tile: [4, 4], draw: () => '<circle cx="1" cy="1" r=".45" fill="#fff" opacity=".07"/><circle cx="3" cy="3" r=".45" fill="#000" opacity=".1"/>', ink: '#163a27' },
+  blueprint: { base: '#2c5a8f', dark: true, tile: [10, 10], draw: (c) => `<path d="M0 .3H10M.3 0V10" stroke="${c}" stroke-width=".5" opacity=".35"/>`, ink: '#9cc3ee' },
+  velvet: { base: '#5e2233', dark: true, tile: [14, 100], draw: () => '<rect width="7" height="100" fill="#fff" opacity=".05"/><rect x="7" width="7" height="100" fill="#000" opacity=".1"/>', ink: '#2e0f18' },
+};
+const BACKDROP_IDS = Object.keys(BACKDROPS);
+export const backdropOf = (dog) => BACKDROP_IDS[(dog.look?.seed ?? 0) % BACKDROP_IDS.length];
+
+// Jacket cloth, seeded per dog.
+const CLOTH = [
+  (c) => `<path d="M1.5 0V6" stroke="${c}" stroke-width=".35" opacity=".45"/>`, // pinstripe
+  (c) => `<path d="M0 0L6 6M6 0L0 6" stroke="${c}" stroke-width=".35" opacity=".3"/>`, // tweed
+  (c) => `<path d="M0 0L3 3L0 6M3 0L6 3L3 6" stroke="${c}" stroke-width=".35" fill="none" opacity=".3"/>`, // herringbone
+];
+
 export function portraitSVG(dog, opts = {}) {
   const b = BREEDS[dog.breed];
   const L = dog.look;
@@ -280,15 +301,29 @@ export function portraitSVG(dog, opts = {}) {
     <linearGradient id="${u}o" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(L.outfit, 0.12)}"/><stop offset="1" stop-color="${shade(L.outfit, -0.14)}"/></linearGradient>
     <linearGradient id="${u}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
     <radialGradient id="${u}d" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${u}sp" cx="50%" cy="42%" r="50%"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset=".7" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${u}v" cx="50%" cy="45%" r="75%"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>
+    <pattern id="${u}f" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(${(L.seed % 50) - 25})"><path d="M1 .5q.8 1.6 0 3.4M3.6 1.6q.8 1.6 0 3" stroke="${shade(coat, lum(coat) > 0.5 ? -0.32 : 0.28)}" stroke-width=".42" fill="none" stroke-linecap="round" opacity="${lum(coat) > 0.6 ? 0.28 : 0.42}"/></pattern>
+    <pattern id="${u}c" width="6" height="6" patternUnits="userSpaceOnUse">${CLOTH[L.seed % CLOTH.length](shade(L.outfit, lum(L.outfit) > 0.4 ? -0.4 : 0.45))}</pattern>
   </defs>`;
   if (opts.bg !== false) {
     const r = opts.round ? 50 : 14;
+    // A plain colour if the caller gives one; otherwise this dog's own backdrop.
+    const B = typeof opts.bg === 'string' ? null : BACKDROPS[backdropOf(dog)];
+    const base = typeof opts.bg === 'string' ? opts.bg : B.base;
+    s = s.replace(`stop-color="${opts.bg || '#efe3c8'}"/><stop offset="1" stop-color="${shade(opts.bg || '#efe3c8', -0.22)}"`, `stop-color="${shade(base, 0.08)}"/><stop offset="1" stop-color="${shade(base, -0.22)}"`);
     s += `<rect width="100" height="100" rx="${r}" fill="url(#${u}bg)"/>`;
-    // faint pinstripe wallpaper
-    s += `<path d="M20 0V100M40 0V100M60 0V100M80 0V100" stroke="#000" stroke-opacity=".035" stroke-width="3"/>`;
+    if (B) {
+      s = s.replace('</defs>', `<pattern id="${u}w" width="${B.tile[0]}" height="${B.tile[1]}" patternUnits="userSpaceOnUse">${B.draw(B.ink)}</pattern></defs>`);
+      s += `<rect width="100" height="100" rx="${r}" fill="url(#${u}w)"/>`;
+      if (B.dark) s += `<ellipse cx="50" cy="44" rx="44" ry="42" fill="url(#${u}sp)"/>`;
+      s += `<rect width="100" height="100" rx="${r}" fill="url(#${u}v)"/>`;
+    } else {
+      s += `<path d="M20 0V100M40 0V100M60 0V100M80 0V100" stroke="#000" stroke-opacity=".035" stroke-width="3"/>`;
+    }
   }
   // Body / outfit: jacket, lapels, shirt, soft shadow under the head
-  s += `<path d="M12 100 Q14 79 36 75 L64 75 Q86 79 88 100 Z" fill="url(#${u}o)" stroke="${shade(L.outfit, -0.3)}" stroke-width="1"/>`;
+  s += `<path d="M12 100 Q14 79 36 75 L64 75 Q86 79 88 100 Z" fill="url(#${u}o)" stroke="${shade(L.outfit, -0.3)}" stroke-width="1"/><path d="M12 100 Q14 79 36 75 L64 75 Q86 79 88 100 Z" fill="url(#${u}c)"/>`;
   s += `<path d="M40 75 L50 92 L60 75 Z" fill="#efe9dc"/><path d="M40 75 L50 92 L45 100 L33 78 Z M60 75 L50 92 L55 100 L67 78 Z" fill="${shade(L.outfit, -0.08)}" stroke="${shade(L.outfit, -0.3)}" stroke-width=".8"/>`;
   s += `<ellipse cx="50" cy="78" rx="22" ry="6" fill="url(#${u}d)"/>`;
   // Ears behind
@@ -331,7 +366,7 @@ export function portraitSVG(dog, opts = {}) {
   {
     let seed = L.seed * 7 + 3;
     const furCol = shade(coat, lum(coat) > 0.5 ? -0.25 : 0.2);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 12; i++) {
       seed = (seed * 9301 + 49297) % 233280;
       const a = Math.PI * (0.9 + 1.2 * (seed / 233280));
       const r = rx * 0.82;
@@ -339,7 +374,8 @@ export function portraitSVG(dog, opts = {}) {
       s += `<path d="M${x.toFixed(1)} ${y.toFixed(1)} l${(Math.cos(a) * 3).toFixed(1)} ${(Math.sin(a) * 3 + 1.5).toFixed(1)}" stroke="${furCol}" stroke-width="1" stroke-linecap="round" opacity=".7"/>`;
     }
   }
-  // Head lighting overlay
+  // Fur grain over the whole head, then the lighting.
+  s += `<ellipse cx="${hx}" cy="${hy}" rx="${rx}" ry="${ry}" fill="url(#${u}f)"/>`;
   s += `<ellipse cx="${hx}" cy="${hy}" rx="${rx}" ry="${ry}" ${lit}/>`;
   // Ears in front (floppy / long / rose / fold)
   if (b.ears === 'floppy' || b.ears === 'long') {
@@ -349,7 +385,7 @@ export function portraitSVG(dog, opts = {}) {
       const ex0 = hx + k * (rx - 2);
       const tr = `transform="rotate(${-k * 12} ${ex0} ${hy - 6})"`;
       s += `<ellipse cx="${ex0}" cy="${hy + len / 2 - 6}" rx="8" ry="${len}" fill="${ec}" stroke="${shade(ec, -0.3)}" stroke-width="1.1" ${tr}/>`;
-      s += `<ellipse cx="${ex0}" cy="${hy + len / 2 - 6}" rx="8" ry="${len}" ${lit} ${tr}/>`;
+      s += `<ellipse cx="${ex0}" cy="${hy + len / 2 - 6}" rx="8" ry="${len}" fill="url(#${u}f)" ${tr}/><ellipse cx="${ex0}" cy="${hy + len / 2 - 6}" rx="8" ry="${len}" ${lit} ${tr}/>`;
     }
   } else if (b.ears === 'rose') {
     for (const k of [-1, 1]) s += `<path d="M${hx + k * (rx - 6)} ${hy - 18} L${hx + k * (rx + 6)} ${hy - 22} L${hx + k * (rx - 2)} ${hy - 6} Z" fill="${dark}" ${stroke}/>`;
