@@ -319,6 +319,10 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .pl .ledger { padding: 0 0 6px 14px; }
 .gl { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #101a30; color: #e9c46a; font-size: 12px; margin-right: 4px; }
 .gl.gS { color: #7fd6ff; } .gl.gD, .gl.gF { color: #ff7a6b; }
+.tiles.two { grid-template-columns: repeat(2, 1fr); }
+.dial { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+.dial-track { position: relative; flex: 1; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #2f5d9a, #efe1bd 50%, #8a2419); }
+.dial-track i { position: absolute; top: -4px; width: 6px; height: 20px; margin-left: -3px; border-radius: 3px; background: var(--ink); box-shadow: 0 0 0 2px #f4ead3; }
 .meter { height: 12px; border-radius: 6px; background: #efe1bd; overflow: hidden; margin-bottom: 6px; }
 .meter i { display: block; height: 100%; border-radius: 6px; }
 .meter.good i { background: #2f7d52; } .meter.warning i { background: #d6a93b; } .meter.serious i { background: #b8372e; }

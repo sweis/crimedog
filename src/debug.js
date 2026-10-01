@@ -61,6 +61,7 @@ export function snapshot(G) {
     after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received, relations: s.after.relations } : null,
     over: s?.over ?? null,
     version: VERSION,
+    repute: s ? { rep: s.rep, generosity: s.generosity ?? 50, hardness: s.hardness ?? 0, parts: s.repParts || {} } : null,
     stats: s?.stats,
     frameMs: +G.stats.frameMs.toFixed(2),
     frames: G.stats.frames,

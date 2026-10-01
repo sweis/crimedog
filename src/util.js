@@ -12,7 +12,13 @@ export const done = (msg, extra) => ({ ok: true, msg, ...extra });
 
 // The game's meters, kept in range.
 export const addHeat = (state, n) => { state.heat = clamp(state.heat + n, 0, 100); };
-export const addRep = (state, n) => { state.rep = clamp(state.rep + n, 0, 100); };
+// Reputation changes are tagged with which side of it they came from (see repute.js).
+export const addRep = (state, n, part = 'record') => {
+  const before = state.rep;
+  state.rep = clamp(state.rep + n, 0, 100);
+  const parts = (state.repParts ||= {});
+  parts[part] = (parts[part] || 0) + (state.rep - before);
+};
 export const addRelation = (dog, n) => { dog.relation = clamp(dog.relation + n, -100, 100); };
 
 // Every change to the cash goes through here, tagged with what it was for, so the

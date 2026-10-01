@@ -11,6 +11,7 @@ import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecras
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
+import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -795,12 +796,19 @@ export function payCrew(state, pct) {
   book(state, 'pay', -share);
   a.cut = pct;
   a.paid = share;
+  // What you pay is what you're known for: generous or tight, soft or hard.
+  if (a.received > 0) {
+    const [gen, hard] = CUT_REPUTE[pct];
+    addGenerosity(state, gen);
+    addHardness(state, hard);
+  }
+  const warmth = Math.round(crewFeeling(state).warmth);
   for (const id of owed) {
     const d = state.dogs[id];
     let delta = a.received > 0 ? cut.rel : pct > 0 ? cut.rel : -2;
     if (d.quirks.includes('greedy') && pct < 45) { delta -= 8; if (!d.known.quirks.includes('greedy')) d.known.quirks.push('greedy'); }
     if (r.outcome !== 'bust' && r.outcome !== 'aborted') { d.wins += 1; delta += 5; }
-    addRelation(d, delta);
+    addRelation(d, delta + warmth);
   }
   finishGrade(state);
   a.step = 'grade';
@@ -835,7 +843,6 @@ function finishGrade(state) {
   const g = gradeJob(state);
   a.grade = g;
   let rep = REP_FOR[g.letter];
-  if (a.cut === 0 && a.received > 0) rep -= 4;
   if (state.result.runners.length) rep -= 2;
   a.repDelta = rep;
   addRep(state, rep);
@@ -886,6 +893,8 @@ export function lawyer(state, id) {
   if (!spend(state, cost, 'pound')) return fail(`A brief costs £${cost}.`);
   d.sentence -= 1;
   addRelation(d, 8);
+  addGenerosity(state, 2);
+  addHardness(state, -2);
   if (d.sentence <= 0) {
     d.status = 'free';
     d.sentence = 0;
@@ -914,6 +923,7 @@ export function farm(state, id) {
   }
   state.pub = state.pub.filter((x) => x !== id);
   state.stats.farmed += 1;
+  addHardness(state, d.undercover ? 5 : 15);
   if (d.undercover) {
     // Word gets round that you dealt with a copper. The underworld approves.
     d.known.undercover = true;

@@ -8,6 +8,7 @@ import { shortName, displayName, genDog, promote } from './dogs.js';
 import { clamp, money, fail, done, addHeat, addRelation, book } from './util.js';
 import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
+import { addGenerosity, addHardness } from './repute.js';
 
 const MAX_ARCS = 2;
 const START_CHANCE = 0.4;
@@ -373,7 +374,12 @@ function endArc(state, arc) {
 function resolve(state, arc, i, rng) {
   const c = ARCS[arc.kind].nodes[arc.node].choices[i];
   const d = arcDog(state, arc);
-  if (cost(arc, c.cost)) book(state, 'drama', -cost(arc, c.cost));
+  // Putting your hand in your pocket for the crew: generous, and a little soft.
+  if (cost(arc, c.cost)) {
+    book(state, 'drama', -cost(arc, c.cost));
+    addGenerosity(state, 2);
+    addHardness(state, -2);
+  }
   const notes = applyFx(state, arc, c.fx, rng);
   const nextId = pickNext(c.next, d, rng);
   if (!nextId) endArc(state, arc);

@@ -5,6 +5,7 @@ import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
 import { moPenalty, SETUP_TEXT } from './inspector.js';
+import { crewFeeling } from './repute.js';
 
 export const ALARM_MAX = 10;
 
@@ -163,6 +164,7 @@ export function simulate(state, job, rng) {
   const crewIds = [...new Set([...crewOf(plan), ...(state.crew || [])])];
   const crew = crewIds.map((id) => state.dogs[id]);
   const beats = [];
+  const feeling = crewFeeling(state);
   const ctx = {
     alarm: 0,
     alarmMax: 0,
@@ -398,7 +400,8 @@ export function simulate(state, job, rng) {
     for (const d of active()) {
       if (d.quirks.includes('goodboy') || d.undercover) continue;
       if (!ctx.secured.length) break;
-      const p = Math.max(0, (d.greed - loyaltyOf(d) - 10 * roleLevel(active(), 'leader')) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0);
+      // A mastermind they fear is one they don't run from; a soft touch is easier to cross.
+      const p = (Math.max(0, (d.greed - loyaltyOf(d) - 10 * roleLevel(active(), 'leader')) / 100) * 0.6 + (ctx.pearShaped ? 0.06 : 0)) * (1 - feeling.fear) + 0.04 * feeling.soft;
       if (rng.chance(p)) {
         const lootId = ctx.secured.shift();
         ctx.runners.push({ id: d.id, lootId });
@@ -531,6 +534,7 @@ export function simulate(state, job, rng) {
     let pTalk = clamp((75 - loyaltyOf(d) * 0.5 - d.nerve * 0.3) / 100 - 0.05 * roleLevel(crew, 'leader'), 0.03, 0.9);
     if (d.quirks.includes('looselips')) pTalk += 0.3;
     if (job.fakeIds) pTalk -= 0.15;
+    pTalk -= 0.2 * feeling.fear; // too scared of you to talk
     if (d.quirks.includes('nevergrass')) pTalk = 0;
     const talked = rng.chance(clamp(pTalk, 0, 0.95));
     const sentence = rng.int(2, 3) + (ctx.coppers ? 1 : 0);
