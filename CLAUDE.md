@@ -87,7 +87,8 @@ Jobs come in different shapes, each with its own steps and options, so no two fe
 - **The Paper Trail** (white collar): get a job there, earn their trust, find the slush fund, cook the books, resign quietly.
 - **The Tunnel Job**: take the shop next door, dig, go through the wall into the deposit boxes, and brick it up behind you.
 - **The Rooftop Job** (cat burglary): up the building, across the roofs, in through the skylight, away over the slates.
-- **The Fix**: get to the favourite, nobble him, place the bets, rig the big fight, collect before the bookies twig.
+- **The Fix**: get to the favourite, nobble him (spiking his kibble, at the boxing club), place the bets, rig the big fight, collect
+  before the bookies twig. At the boxing club it can be a ringer instead: one of the crew gets on the card and fights him.
 - **The Night Mail**: stop the train, work through the carriages, empty the mail car, get off before dawn.
 
 No two jobs of a kind should play the same: buildings draw from a pool of obstacles (guards, cameras, lasers, motion sensors,
@@ -103,6 +104,20 @@ The Inspector is a character with a face, and he acts. He introduces himself ear
 jobs (more often as heat rises) makes a move, told as a scene with a choice: plants coppers, stakes out a job on the board, warns
 security across town, tails or questions a crew member, leaves tips that are really setups, turns a regular into a grass, raids
 the back room. He keeps a file on the mastermind's methods: a trick seen job after job gets harder, so repeating yourself costs.
+
+### Rivals
+
+Other thieves work the town. Some are saboteurs (the Jack Russell Gang: tip off security, nick kit, lean on crew, turn up on your
+jobs at the wrong moment); some are show-off competitors (Dandy Dan: taunting notes, beating you to jobs, a wager); and some are
+mysteries who can be won over (the Grey Ghost: notices calling cards left on good, quiet jobs, sends gifts, sets an audition, and
+can join the crew). Each has a plotline told in scenes between jobs. Troublemakers can be ratted out (costs rep and puts the
+Ghost off), set up, or robbed (their place goes on the job board).
+
+### Retirement
+
+The long game is the nest egg: put away a large sum (£100,000, many good jobs' worth) and the mastermind can retire to the Costa
+del Bone, ending the game. The ending tells a few epilogues: the closest crew member comes too, a runner is tracked down or a
+farm is visited to pay respects, a star who worked with you drops in, and a word on the rivals and the Inspector.
 
 ### Casing, roles and special kit
 

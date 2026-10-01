@@ -89,7 +89,20 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## The Inspector acts; more jobs and more variety (latest)
+## Rivals, the boxing-club fix, retirement (latest)
+- Boxing club (`fix` at venue `ring`): the nobble step always offers `k_kibble` (spike his kibble); half the time the job is a ringer instead (`job.ringer`): Get on the Card, Training Camp, Bet on Ourselves, Into the Ring (muscle/agility/sneak/aim), Collect the Winnings.
+- `src/rivals.js`: three rivals with plotlines, scenes are `story` entries of type `rival` with data-driven `EFFECTS` (save-safe), rendered like the Inspector's.
+  - Jack Russell Gang (from job 2): intro, then mischief (chance 0.25 + 0.05×grudge, max 0.5): tip-off (alert), gatecrash (`state.gatecrash` → the next job gets an `obs_rivals` step named for them), nick kit (remembered), scare crew.
+  - Dandy Dan (from job 3): notes (compliment on S/A, taunt and -2 rep on D/F, or he beats you to the best own lead), then a wager (an A or better on a tier-3 job; win pays and he leaves town; lose pays and -4 rep; walking away -3 rep).
+  - Responses: rat out (away 4 jobs, -6 rep, -2 Ghost interest, back angrier), set up (cost, 60%: away 6 and +4 rep; else they gatecrash), rob (their place goes on the job board and stays until taken; a win ends them, +6 rep, kit returned), let it go (grudge +1).
+  - The Grey Ghost: interest from S (+2) / A (+1) grades and a calling card (+2 on S/A, +1 on B). Intro at 2, a gift (special kit) at 5, an audition at 8 (next job A+ with no alarm), then joins as a legendary home-grown (`d.ghost`). Drawn as a dark figure in fog until then.
+  - Calling card: plan toggle (`toggleCallingCard`), +1 clue on the job. The job board has "The Competition".
+- `src/retire.js`: £100,000 nest egg (`RETIRE`), on the job board and in the books pane; two-tap Retire ends the game (`over.reason = 'retired'`) with epilogues: closest mate (by best skill, recalling your best job together), runner tracked down (`d.ranWith`) / farm visit (`d.farmedBy`, `d.lostOn`) / grass, a star, then a rival line and the Inspector. No careful bot career reaches the goal in 12 jobs; p90 reaches it around job 30.
+- Phones: at ≤ 400px the day counter lives on the job board (tap opens the day book) and cash ≥ £10k shows as £Nk; no sideways scroll at 320–480px even with £999,999.
+- Balance (careful bot, 150 careers × 15 jobs): rivals cost about 9 careers by job 15 (71 vs 80 alive), mainly extra heat; the bot doesn't take rival hits.
+- Verified: 110 unit tests (rivals.test, retire.test new; jobs.test covers the ringer), smoke 1o with real taps and captures (rival-*.png, rivals-board, calling-card, nest-egg, retired, retired-epilogues). Not verified: a human playtest of the rival pacing and the length of the road to retirement.
+
+## The Inspector acts; more jobs and more variety
 - Why: playtest feedback said the game got easy and repetitive after a few heists, the Inspector did nothing, and no undercover crew ever showed up (coppers only appeared at heat 25+, which careful play reached around job 5).
 - `src/inspector.js`: Inspector Hound (bloodhound, trilby, mac). Between jobs `inspectorMoves` may make a move (always by job 3, then chance 0.2 + heat/70): plant (a guaranteed copper in the next pub), stakeout (marks a board job 🚓 Watched), warn (next job on alert), tail, questioning, sting (a stranger's tip that is a setup; casing with the tipster reveals it; walking away from a known setup costs no rep), flip (turns a regular with loyalty < 65 into a grass; "find out who" unmasks 70%), raid. Scenes are `story` entries of type `inspector` with data-driven choices (`EFFECTS`), so they survive a save. Undercovers now possible from heat 12.
 - His file (`state.mo`): every approach used on a noticed job is recorded, fading by 0.6 a job; +1 difficulty the second time running, +2 by the third. Shown on plan options ("He's seen this before") and in the heat pane with his recent moves. Police arrive sooner (alarm 8) at heat 60+. Fancy Francesca stings from heat 30.
