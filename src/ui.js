@@ -21,7 +21,7 @@ const PLAN_TABS = [
 ];
 
 
-const GUVNOR = {
+export const GUVNOR = {
   id: 'guv', first: 'The Guv\'nor', last: '', breed: 'bulldog', faction: 'firm', talents: [], quirks: [],
   look: { coat: '#d8b38a', hat: 'tophat', eyes: 'monocle', neck: 'bowtie', outfit: '#23232a', brow: 'stern', seed: 1 },
 };
