@@ -1,6 +1,6 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
-import { INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MARKS, KIT } from './data.js';
+import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MARKS, KIT } from './data.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank'],
@@ -11,6 +11,8 @@ const JOB_WORDS = {
   butcher: ['Sausage', 'Pork Pie', 'Mutton', 'Cold Cuts'],
   show: ['Rosette', 'Best in Show', 'Blue Ribbon', 'Crufty'],
   auction: ['Gavel', 'Going Going Gone', 'Lot 86', 'Bonehenge'],
+  ring: ['Knockout', 'Third Round', 'Glass Jaw', 'Southpaw'],
+  train: ['Night Mail', 'Mail Bag', 'Sleeper', 'Signal Box'],
 };
 
 // Names that tell you what kind of job it is.
@@ -21,6 +23,10 @@ const TYPE_NAMES = {
   van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`],
   hack: (w) => [`The ${w} Hack`, 'The Wire Job', 'Operation Firewall', 'The Bone-Coin Caper'],
   fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch'],
+  tunnel: (w) => [`The ${w} Tunnel`, 'The Long Dig', 'The Bank Holiday Job', 'Down Under'],
+  roof: (w) => [`The ${w} Rooftop Job`, 'To Catch a Thief', 'Over the Top', 'The Cat Burglar Caper'],
+  fix: (w) => ['The Fix', `The ${w} Fix`, 'Take a Dive', 'Bent as a Nine Bob Note'],
+  train: (w) => ['The Great Mail Robbery', `The ${w} Job`, 'The Night Mail', 'Last Stop'],
 };
 
 function jobName(rng, venueType, star, type) {
@@ -54,6 +60,10 @@ const HAZARDS = {
   van: [['escort', 3], ['stakeout', 0.5]],
   hack: [['trace', 3], ['silent', 1], ['stakeout', 0.5]],
   fraud: [['auditor', 3], ['stakeout', 0.5]],
+  tunnel: [['flood', 3], ['neighbour', 2], ['stakeout', 0.5]],
+  roof: [['pigeons', 3], ['searchlight', 2], ['cat', 1], ['stakeout', 0.5]],
+  fix: [['steward', 3], ['heavies', 2], ['stakeout', 0.5]],
+  train: [['guardvan', 3], ['railpolice', 2], ['stakeout', 0.5]],
 };
 // Specialist steps that make sense for each kind of job.
 const SPECIALS = {
@@ -64,6 +74,10 @@ const SPECIALS = {
   van: ['carpark'],
   hack: ['biometric'],
   fraud: [],
+  tunnel: ['oldvault', 'wall', 'kennel'],
+  roof: ['wall', 'atrium', 'creaky'],
+  fix: ['doorman'],
+  train: ['carpark'],
 };
 
 function pickType(rng, venueType) {
@@ -78,7 +92,20 @@ function options(rng, pool, n, fallback) {
   return o;
 }
 
-const obstacle = (id, o, extra) => ({ id, kind: 'obstacle', label: OBSTACLES[o].label, icon: OBSTACLES[o].icon, options: OBSTACLES[o].options.slice(), ...extra });
+// With an rng, an obstacle offers three of its ways through (plus the bribed guard, if you pay for one).
+function obstacle(id, o, extra, rng) {
+  const all = OBSTACLES[o].options;
+  let opts = all.slice();
+  if (rng && all.length > 3) {
+    opts = options(rng, all.filter((ap) => ap !== 'o_bribed'), 3);
+    if (all.includes('o_bribed')) opts.push('o_bribed');
+  }
+  return { id, kind: 'obstacle', label: OBSTACLES[o].label, icon: OBSTACLES[o].icon, options: opts, ...extra };
+}
+// A vault with lots of ways in offers four of them.
+const vaultOptions = (rng, vt) => (VAULTS[vt].options.length > 4 ? options(rng, VAULTS[vt].options, 4) : null);
+// A step drawn from a pool: a few of its ways through, never the same mix twice.
+const step = (rng, id, kind, label, icon, pool, n = 3, extra = {}) => ({ id, kind, label, icon, options: options(rng, pool, n), ...extra });
 const hiddenHazards = (hazards) => Object.keys(hazards).filter((h) => OBSTACLES[h]).map((h) => obstacle(`haz_${h}`, h, { hidden: true, hazard: h }));
 const vault = (vaultType, opts, extra) => ({ id: 'vault', kind: 'vault', label: VAULTS[vaultType].label, icon: VAULTS[vaultType].icon, options: opts || VAULTS[vaultType].options.slice(), vaultType, ...extra });
 const exit = (rng) => ({ id: 'exit', kind: 'exit', label: 'Getting Out', icon: '🏃', options: ['x_same', ...rng.sample(EXIT_POOL.filter((e) => e !== 'x_same'), 2)] });
@@ -92,9 +119,9 @@ const LAYOUTS = {
     if (insider) entry.push('e_insider');
     return [
       { id: 'entry', kind: 'entry', label: 'Getting In', icon: '🚪', options: entry },
-      ...obstacles.map((o) => obstacle(`obs_${o}`, o)),
+      ...obstacles.map((o) => obstacle(`obs_${o}`, o, {}, rng)),
       ...hiddenHazards(hazards),
-      vault(rng.pick(V.vaults)),
+      ((vt) => vault(vt, vaultOptions(rng, vt)))(rng.pick(V.vaults.filter((v) => VAULTS[v].options.length))),
       exit(rng),
       getaway(rng),
     ];
@@ -109,6 +136,8 @@ const LAYOUTS = {
   con({ rng, hazards }) {
     return [
       { id: 'entry', kind: 'entry', label: 'The Introduction', icon: '🤝', noSig: true, options: options(rng, ['c_club', 'c_charity', 'c_haunts', 'c_party'], 3) },
+      // Sometimes it's the big store: a whole fake bookies, built for one mark.
+      ...(rng.chance(0.4) ? [{ id: 'obs_store', kind: 'obstacle', label: 'Build the Big Store', icon: '🏪', noSig: true, options: ['c_storerent', 'c_storeextras', 'c_storewire'] }] : []),
       { id: 'obs_pitch', kind: 'obstacle', label: 'The Pitch', icon: '🗣️', noSig: true, options: ['c_invest', 'c_duke', 'c_papers'] },
       { id: 'obs_convincer', kind: 'obstacle', label: 'The Convincer', icon: '🃏', noSig: true, options: options(rng, ['c_cards', 'c_ticket', 'c_raid', 'c_shill'], 3) },
       ...hiddenHazards(hazards),
@@ -144,11 +173,68 @@ const LAYOUTS = {
       { id: 'exit', kind: 'exit', label: 'Resign Quietly', icon: '📨', noSig: true, options: ['f_notice', 'f_shred', 'f_sniffout'] },
     ];
   },
+  tunnel({ rng, V, hazards }) {
+    return [
+      step(rng, 'entry', 'entry', 'The Shop Next Door', '🏪', ['u_lease', 'u_squat', 'u_front', 'u_cellars'], 3, { noSig: true }),
+      step(rng, 'obs_dig', 'obstacle', 'The Dig', '⛏️', ['u_shovel', 'u_old', 'u_trains', 'u_bore']),
+      ...hiddenHazards(hazards),
+      step(rng, 'obs_wall', 'obstacle', 'Through the Wall', '🧱', ['u_core', 'u_chisel', 'u_bricks', 'u_mortar']),
+      vault(V.vaults.includes('boxes') ? 'boxes' : rng.pick(V.vaults), options(rng, VAULTS.boxes.options, 3)),
+      step(rng, 'exit', 'exit', 'Back Down the Hole', '🕳️', ['u_backout', 'u_brickup', 'u_laundry']),
+      getaway(rng),
+    ];
+  },
+  roof({ rng, V, hazards }) {
+    return [
+      step(rng, 'entry', 'entry', 'Up the Building', '🧗', ['r_drainpipe', 'r_crane', 'r_fireescape', 'r_cradle', 'r_line']),
+      step(rng, 'obs_roofs', 'obstacle', 'Across the Rooftops', '🏘️', ['r_leap', 'r_plank', 'r_zip', 'r_chimneys']),
+      ...hiddenHazards(hazards),
+      step(rng, 'obs_skylight', 'obstacle', 'The Skylight', '🪟', ['r_glasscut', 'r_sensor', 'r_lower', 'r_warmwire']),
+      ((vt) => vault(vt, vaultOptions(rng, vt)))(rng.pick(V.vaults)),
+      step(rng, 'exit', 'exit', 'Away Over the Roofs', '🌙', ['r_abseil', 'r_climbout', 'r_dressinggown', 'x_same']),
+      getaway(rng),
+    ];
+  },
+  fix({ rng, V, hazards }) {
+    // At the boxing club, sometimes one of the crew gets on the card and fights him.
+    if (V === VENUES.ring && rng.chance(0.5)) {
+      return [
+        step(rng, 'entry', 'entry', 'Get on the Card', '📝', ['k_signup', 'k_sparring', 'k_record', 'k_moustache'], 3, { noSig: true }),
+        step(rng, 'obs_camp', 'obstacle', 'Training Camp', '🏋️', ['k_roadwork', 'k_skipping', 'k_tapes', 'k_gloves'], 3, { noSig: true }),
+        step(rng, 'obs_bets', 'obstacle', 'Bet on Ourselves', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
+        ...hiddenHazards(hazards),
+        vault('fight', options(rng, ['k_slug', 'k_dance', 'k_lowblow', 'k_uppercut'], 3), { noSig: true, label: 'Into the Ring' }),
+        step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true }),
+      ];
+    }
+    const nobble = step(rng, 'obs_nobble', 'obstacle', 'Nobble the Favourite', '🧪', ['k_camomile', 'k_purse', 'k_laces', 'k_word', 'k_kibble']);
+    if (V === VENUES.ring && !nobble.options.includes('k_kibble')) nobble.options[rng.int(0, nobble.options.length - 1)] = 'k_kibble';
+    return [
+      step(rng, 'entry', 'entry', 'Get to the Favourite', '🥊', ['k_trainer', 'k_fan', 'k_window', 'k_liniment'], 3, { noSig: true }),
+      nobble,
+      step(rng, 'obs_bets', 'obstacle', 'Place the Bets', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
+      ...hiddenHazards(hazards),
+      vault('fight', options(rng, VAULTS.fight.options, 3), { noSig: true }),
+      step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true }),
+    ];
+  },
+  train({ rng, hazards, insider }) {
+    const stop = step(rng, 'entry', 'entry', 'Stop the Train', '🚦', ['n_signal', 'n_cow', 'n_jumpon', 'n_cuppa'], 3, { noSig: true });
+    if (insider) stop.options.push('n_fireman');
+    return [
+      stop,
+      step(rng, 'obs_carriages', 'obstacle', 'Through the Carriages', '🚃', ['n_roofs', 'n_ticket', 'n_corridor', 'n_shoulder']),
+      ...hiddenHazards(hazards),
+      vault('mailcar', options(rng, VAULTS.mailcar.options, 3)),
+      step(rng, 'exit', 'exit', 'Off the Train', '🔗', ['n_uncouple', 'n_drive', 'n_jumpoff']),
+      getaway(rng),
+    ];
+  },
   van({ rng, hazards }) {
     return [
       { id: 'entry', kind: 'entry', label: 'Stop the Van', icon: '🚦', noSig: true, options: options(rng, ['t_box', 't_roadworks', 't_granny', 't_tyres'], 3) },
       ...hiddenHazards(hazards),
-      obstacle('obs_guards', 'guards'),
+      obstacle('obs_guards', 'guards', {}, rng),
       vault('van'),
       getaway(rng),
     ];
@@ -206,6 +292,17 @@ export function genJob(state, rng, opts = {}) {
     stages.splice(at, 0, { id: 'specialist', kind: 'obstacle', label: sp.label, icon: sp.icon, options: sp.options.slice(), needs: { skill: sp.skill, min: sp.min } });
   }
 
+  // A twist, now and then (more often on bigger jobs).
+  const twist = opts.twist !== undefined ? opts.twist : rng.chance([0, 0.35, 0.5, 0.65][tier]) ? pickTwist(rng, type, stages) : null;
+  let daysLeft = 5;
+  let jobBase = base;
+  if (twist === 'rush') daysLeft = 2;
+  if (twist === 'bigger') {
+    jobBase += 1;
+    for (const l of loot) l.value = Math.round((l.value * 1.4) / 50) * 50;
+  }
+  if (twist === 'rivals') stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, obstacle('obs_rivals', 'rivals', {}, rng));
+
   // Your master key card opens a way into any building.
   if (state.kit?.keycard > 0 && ['breakin', 'swap'].includes(type)) stages[0].options.splice(stages[0].options.length - (insider ? 1 : 0), 0, 'e_keycard');
   // Some jobs have special kit worth keeping, besides the loot.
@@ -224,16 +321,22 @@ export function genJob(state, rng, opts = {}) {
   if (type === 'van') intel.van_route = false;
   if (type === 'hack') intel.net_map = false;
   if (type === 'fraud') intel.org_chart = false;
+  if (type === 'tunnel') { intel.blueprints = false; intel.tunnel_plan = false; }
+  if (type === 'roof') intel.blueprints = false;
+  if (type === 'fix') intel.routine = false;
+  if (type === 'train') intel.timetable = false;
   intel.loot_value = false;
   if (has('getaway')) intel.escape_routes = false;
   for (const h of Object.keys(hazards)) intel[`hz_${h}`] = false;
+  // Someone on the inside has already talked.
+  const told = twist === 'grudge' ? rng.sample(Object.keys(intel), 2) : [];
 
   const mark = type === 'con' ? rng.pick(MARKS) : null;
   // Brick Bone's own vault only turns up when his Firm owns the place.
   const place = rng.pick(V.names.filter((n) => owner === 'firm' || !n.includes('Brick Bone')));
   const venueName = mark ? `${mark}, at ${place}` : type === 'van' ? `${place} cash van` : place;
   const heat = state.heat;
-  return {
+  const job = {
     id: `j${state.stats.jobs + 1}-${state.nextId++}`,
     name: jobName(rng, venueType, star, type),
     type,
@@ -242,7 +345,9 @@ export function genJob(state, rng, opts = {}) {
     mark,
     district: rng.pick(DISTRICTS),
     tier,
-    base,
+    base: jobBase,
+    twist,
+    ringer: stages.some((st) => st.id === 'obs_camp'),
     owner,
     patron: null,
     loot,
@@ -253,12 +358,12 @@ export function genJob(state, rng, opts = {}) {
     noInsider: !insider,
     prize,
     alert: 0,
-    daysLeft: 5,
+    daysLeft,
     insider: null,
     bribed: false,
     buyer: false,
     fenceVetted: false,
-    stingFence: heat >= 40 && rng.chance(0.3 + (heat - 40) / 100),
+    stingFence: heat >= 30 && rng.chance(0.3 + (heat - 30) / 100),
     safehouse: false,
     fakeIds: false,
     // Cons and office fraud happen in the day: that's when marks and offices are about.
@@ -266,6 +371,13 @@ export function genJob(state, rng, opts = {}) {
     hour: DAY_JOBS[type] || 2,
     plan: {},
   };
+  for (const k of told) revealIntel(job, k);
+  return job;
+}
+
+function pickTwist(rng, type, stages) {
+  const fits = Object.entries(TWISTS).filter(([, t]) => (!t.types || t.types.includes(type)) && (!t.needs || stages.some((st) => st.id === t.needs)));
+  return fits.length ? rng.pick(fits)[0] : null;
 }
 
 function isUngated(approachId) {
@@ -281,6 +393,12 @@ export const lootItem = (job, id) => job.loot.find((l) => l.id === id);
 
 export function totalLootValue(job) {
   return job.loot.reduce((s, l) => s + l.value, 0);
+}
+
+// What a piece of intel says once you have it.
+export function intelLabel(job, k) {
+  if (k === 'tipster') return job.sting ? '🚨 The tip is a SETUP' : '✅ The tip is genuine';
+  return INTEL[k].label.replace('Hazard: ', '⚠️ ');
 }
 
 export function revealIntel(job, k) {

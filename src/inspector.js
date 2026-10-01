@@ -1,0 +1,267 @@
+// The Inspector: the nemesis. Between jobs he makes a move (planting coppers,
+// turning your regulars, staking out jobs, setting up stings, raids), told as a
+// scene on the job board. He also keeps a file on how you work: tricks you
+// lean on get harder, because security has been briefed on them.
+import { APPROACHES, KIT } from './data.js';
+import { fail, done, money, clamp, addHeat, addRelation, book } from './util.js';
+import { displayName, shortName } from './dogs.js';
+
+export const INSPECTOR = {
+  name: 'Inspector Hound',
+  dog: { id: 'inspector', first: 'Inspector', last: 'Hound', breed: 'bloodhound', faction: 'hounds', talents: [], quirks: [], look: { coat: '#7a4424', hat: 'trilby', eyes: 'none', neck: 'none', outfit: '#a8916a', brow: 'stern', seed: 77 } },
+};
+
+const insp = (state) => (state.inspector ||= { met: false, moves: [], plant: false });
+
+// ------------------------------------------------------------------ his file on your methods
+// Every trick he sees used on a job goes in the file; the file fades as he
+// sees other things. Use a trick again and again and security is ready for it.
+const MO_FADE = 0.6;
+export function recordMO(state, result) {
+  const mo = (state.mo ||= {});
+  for (const k of Object.keys(mo)) {
+    mo[k] = Math.round(mo[k] * MO_FADE * 100) / 100;
+    if (mo[k] < 0.3) delete mo[k];
+  }
+  // A job nobody noticed leaves him nothing to study.
+  if (result.outcome === 'clean' && result.clues < 2) return [];
+  const seen = new Set(result.beats.filter((b) => b.approach && !APPROACHES[b.approach].signature).map((b) => b.approach));
+  for (const ap of seen) mo[ap] = (mo[ap] || 0) + 1;
+  return [...seen].filter((ap) => moPenalty(state, ap) > 0);
+}
+// +1 the second time running he sees a trick, +2 by the third.
+export function moPenalty(state, approachId) {
+  const v = state.mo?.[approachId] || 0;
+  return v >= 1.9 ? 2 : v >= 1.4 ? 1 : 0;
+}
+export function moFile(state) {
+  return Object.keys(state.mo || {}).map((ap) => ({ ap, pen: moPenalty(state, ap) })).filter((x) => x.pen > 0).sort((a, b) => b.pen - a.pen);
+}
+
+// What the heat pane says he's been up to (stings stay secret).
+export const MOVE_LABELS = {
+  plant: '👮 Planted a copper in the pub', stakeout: '🚓 Staked out a job', warn: '📢 Warned security across town',
+  tail: '🚶 Had one of your crew followed', questioning: '💡 Pulled one of your crew in', flip: '🐀 Turned one of your regulars', raid: '🚪 Raided your back room',
+};
+
+// ------------------------------------------------------------------ moves between jobs
+// Each move: when it's on the cards, and what it does. `run` returns the scene
+// (or null if it can't happen now). Scenes offer choices; the last is free.
+const regulars = (state) => Object.values(state.dogs).filter((d) => d.met && d.status === 'free' && !d.undercover && !d.rarity && d.jobs > 0);
+
+const MOVES = {
+  plant: {
+    heat: 0,
+    weight: 3,
+    run(state) {
+      insp(state).plant = true;
+      return {
+        title: 'A New Face',
+        text: 'Word from behind the bar: there\'s a newcomer at the Dog & Duck. Very keen. Very good. Asks a lot of questions about you. Somebody in the pub this time isn\'t who they say they are.',
+        choices: [{ label: 'Noted. Nobody gets hired without a look.' }],
+      };
+    },
+  },
+  stakeout: {
+    heat: 12,
+    weight: 3,
+    run(state, rng) {
+      const o = rng.pick(state.offers.filter((x) => !x.job.hazards.stakeout));
+      if (!o) return null;
+      const job = o.job;
+      job.hazards.stakeout = true;
+      job.intel.hz_stakeout = true;
+      job.watched = true;
+      return {
+        title: 'The Unmarked Car',
+        text: `There's a car parked across from ${job.venueName}. Same car, same two blokes, same flask of tea, all day. The Inspector's watching it, ${job.stakeoutTime === 'night' ? 'nights' : 'days'} especially.`,
+        choices: [{ label: 'Keep it in mind.' }],
+      };
+    },
+  },
+  warn: {
+    heat: 20,
+    weight: 2,
+    run(state) {
+      state.sabotage = (state.sabotage || 0) + 1;
+      return {
+        title: 'Word to the Wise',
+        text: 'The Inspector has been round every security firm in town with a slideshow. "Be on your guard," he says. They are. Your next job starts on alert.',
+        choices: [{ label: 'Typical.' }],
+      };
+    },
+  },
+  tail: {
+    heat: 20,
+    weight: 2,
+    run(state, rng) {
+      const d = rng.pick(regulars(state).filter((x) => !x.drama));
+      if (!d) return null;
+      return {
+        title: 'Followed',
+        dog: d.id,
+        text: `${displayName(d)} says a man in a mac has followed them home three nights running. "Probably nothing, Guv." It isn't nothing.`,
+        choices: [{ label: `Put ${shortName(d)} up somewhere quiet`, cost: 150, effect: 'hideout' }, { label: 'They\'ll shake him off', effect: 'tailed' }],
+      };
+    },
+  },
+  questioning: {
+    heat: 30,
+    weight: 2,
+    run(state, rng) {
+      const d = rng.pick(regulars(state));
+      if (!d) return null;
+      return {
+        title: 'Helping With Enquiries',
+        dog: d.id,
+        text: `The Inspector has pulled ${displayName(d)} in "to help with enquiries". Bright lamp. Bad tea. He wants to know who they work for.`,
+        choices: [{ label: 'Send a good brief', cost: 150, effect: 'brief' }, { label: 'Leave them to it', effect: 'grilled' }],
+      };
+    },
+  },
+  sting: {
+    heat: 25,
+    weight: 2,
+    run(state, rng, ctx) {
+      // A juicy tip from a stranger. It's a setup, unless you find out first. No scene: that's the point.
+      const i = state.offers.findIndex((o) => o.source === 'own');
+      if (i < 0 || !ctx.genJob) return null;
+      const job = ctx.genJob(state, rng, { lootMult: 1.4 });
+      makeTip(job, true);
+      state.offers[i] = { id: job.id, source: 'own', kind: 'own', job };
+      return null;
+    },
+  },
+  flip: {
+    heat: 35,
+    weight: 2,
+    run(state, rng) {
+      const d = rng.pick(regulars(state).filter((x) => x.loyalty < 65 && !x.quirks.includes('nevergrass') && !x.quirks.includes('goodboy')));
+      if (!d) return null;
+      d.undercover = true;
+      d.flipped = true;
+      d.cleared = false;
+      d.known.undercover = false;
+      return {
+        title: 'A Grass in the Pub',
+        flipped: d.id,
+        text: 'One of your regulars was seen getting out of an unmarked car round the back of the station. Nobody saw which one. The Inspector has someone on the inside now.',
+        choices: [{ label: 'Find out who', cost: 200, effect: 'unmask' }, { label: 'Keep your eyes open' }],
+      };
+    },
+  },
+  raid: {
+    heat: 45,
+    weight: 2,
+    run(state) {
+      const bung = Math.max(100, Math.round((state.cash * 0.1) / 10) * 10);
+      return {
+        title: 'Search Warrant',
+        text: 'Six o\'clock in the morning. Boots on the stairs. The Inspector has a warrant for your back room and a very thorough constable.',
+        choices: [{ label: 'Slip the desk sergeant something', cost: bung, effect: 'bung' }, { label: 'Let them look', effect: 'searched' }],
+      };
+    },
+  },
+};
+
+// What each choice does. All data lives on the scene, so it survives a save.
+const EFFECTS = {
+  hideout(state, st) {
+    const d = state.dogs[st.dog];
+    addRelation(d, 6);
+    return `${shortName(d)} lies low in a B&B in Snufflebury. The tail loses interest.`;
+  },
+  tailed(state, st) {
+    const d = state.dogs[st.dog];
+    if (!d.drama) d.drama = { trouble: { kind: 'tail', text: `That man in the mac is here. He followed ${shortName(d)}.` } };
+    return `If ${shortName(d)} works the next job, the tail comes too.`;
+  },
+  brief(state, st) {
+    const d = state.dogs[st.dog];
+    addRelation(d, 10);
+    return `The brief does the talking. ${shortName(d)} walks out with a grin.`;
+  },
+  grilled(state, st, rng) {
+    const d = state.dogs[st.dog];
+    let pTalk = clamp((75 - d.loyalty * 0.6 - d.nerve * 0.3) / 100, 0.05, 0.8);
+    if (d.quirks.includes('looselips')) pTalk += 0.3;
+    if (d.quirks.includes('nevergrass')) pTalk = 0;
+    d.known.loyalty = true;
+    if (rng.chance(pTalk)) {
+      addHeat(state, 10);
+      addRelation(d, -5);
+      return `${shortName(d)} cracks after an hour. The Inspector's file gets thicker. (+10 heat)`;
+    }
+    addRelation(d, 8);
+    return `${shortName(d)} says nothing for six hours, then asks for a biscuit. Solid.`;
+  },
+  unmask(state, st, rng) {
+    const d = state.dogs[st.flipped];
+    if (d && rng.chance(0.7)) {
+      d.known.undercover = true;
+      return `It's ${displayName(d)}. They've been feeding him everything. They won't be working for you again.`;
+    }
+    return 'Your man asks around and comes back with nothing. Whoever it is, they\'re careful.';
+  },
+  bung() {
+    return 'The warrant goes missing in the post. Funny, that.';
+  },
+  searched(state) {
+    const take = Math.round((state.cash * 0.2) / 10) * 10;
+    if (take) book(state, 'raids', -take);
+    const gone = Object.keys(state.kit).filter((k) => state.kit[k] > 0 && KIT[k] && !KIT[k].special).slice(0, 2);
+    for (const k of gone) state.kit[k] = 0;
+    return `They take ${money(take)} in "evidence"${gone.length ? ` and your ${gone.map((k) => KIT[k].name.toLowerCase()).join(' and ')}` : ''}.`;
+  },
+};
+
+// Turn a job into a stranger's tip-off. Stings are setups; real tips are just juicy.
+export function makeTip(job, sting) {
+  job.tip = true;
+  job.sting = sting;
+  job.intel = { tipster: false, ...job.intel };
+}
+
+// Between jobs: does the Inspector make a move, and which?
+export function inspectorMoves(state, rng, ctx = {}) {
+  const I = insp(state);
+  let id = ctx.force || null;
+  // His first move comes early: a copper in the pub, to say hello.
+  if (id) { /* forced (dev hook) */ } else if (!I.met && (state.stats.jobs >= 2 || state.heat >= 12)) id = 'plant';
+  else if (I.met && rng.chance(clamp(0.2 + state.heat / 70, 0, 0.85))) {
+    const opts = Object.entries(MOVES).filter(([, m]) => state.heat >= m.heat).map(([k, m]) => [k, m.weight]);
+    id = rng.weighted(opts);
+  }
+  if (!id) return null;
+  const scene = MOVES[id].run(state, rng, ctx);
+  I.moves.unshift({ day: state.day, move: id });
+  I.moves = I.moves.slice(0, 12);
+  if (!scene) return null;
+  if (!I.met) {
+    I.met = true;
+    scene.title = 'The Inspector';
+    scene.text = `${INSPECTOR.name} has opened a file on you. Thin, for now. ${scene.text}`;
+  }
+  const st = { type: 'inspector', move: id, ...scene, choices: scene.choices.map((c) => ({ label: c.label, cost: c.cost || 0, effect: c.effect || null })) };
+  state.story.push(st);
+  return st;
+}
+
+export function inspectorChoices(state, st) {
+  return st.choices.map((c) => ({ ...c, ok: c.cost <= state.cash }));
+}
+
+// Answer the scene on top of the board.
+export function chooseInspector(state, i, rng) {
+  const st = state.story[0];
+  if (!st || st.type !== 'inspector') return fail('Nothing to answer.');
+  const c = st.choices[i];
+  if (!c) return fail('No such choice.');
+  if (c.cost > state.cash) return fail('You can\'t afford that.');
+  if (c.cost) book(state, 'fixer', -c.cost);
+  state.story.shift();
+  return done(c.effect ? EFFECTS[c.effect](state, st, rng) : '');
+}
+
+// The setup springs at the vault: nothing there but floodlights.
+export const SETUP_TEXT = 'The vault\'s empty. Floodlights snap on. A loudhailer: "Evening, all." It was never a tip. It was a SETUP!';

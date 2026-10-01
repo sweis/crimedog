@@ -1,9 +1,10 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD } from './data.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS } from './data.js';
 import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
+import { moPenalty, SETUP_TEXT } from './inspector.js';
 
 export const ALARM_MAX = 10;
 
@@ -58,6 +59,9 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
   if (stage.kind === 'vault' && job.hazards.silent && job.intel.hz_silent) d += 1;
   if (stage.id === 'obs_guards' && job.insider) d -= 1;
   d += specialKitBonus(kit, job, stage, a);
+  d += moPenalty(state, approachId); // the Inspector has briefed security on your favourite tricks
+  const tw = TWISTS[job.twist]?.mods;
+  if (tw) d += (tw.skills?.[a.skill] || 0) + (tw.stages?.[stage.id] || 0) + (tw.kinds?.[stage.kind] || 0);
   return d;
 }
 
@@ -139,6 +143,7 @@ const END_TEXT = {
   messy: 'Chaos. Sirens. But they\'ve got something.',
   bust: 'Nothing to show for it but sore paws.',
   aborted: 'The job\'s off. Better luck next time.',
+  setup: 'Stitched up like a kipper. The Inspector got his photos.',
 };
 
 const loyaltyOf = (d) => d.loyalty + d.relation * 0.5;
@@ -228,7 +233,8 @@ export function simulate(state, job, rng) {
       ctx.ringing = true;
       beat({ kind: 'alarm', stage: stageId, text: 'BRRRRING! The alarm is going off!' });
     }
-    if (!ctx.coppers && ctx.alarm >= ALARM_MAX) {
+    // Once the Inspector is close, the police are never far away.
+    if (!ctx.coppers && ctx.alarm >= (state.heat >= 60 ? ALARM_MAX - 2 : ALARM_MAX)) {
       ctx.coppers = true;
       beat({ kind: 'alarm', stage: stageId, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
       const unlucky = active();
@@ -277,7 +283,7 @@ export function simulate(state, job, rng) {
       if (skillTalent(t, a.skill)) learn(dog, 'talents', t);
     }
     // Noise & clues
-    let noise = ok ? a.noise : a.failNoise;
+    let noise = Math.max(0, (ok ? a.noise : a.failNoise) + (TWISTS[job.twist]?.noise || 0));
     if (ok && a.skill === 'muscle' && hasSpecial(dog, 'loud')) noise += 1;
     if (ok && (hasSpecial(dog, 'hothead') || has('postmen')) && stage.kind === 'obstacle') {
       noise += 1;
@@ -385,7 +391,7 @@ export function simulate(state, job, rng) {
     for (const l of byRatio) {
       if (used + l.bulk <= cap) { ctx.secured.push(l.id); used += l.bulk; } else left.push(l);
     }
-    beat({ kind: 'loot', stage: stage.id, text: `${['hack', 'fraud'].includes(job.type) ? 'Moved' : 'In the bag'}: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
+    beat({ kind: 'loot', stage: stage.id, text: `${{ hack: 'Moved', fraud: 'Moved', fix: 'The bets come in' }[job.type] || 'In the bag'}: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
   };
 
   const betrayals = () => {
@@ -469,6 +475,10 @@ export function simulate(state, job, rng) {
     }
     if (stage.kind !== 'vault') return;
     ctx.vaultDone = true;
+    if (job.callingCard) {
+      ctx.clues += 1;
+      beat({ kind: 'info', stage: stage.id, text: 'The crew leave your calling card where the goods used to be: a monogrammed biscuit. Somebody will notice.' });
+    }
     if (APPROACHES[ctx.lastOk]?.swap) ctx.swap = true;
     grabLoot(stage);
     betrayals();
@@ -481,6 +491,10 @@ export function simulate(state, job, rng) {
     smash: { entry: 'The glass holds. The job\'s off. Leg it!' },
     hack: { entry: 'The network won\'t let them in. The job\'s off.', vault: 'The transfer bounces. Nothing moves.' },
     fraud: { entry: 'They don\'t get the job. That\'s that.', vault: 'The books won\'t cook. Nothing to take.' },
+    tunnel: { entry: 'No shop, no tunnel. The job\'s off.', vault: 'The boxes won\'t open. Back down the hole, empty-pawed.' },
+    roof: { entry: 'Nobody can get up there. The job\'s off.' },
+    fix: { entry: 'Nobody can get near the favourite. The fix is off.', vault: 'The favourite wins fair and square. Every bet\'s lost.', exit: 'The bookies won\'t pay out. Scarper!' },
+    train: { entry: 'The train thunders past. The job\'s off.', vault: 'The mail car won\'t open. The train pulls away.' },
   }[job.type] || {};
   const botch = (stage) => {
     const id = stage.id;
@@ -534,6 +548,17 @@ export function simulate(state, job, rng) {
     if (d.quirks.includes('nevergrass')) learn(d, 'quirks', 'nevergrass');
     beat({ kind: 'interrogation', stage: null, dog: d.id, text: `${shortName(d)} stares at the wall for six hours. Not a word. Off to the pound.`, line: say(d, 'caught') });
     return { id: d.id, talked: false, sentence };
+  };
+
+  // A stranger's tip that was the Inspector all along.
+  const springSetup = (stage) => {
+    ctx.setup = true;
+    beat({ kind: 'alarm', stage: stage.id, text: SETUP_TEXT });
+    ctx.ringing = true;
+    ctx.coppers = true;
+    ctx.alarm = ctx.alarmMax = ALARM_MAX;
+    ctx.clues += 3;
+    for (const d of active()) escapeCheck(d, stage.id);
   };
 
   // ==== The job itself
@@ -596,6 +621,10 @@ export function simulate(state, job, rng) {
     if (k === troubleAt) trouble(stage);
     wildcards(stage);
     if (!active().length) break;
+    if (stage.kind === 'vault' && job.sting) {
+      springSetup(stage);
+      break;
+    }
     const pick = lead(stage);
     if (!pick) {
       if (stage.hidden) continue;
@@ -653,7 +682,7 @@ export function simulate(state, job, rng) {
 
   const outcome = outcomeOf(ctx);
   const swap = ctx.swap && outcome === 'clean';
-  beat({ kind: 'end', stage: null, text: END_TEXT[swap ? 'swap' : outcome] });
+  beat({ kind: 'end', stage: null, text: END_TEXT[ctx.setup ? 'setup' : swap ? 'swap' : outcome] });
 
   return {
     beats,
@@ -666,6 +695,7 @@ export function simulate(state, job, rng) {
     pearShaped: ctx.pearShaped,
     aborted: ctx.aborted,
     swap,
+    setup: !!ctx.setup,
     captured: interrogations,
     lost: ctx.lost,
     runners: ctx.runners,

@@ -182,11 +182,23 @@ const A = {
     show('job');
   },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
-  'drama'(el) { run(E.chooseDrama, Number(el.dataset.i)); },
+  'drama'(el) { run({ inspector: E.chooseInspector, rival: E.chooseRival }[G.state.story[0]?.type] || E.chooseDrama, Number(el.dataset.i)); },
+  'calling-card'() { run(E.toggleCallingCard); },
   'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },
   'picked'(el) {
     G.ui.modal = null;
     run(el.dataset.purpose === 'case' ? E.caseJoint : E.plantInsider, el.dataset.id);
+  },
+  // Retiring ends the game, so it takes two taps.
+  'retire'(el) {
+    if (!G.ui.confirmRetire) {
+      G.ui.confirmRetire = true;
+      el.textContent = 'Really retire? This ends the game. Tap again.';
+      el.classList.add('red');
+      return;
+    }
+    G.ui.confirmRetire = false;
+    run(E.retireNow);
   },
   'walk-away'(el) {
     if (!G.ui.confirmWalk) {
@@ -282,6 +294,7 @@ document.addEventListener('click', (e) => {
   const fn = A[el.dataset.act];
   if (!fn) return;
   if (el.dataset.act !== 'walk-away') G.ui.confirmWalk = false;
+  if (el.dataset.act !== 'retire') G.ui.confirmRetire = false;
   try {
     fn(el);
   } catch (err) {

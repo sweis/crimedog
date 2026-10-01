@@ -4,7 +4,10 @@ import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation, book } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
-import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
+import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
+import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
+import { retire } from './retire.js';
+import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
@@ -57,6 +60,7 @@ export function newGame(seed = Date.now() % 1e9, name = 'The Guv\'nor') {
   mate.fee = feeFor(mate);
   state.dogs[mate.id] = mate;
   genOffers(state, rng);
+  refreshPub(state, rng);
   timelinePoint(state, 'Start');
   news(state, `You set up shop in a back room above the Dog & Duck. Your old mate ${displayName(mate)} is propping up the bar.`);
   return state;
@@ -77,8 +81,12 @@ function pruneStrangers(state, keep) {
   for (const d of strangers.slice(0, Math.max(0, strangers.length - 12))) delete state.dogs[d.id];
 }
 
+// Who's in the pub. On the job board it's whoever's about town (so you can see
+// the talent before picking a job); once you're on a job, asking around refreshes it.
+// `townKey` marks this visit: stars in town for it can be hired.
 export function refreshPub(state, rng = rngOf(state)) {
-  const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier - 1 : 0);
+  state.townKey = state.job ? state.job.id : `board-${state.stats.jobs}-${state.day}`;
+  const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier : jobTier(state)) - 1;
   const n = Math.min(6, 5 + Math.floor(state.rep / 40));
   const pub = [];
   // Some regulars come back.
@@ -107,10 +115,15 @@ export function refreshPub(state, rng = rngOf(state)) {
     const breed = rng.chance(0.7) ? rng.pick(Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary))) : undefined;
     return { primary, breed };
   };
+  // The Inspector plants coppers once he's heard of you; after his first move, one is guaranteed.
+  const I = state.inspector;
   let copperPlanted = false;
   while (pub.length < n) {
-    const undercover = !copperPlanted && state.heat >= 25 && rng.chance((state.heat - 15) / 150);
-    if (undercover) copperPlanted = true;
+    const undercover = !copperPlanted && (I?.plant || (state.heat >= 12 && rng.chance((state.heat - 5) / 120)));
+    if (undercover) {
+      copperPlanted = true;
+      if (I) I.plant = false;
+    }
     const d = genDog(state, rng, { quality, undercover, ...newFace() });
     state.dogs[d.id] = d;
     pub.push(d.id);
@@ -125,6 +138,13 @@ export function refreshPub(state, rng = rngOf(state)) {
     state.dogs[r.id] = r;
     pub[pub.length - 1] = r.id;
   }
+  state.pub = pub;
+  jobArrivals(state, rng, quality);
+}
+
+// Once you've picked a job, word gets round: whoever the job needs turns up too.
+function jobArrivals(state, rng, quality) {
+  const pub = state.pub;
   // A job with a specialist step always has someone in the pub who's up to it (at a price).
   const sp = state.job?.stages.find((st) => st.needs);
   if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
@@ -134,10 +154,30 @@ export function refreshPub(state, rng = rngOf(state)) {
     state.dogs[d.id] = d;
     pub.push(d.id);
   }
+  // One of the Inspector's coppers, if he's planted one since the pub was last drawn.
+  if (state.inspector?.plant) {
+    const d = genDog(state, rng, { quality, undercover: true });
+    state.dogs[d.id] = d;
+    pub.push(d.id);
+    state.inspector.plant = false;
+  }
   const star = starVisit(state, rng);
-  if (star) pub.unshift(star.id);
-  state.pub = pub;
+  if (star && !pub.includes(star.id)) pub.unshift(star.id);
   pruneStrangers(state, pub);
+}
+
+// Taking a job: the faces you saw from the job board are still there.
+function pubForJob(state, rng = rngOf(state)) {
+  const was = state.townKey;
+  state.townKey = state.job.id;
+  if (state.starRolled === was) state.starRolled = state.job.id; // one chance of a star per job
+  for (const id of state.pub) {
+    const d = state.dogs[id];
+    if (isVisitor(d) && d.inTown === was) d.inTown = state.job.id;
+  }
+  state.pub = state.pub.filter((id) => state.dogs[id]?.status === 'free' && !state.crew.includes(id));
+  if (!state.pub.length) return refreshPub(state, rng);
+  jobArrivals(state, rng, Math.floor(state.rep / 30) + state.job.tier - 1);
 }
 
 // Chance a rare or legendary dog is in town for a job, and how often that star is legendary.
@@ -148,11 +188,13 @@ const legendShare = (rep) => clamp((rep - 20) / 120, 0.05, 0.5);
 // with a signature move that fits it, as a taste of what's out there.
 function starVisit(state, rng) {
   const job = state.job;
-  if (!job) return null;
-  const here = Object.values(state.dogs).find((d) => isVisitor(d) && d.inTown === job.id && d.status === 'free');
-  if (here || job.starRolled) return here || null;
-  job.starRolled = true;
+  const key = state.townKey;
+  const here = Object.values(state.dogs).find((d) => isVisitor(d) && d.inTown === key && d.status === 'free');
+  if (here || state.starRolled === key) return here || null;
   const teaser = !state.teased;
+  // The first-job teaser waits until there's a job, so its move fits it.
+  if (teaser && !job) return null;
+  state.starRolled = key;
   if (!teaser && !rng.chance(starChance(state.rep))) return null;
   state.teased = true;
   const returning = Object.values(state.dogs).filter((d) => isVisitor(d) && d.met && d.status === 'free');
@@ -160,12 +202,12 @@ function starVisit(state, rng) {
   if (!teaser && returning.length && rng.chance(0.5)) d = rng.pick(returning);
   else {
     const rarity = !teaser && rng.chance(legendShare(state.rep)) ? 'legendary' : 'rare';
-    const fitting = Object.keys(SIGNATURES).filter((id) => visibleStages(job).some((st) => signatureFits(id, st)));
+    const fitting = job ? Object.keys(SIGNATURES).filter((id) => visibleStages(job).some((st) => signatureFits(id, st))) : [];
     const primary = teaser && fitting.length ? SIGNATURES[rng.pick(fitting)].skill : undefined;
     d = genDog(state, rng, { quality: 2, rarity, primary, signature: teaser });
     state.dogs[d.id] = d;
   }
-  d.inTown = job.id;
+  d.inTown = key;
   return d;
 }
 
@@ -210,6 +252,7 @@ export function hire(state, id) {
   if (hireBlocked(state, d)) return fail(`"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`);
   if (d.drama?.away) return fail(`${shortName(d)} is sitting this one out.`);
   if (isVisitor(d) && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
+  if (d.undercover && d.known.undercover) return fail(`${shortName(d)} works for the Inspector. Not a chance.`);
   const cost = hireCost(state, d);
   if (!spend(state, cost, 'crew')) return fail('You can\'t afford the retainer.');
   d.status = 'crew';
@@ -261,7 +304,9 @@ export function acceptOffer(state, offerId) {
   }
   state.offers = [];
   state.phase = 'plan';
-  refreshPub(state);
+  tookRivalJob(state, state.job, false);
+  gatecrash(state, state.job);
+  pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
   news(state, `You took ${state.job.name} (${who}).`);
   return done(p?.front ? `${state.job.name}: you're on. ${GROUPS[p.group].short} fronted you £${p.front}.` : `${state.job.name}: you're on.`);
@@ -282,7 +327,14 @@ export function borrow(state) {
 export { payDebt } from './groups.js';
 export { chooseDrama } from './drama.js';
 
+export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
+export const retireNow = (state) => retire(state, rngOf(state));
+export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
+
 export function dismissStory(state) {
+  const st = state.story[0];
+  if (st?.type === 'inspector') return chooseInspector(state, st.choices.length - 1);
+  if (st?.type === 'rival') return chooseRival(state, st.choices.length - 1);
   state.story.shift();
   return done('');
 }
@@ -327,7 +379,7 @@ export function caseJoint(state, who) {
     spend(state, 120, 'intel');
     const k = rng.pick(unknown);
     revealIntel(job, k);
-    return done(`A tipster sells you: ${INTEL[k].label}.`, { revealed: [k] });
+    return done(`A tipster sells you: ${intelLabel(job, k)}.`, { revealed: [k] });
   }
   const d = state.dogs[who];
   if (!d || !state.crew.includes(who)) return fail('Send someone from the crew.');
@@ -346,7 +398,7 @@ export function caseJoint(state, who) {
     revealIntel(job, k);
     d.known.skills[INTEL[k].skill] = true;
   }
-  let msg = `🔎 ${got.map((k) => INTEL[k].label.replace('Hazard: ', '⚠️ ')).join(', ')}`;
+  let msg = `🔎 ${got.map((k) => intelLabel(job, k)).join(', ')}`;
   const spotted = rng.chance(odds.spotted);
   const cover = skillOf(d, 'sneak') >= skillOf(d, 'disguise') ? 'sneak' : 'disguise';
   d.known.skills[cover] = true;
@@ -457,6 +509,13 @@ export function layLow(state) {
 }
 
 // ------------------------------------------------------------------ planning
+// Your calling card on the job: one more clue for the Inspector, but some people notice style.
+export function toggleCallingCard(state) {
+  if (state.phase !== 'plan') return fail('Not now.');
+  state.job.callingCard = !state.job.callingCard;
+  return done(state.job.callingCard ? '🃏 The crew will leave your calling card: a monogrammed biscuit.' : 'No calling card this time.');
+}
+
 export function setTime(state, time) {
   if (!['night', 'day'].includes(time)) return fail('Night or day.');
   state.job.time = time;
@@ -609,6 +668,7 @@ export function resolveHeist(state) {
   for (const l of r.lost || []) {
     const d = state.dogs[l.id];
     d.status = 'farm';
+    d.lostOn = job.name;
     leaveCrew(state, l.id);
     news(state, `${displayName(d)} went to live on a farm after ${job.name}.`);
   }
@@ -616,6 +676,8 @@ export function resolveHeist(state) {
     const d = state.dogs[run.id];
     d.status = 'gone';
     d.relation = -100;
+    d.left = 'runner';
+    d.ranWith = lootItem(job, run.lootId).name;
     leaveCrew(state, run.id);
     news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
   }
@@ -641,6 +703,7 @@ export function resolveHeist(state) {
     news(state, `You kept the ${KIT[prize].name} from ${job.name}.`);
   }
   addHeat(state, r.heatGain);
+  const noted = recordMO(state, r);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
@@ -649,6 +712,7 @@ export function resolveHeist(state) {
   state.after.improved = improved;
   state.after.promoted = promoted;
   state.after.prize = prize;
+  state.after.noted = noted;
   state.phase = 'aftermath';
   return done('The dust settles.');
 }
@@ -780,6 +844,7 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
+  a.rivals = rivalsAfterJob(state, rngOf(state));
   closeBooks(state, state.job.name, g.letter);
   state.history.unshift(buildRecap(state));
   state.history.length = Math.min(state.history.length, HISTORY_MAX);
@@ -841,6 +906,7 @@ export function farm(state, id) {
   if (state.phase === 'heist') return fail('Not now.');
   const wasPound = d.status === 'pound';
   d.status = 'farm';
+  d.farmedBy = 'you';
   leaveCrew(state, id);
   if (state.phase === 'plan' && state.job) {
     for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k].dog;
@@ -884,9 +950,14 @@ export function nextJob(state) {
     }
   }
   if (state.phase === 'plan') {
-    // Walked away.
-    addRep(state, -3);
-    news(state, `You walked away from ${state.job.name}. People talk.`);
+    // Walked away. Smelling a setup and walking is just good sense.
+    const wager = tookRivalJob(state, state.job, true);
+    if (wager) news(state, wager);
+    if (state.job.sting && state.job.intel.tipster) news(state, `You smelled a rat and left ${state.job.name} well alone. The Inspector is furious.`);
+    else {
+      addRep(state, -3);
+      news(state, `You walked away from ${state.job.name}. People talk.`);
+    }
     closeBooks(state, `${state.job.name} (walked away)`, null);
     const p = state.job.patron;
     if (p) {
@@ -909,6 +980,11 @@ export function nextJob(state) {
   for (const e of betweenJobs(state, rng)) news(state, e.replace(/\{\w+\}/g, '').trim());
   advanceArcs(state, rng);
   genOffers(state, rng);
+  const move = inspectorMoves(state, rng, { genJob });
+  if (move) news(state, `🕵️ ${move.title}.`);
+  const rival = rivalsBetweenJobs(state, rng, { genJob });
+  if (rival) news(state, `${rival.title}.`);
+  refreshPub(state, rng);
   state.phase = 'select';
   checkGameOver(state);
   return done('Back to the job board.');
@@ -935,6 +1011,7 @@ export function checkGameOver(state) {
 export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
   nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls.' },
+  retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
   broke: { title: 'Skint', text: 'Not a penny to your name and not a dog to your name either. Time to get a proper job.' },
 };
 

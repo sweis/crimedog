@@ -4,6 +4,9 @@ import * as E from './engine.js';
 import { genDog } from './dogs.js';
 import { blankResult } from './sim.js';
 import { startArc } from './drama.js';
+import { inspectorMoves, moFile } from './inspector.js';
+import { rivalsBetweenJobs, rivalsOf, ghostScene } from './rivals.js';
+import { genJob } from './heists.js';
 import { KIT } from './data.js';
 import { SCREENS, currentScreen } from './ui.js';
 
@@ -43,11 +46,13 @@ export function snapshot(G) {
     stars: s ? s.pub.map((id) => s.dogs[id]).filter((d) => d.rarity).map((d) => ({ id: d.id, rarity: d.rarity, signature: d.signature, fee: d.fee })) : [],
     dogs: s ? Object.keys(s.dogs).length : 0,
     kit: s?.kit,
-    offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner })) ?? [],
+    offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner, type: o.job.type, tip: !!o.job.tip, sting: !!o.job.sting, watched: !!o.job.watched, twist: o.job.twist || null })) ?? [],
     groups: s?.groups ? Object.fromEntries(Object.entries(s.groups).map(([k, g]) => [k, { standing: g.standing, met: g.met, debt: g.debt?.amount ?? 0 }])) : null,
     story: s?.story?.length ?? 0,
     books: s?.books ? { open: s.books.open, jobs: s.books.jobs.map((j) => ({ label: j.label, net: j.net })) } : null,
     timeline: s?.timeline ?? [],
+    rivals: s ? Object.fromEntries(Object.entries(rivalsOf(s)).map(([k, r]) => [k, { met: r.met, status: r.status, beef: r.beef, notes: r.notes, interest: r.interest, test: !!r.test, board: r.board?.id || null }])) : null,
+    inspector: s ? { met: !!s.inspector?.met, plant: !!s.inspector?.plant, moves: (s.inspector?.moves || []).map((m) => m.move), file: moFile(s), story: s.story.map((x) => x.type) } : null,
     history: s?.history?.map((h) => ({ name: h.name, grade: h.grade, type: h.type, steps: h.steps?.length ?? 0, crew: h.crew?.length ?? 0 })) ?? [],
     arcs: s?.arcs?.map((a) => ({ id: a.id, kind: a.kind, dog: a.dog, node: a.node, wait: a.wait, shown: a.shown })) ?? [],
     drama: s ? Object.values(s.dogs).filter((d) => d.drama).map((d) => ({ id: d.id, ...d.drama })) : [],
@@ -140,7 +145,7 @@ export function installDebug(G) {
         if (at === 'crew' || rarity) ensurePlan(G);
         const rng = E.rngOf(s);
         const d = genDog(s, rng, { undercover: at === 'copper', quality: 1, rarity, signature: !!rarity });
-        if (rarity) d.inTown = s.job?.id;
+        if (rarity) d.inTown = s.townKey ?? s.job?.id;
         s.dogs[d.id] = d;
         s.pub.push(d.id);
         if (at === 'crew') { s.cash += d.fee; E.hire(s, d.id); }
@@ -155,6 +160,26 @@ export function installDebug(G) {
         G.commit();
         return arc.id;
       }
+      if (kind === 'move') {
+        // The Inspector makes a move: spawn('move', 'plant' | 'stakeout' | 'warn' | 'tail' | 'questioning' | 'sting' | 'flip' | 'raid')
+        const st = inspectorMoves(s, E.rngOf(s), { genJob, force: at || 'plant' });
+        G.commit();
+        return st?.move || at;
+      }
+      if (kind === 'rival') {
+        // A rival's scene: spawn('rival', 'jacksIntro' | 'jacksMischief' | 'danIntro' | 'danNote' | 'danWager' | 'ghost')
+        const rng = E.rngOf(s);
+        const R = rivalsOf(s);
+        if (at === 'ghost') { R.ghost.interest = Math.max(R.ghost.interest, 2); ghostScene(s, rng); }
+        else {
+          if (at?.startsWith('jacks')) R.jacks.met = true;
+          if (at?.startsWith('dan') && at !== 'danIntro') { R.dan.met = true; R.dan.notes = Math.max(R.dan.notes, 3); }
+          rivalsBetweenJobs(s, rng, { genJob, force: at || 'jacksIntro' });
+        }
+        G.commit();
+        return s.story.at(-1)?.move;
+      }
+      if (kind === 'retire') { s.cash = Math.max(s.cash, 100000); G.commit(); return s.cash; }
       if (kind === 'cash') { s.cash += Number(at) || 1000; G.commit(); return s.cash; }
       if (kind === 'kit') { const ids = at ? [at] : Object.keys(KIT); for (const k of ids) s.kit[k] = (s.kit[k] || 0) + 1; G.commit(); return s.kit; }
       if (kind === 'rep') { s.rep = Number(at) || 60; G.commit(); return s.rep; }

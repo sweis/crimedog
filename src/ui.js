@@ -2,13 +2,16 @@
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
 import { esc, money, count } from './util.js';
-import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES } from './data.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS } from './data.js';
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty, roleLevel } from './dogs.js';
-import { visibleStages, lootItem } from './heists.js';
+import { visibleStages, lootItem, intelLabel } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
 import { canShareFiles, FATES } from './card.js';
 import { ARCS, sceneChoices } from './drama.js';
 import { helpModal, paneModal } from './panes.js';
+import { INSPECTOR, inspectorChoices, moPenalty } from './inspector.js';
+import { RETIRE } from './retire.js';
+import { RIVALS, rivalDog, rivalChoices, rivalsOf, rivalStatus } from './rivals.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
 
@@ -35,7 +38,8 @@ export function currentScreen(G) {
   if (state.phase === 'over') return 'over';
   if (state.phase === 'heist') return 'heist';
   if (state.phase === 'aftermath') return 'aftermath';
-  if (state.phase === 'select') return 'select';
+  // From the job board you can look round the pub and your book before picking a job.
+  if (state.phase === 'select') return ['pub', 'crew'].includes(ui.screen) ? ui.screen : 'select';
   return ['job', 'pub', 'crew', 'kit', 'fixer', 'plan'].includes(ui.screen) ? ui.screen : 'job';
 }
 
@@ -60,7 +64,7 @@ function topbar(G) {
   const s = G.state;
   // Each stat opens a pane with the story behind the number.
   return `<header class="topbar"><div class="topbar-row"><div class="logo"><span class="full">CRIMEDOG</span><span class="short">🐕</span></div><div class="stats">
-    <button class="stat" data-act="pane" data-pane="cash" aria-label="Cash: the books">💷 <b>${money(s.cash)}</b></button>
+    <button class="stat" data-act="pane" data-pane="cash" aria-label="Cash: the books">💷 <b>${s.cash >= 100000 ? `£${Math.floor(s.cash / 1000)}k` : s.cash >= 10000 ? `<span class="long">${money(s.cash)}</span><span class="short">£${Math.floor(s.cash / 1000)}k</span>` : money(s.cash)}</b></button>
     <button class="stat" data-act="pane" data-pane="rep" aria-label="Reputation">⭐ <b>${s.rep}</b></button>
     <button class="stat ${s.heat >= 60 ? 'hot' : ''}" data-act="pane" data-pane="heat" aria-label="The Inspector's heat">🕵️ <b>${s.heat}</b></button>
     <button class="stat" data-act="pane" data-pane="day" aria-label="Day ${s.day}: the day book">📅 <b>${s.day}</b></button>
@@ -111,6 +115,15 @@ export function bossDog(gid) {
   return { id: `boss-${gid}`, first: GROUPS[gid].boss, last: '', breed: b.breed, faction: b.faction, talents: [], quirks: [], look: b.look };
 }
 
+// A rival's face. The Ghost stays a silhouette until they join you.
+function rivalFace(s, id, size) {
+  const d = rivalDog(id);
+  if (id !== 'ghost' || rivalsOf(s).ghost.status === 'joined') return portraitSVG(d, { size });
+  // A dark figure in the fog.
+  const shadow = { ...d, look: { ...d.look, coat: '#1b1e27', outfit: '#101219', neck: 'none' } };
+  return `<div class="silhouette">${portraitSVG(shadow, { size, bg: '#8d97ab' })}</div>`;
+}
+
 function standingBar(v) {
   const pct = (v + 100) / 2;
   const cls = v >= 20 ? 'good' : v <= -20 ? 'bad' : '';
@@ -145,13 +158,33 @@ function jobTraits(job) {
   if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
   if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
   if (job.prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
+  if (job.rivalCrew) chips.push(`<span class="chip bad">${RIVALS[job.rivalCrew].emblem} ${esc(RIVALS[job.rivalCrew].name)} on the job</span>`);
+  if (job.ringer) chips.push('<span class="chip info">🥊 Our own fighter</span>');
+  if (job.twist) chips.push(`<span class="chip warn">${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}</span>`);
+  if (job.watched) chips.push('<span class="chip bad">🚓 Watched</span>');
+  if (job.tip && job.intel.tipster) chips.push(job.sting ? '<span class="chip bad">🚨 It\'s a setup!</span>' : '<span class="chip good">✅ The tip\'s good</span>');
   return chips.join('');
+}
+
+// The long game: enough put away to retire.
+function nestEgg(s) {
+  const pct = Math.min(100, Math.round((100 * Math.max(0, s.cash)) / RETIRE.goal));
+  const ready = s.cash >= RETIRE.goal;
+  return `<section class="card nest ${ready ? 'ready' : ''}"><div class="row spread"><b>🏝️ The Nest Egg</b><span class="v">${pct}%</span></div>
+    <div class="meter ${ready ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${pct}%"></i></div>
+    <div class="muted"><b>${money(s.cash)}</b> of ${money(RETIRE.goal)}. ${ready ? `Enough to retire to ${RETIRE.place}. Or one more job...` : `Put it away and retire to ${RETIRE.place}.`}</div>
+    ${ready ? '<button class="btn block mt" data-act="retire">🏝️ Retire for good</button>' : ''}</section>`;
 }
 
 function selectScreen(G) {
   const s = G.state;
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
-  let h = `<div class="row spread"><h2>The Job Board</h2><span class="chip dark">📅 Day ${s.day}</span></div>`;
+  let h = `<div class="row spread"><h2>The Job Board</h2><button class="chip dark" data-act="pane" data-pane="day">📅 Day ${s.day}</button></div>`;
+  h += nestEgg(s);
+  const book = E.bookDogs(s).filter((d) => d.status === 'free').length;
+  const inPub = s.pub.filter((id) => s.dogs[id]?.status === 'free').length;
+  const star = s.pub.some((id) => s.dogs[id]?.rarity && s.dogs[id].inTown === s.townKey);
+  h += `<div class="talent-row"><button class="btn ghost" data-act="go" data-to="pub">🍺 The pub <small>${inPub} about${star ? ' · ★ a star' : ''}</small></button><button class="btn ghost" data-act="go" data-to="crew">🐾 Your crew <small>${book} in the book</small></button></div>`;
   for (const gid of debts) {
     const d = s.groups[gid].debt;
     h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${GROUPS[gid].emblem} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `⏳ ${count(d.patience, 'job')} left` : '⏳ Out of patience'}</div></div></div>
@@ -160,19 +193,31 @@ function selectScreen(G) {
   for (const o of s.offers) {
     const job = o.job;
     const stars = '★'.repeat(job.tier) + '☆'.repeat(3 - job.tier);
-    const pic = o.source === 'own' ? '<div class="boss-pic own">🔎</div>' : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
-    const whoName = o.source === 'own' ? 'Your own lead' : `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}`;
+    const rival = job.rivalHit || (job.wager ? 'dan' : null);
+    const pic = rival ? `<div class="boss-pic">${rivalFace(s, rival, 48)}</div>` : o.source === 'own' ? `<div class="boss-pic own">${job.tip ? '✉️' : '🔎'}</div>` : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
+    const whoName = job.rivalHit ? `${RIVALS[rival].emblem} Rob ${esc(RIVALS[rival].name)}` : job.wager ? `💌 Dandy Dan's wager · ${money(job.wager)}` : o.source !== 'own' ? `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}` : job.tip ? 'A stranger\'s tip' : 'Your own lead';
     h += `<section class="card offer ${o.kind === 'marker' ? 'marker' : ''}" data-offer="${o.id}">
       ${venueSVG(job, { compact: true })}
       <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
-      ${o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : ''}
+      ${job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
       <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
       <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
   }
   h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button>${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}</div>`;
   if (s.cash < 200 && canBorrow(s)) h += `<div class="btn-row mt"><button class="btn red" data-act="borrow">🌹 Borrow £${LOAN.amount} from the Family · owe £${LOAN.owe}</button></div>`;
+  const R = rivalsOf(s);
+  const known = Object.keys(RIVALS).filter((id) => R[id].met);
+  if (known.length) {
+    h += `<section class="card dark mt"><h2>The Competition</h2>`;
+    for (const id of known) {
+      const r = R[id];
+      const meter = id === 'ghost' ? `<div class="muted">Interest ${'◆'.repeat(Math.min(8, r.interest))}${'◇'.repeat(Math.max(0, 8 - r.interest))}</div>` : id === 'jacks' && r.status === 'active' ? `<div class="muted">Grudge ${'●'.repeat(Math.min(4, r.beef))}${'○'.repeat(Math.max(0, 4 - r.beef))}</div>` : '';
+      h += `<div class="player"><div class="boss-pic">${rivalFace(s, id, 44)}</div><div class="grow"><div class="row spread"><b>${RIVALS[id].emblem} ${esc(RIVALS[id].name)}</b><span class="chip ${r.status === 'joined' ? 'good' : r.status === 'active' ? 'bad' : ''}">${esc(rivalStatus(r, id))}</span></div><div class="muted">${esc(RIVALS[id].blurb)}</div>${meter}</div></div>`;
+    }
+    h += '</section>';
+  }
   h += `<section class="card dark mt"><h2>The Players</h2>`;
   for (const gid of GROUP_IDS) {
     const Gp = GROUPS[gid];
@@ -211,6 +256,7 @@ function jobScreen(G) {
     <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
     <div class="dm-chips">${jobTraits(job)}</div>
     ${JOB_TYPES[job.type]?.blurb ? `<p class="muted mt">${esc(JOB_TYPES[job.type].blurb)}</p>` : ''}
+    ${job.twist ? `<p class="twist-note mt"><b>${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}.</b> ${esc(TWISTS[job.twist].blurb)}</p>` : ''}
     <h3 class="mt">The Goods</h3>
     <ul class="loot-list">${job.loot.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}${job.patron?.want === l.id ? ` <span class="chip warn">🎯 ${GROUPS[job.patron.group].emblem}</span>` : ''}</span><span class="v">${lootValueText(job, l)}</span></li>`).join('')}
     ${job.prize ? `<li><span>🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span><span class="v">Yours to keep</span></li>` : ''}</ul>
@@ -224,7 +270,8 @@ function jobScreen(G) {
     <div class="row spread"><h2>Intel</h2><span class="chip info">${known.length}/${intelKeys.length}</span></div>
     <div class="intel-list">${intelKeys.map((k) => {
       const isHz = !!INTEL[k].hazard;
-      return job.intel[k] ? `<div class="intel known ${isHz ? 'hz' : ''}"><b>${esc(INTEL[k].label.replace('Hazard: ', '⚠️ '))}</b></div>` : '<div class="intel">❓</div>';
+      const label = intelLabel(job, k);
+      return job.intel[k] ? `<div class="intel known ${isHz || (k === 'tipster' && job.sting) ? 'hz' : ''}"><b>${esc(label)}</b></div>` : '<div class="intel">❓</div>';
     }).join('')}</div>
     <div class="btn-row mt"><button class="btn" data-act="pick" data-purpose="case" ${job.daysLeft ? '' : 'disabled'}>🔎 Case the joint <small>(1 day)</small></button></div>
   </section>
@@ -284,7 +331,7 @@ function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
   const hired = s.crew.includes(d.id);
-  const away = isVisitor(d) && d.status === 'free' && d.inTown !== s.job?.id;
+  const away = isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
   let right = '';
   if (opts.fee && away) right = '<div class="chip">Out of town</div>';
   else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
@@ -307,9 +354,19 @@ function dogCard(G, d, opts = {}) {
     <div class="center">${right}</div></button>`;
 }
 
+// Looking round from the job board: no hiring until you've picked a job.
+const browsing = (s) => s.phase === 'select';
+const boardBack = '<button class="btn ghost small" data-act="go" data-to="select">← The job board</button>';
+
 function pubScreen(G) {
   const s = G.state;
   const pub = s.pub.map((id) => s.dogs[id]).filter((d) => d.status === 'free');
+  if (browsing(s)) {
+    return `<div class="row spread"><h2>The Dog &amp; Duck</h2>${boardBack}</div>
+    <p class="muted">Who's about tonight. Pick a job to hire them; the job may bring in a specialist too.</p>
+    ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty.</p>'}
+    <div class="btn-row mt">${boardBack}</div>`;
+  }
   const hf = hiringFor(G);
   if (hf) {
     // Best known fit for the step first; unknowns after.
@@ -336,13 +393,16 @@ function crewScreen(G) {
   const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id));
   const pound = E.bookDogs(s).filter((d) => d.status === 'pound');
   const gone = Object.values(s.dogs).filter((d) => d.met && ['gone', 'farm'].includes(d.status));
-  return `<h2>Your Crew <span class="muted">(${crew.length}/${E.MAX_CREW})</span></h2>
+  const head = browsing(s)
+    ? `<div class="row spread"><h2>Little Black Book</h2>${boardBack}</div><p class="muted">Everyone you know. Pick a job to hire them.</p>`
+    : `<h2>Your Crew <span class="muted">(${crew.length}/${E.MAX_CREW})</span></h2>
   ${crew.map((d) => dogCard(G, d)).join('') || '<p class="muted">Nobody yet. Head down the pub.</p>'}
-  <h2 class="mt">Little Black Book</h2>
+  <h2 class="mt">Little Black Book</h2>`;
+  return `${head}
   ${book.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">Empty. For now.</p>'}
   ${pound.length ? `<h2 class="mt">In the Pound</h2>${pound.map((d) => dogCard(G, d)).join('')}` : ''}
   ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}
-  ${s.history.length ? `<div class="btn-row mt"><button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button></div>` : ''}`;
+  <div class="btn-row mt">${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}${browsing(s) ? boardBack : ''}</div>`;
 }
 
 // Where a piece of special kit can be won: venues and kinds of job.
@@ -419,7 +479,7 @@ function planScreen(G) {
   const lead = roleLevel(crew, 'leader');
   const wild = crew.filter((d) => d.role?.kind === 'wildcard');
   if (lead || wild.length) h += `<p class="dm-chips">${lead ? `<span class="chip good">👑 Every step +${lead * 2}%</span>` : ''}${wild.length ? `<span class="chip warn">🃏 Expect the unexpected</span>` : ''}</p>`;
-  if (unknownIntel || job.alert) h += `<p>${unknownIntel ? `<span class="chip warn">❓ ${unknownIntel} intel unknown</span> ` : ''}${job.alert ? `<span class="chip bad">⚠️ Alert +${job.alert}</span>` : ''}</p>`;
+  if (unknownIntel || job.alert || job.twist) h += `<p>${job.twist ? `<span class="chip warn">${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}</span> ` : ''}${unknownIntel ? `<span class="chip warn">❓ ${unknownIntel} intel unknown</span> ` : ''}${job.alert ? `<span class="chip bad">⚠️ Alert +${job.alert}</span>` : ''}</p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
     // A specialist step says what it takes, and whether anyone on the crew has it.
@@ -436,6 +496,8 @@ function planScreen(G) {
       if (a.kitBonus && s.kit[a.kitBonus]) tags.push(`+${KIT[a.kitBonus].name}`);
       for (const k of specialKitFor(s.kit, job, st, a)) tags.push(`${KIT[k].icon} ${KIT[k].name}`);
       if (a.intelBonus && job.intel[a.intelBonus]) tags.push(`+${INTEL[a.intelBonus].label}`);
+      const mo = moPenalty(s, ap);
+      if (mo) tags.push(`🕵️ He's seen this before (+${mo})`);
       if (a.noise >= 3) tags.push('🔊 Loud');
       else if (a.noise > 0) tags.push('🔉 Noisy');
       if (a.clues >= 2) tags.push('🔍 Messy');
@@ -459,6 +521,7 @@ function planScreen(G) {
     h += '</section>';
   });
   if (probs.length) h += `<div class="problems"><b>Loose ends</b><ul>${probs.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>`;
+  h += `<button class="calling-card ${job.callingCard ? 'on' : ''}" data-act="calling-card" aria-pressed="${!!job.callingCard}"><span class="cc-box">${job.callingCard ? '✓' : ''}</span><span class="grow"><b>🃏 Leave a calling card</b><small>A monogrammed biscuit at the scene. One more clue, but the right people notice style.</small></span></button>`;
   h += `<div class="btn-row"><button class="btn ghost" data-act="autoplan">✏️ Pencil in the gaps</button></div>
   <button class="btn big block red mt" data-act="pull">🚨 PULL THE JOB</button>`;
   return h;
@@ -651,6 +714,9 @@ function aftermathScreen(G) {
     lines.push(im.role ? `📈 <b>${esc(shortName(d))}</b> is growing into it: ${ROLES[im.role].icon} ${ROLES[im.role].label} ${d.role.level}.`
       : `📈 <b>${esc(shortName(d))}</b> is getting better at ${SKILL_INFO[im.skill].icon} ${SKILL_INFO[im.skill].label} (now ${skillOf(d, im.skill)}).`);
   }
+  if (r.setup) lines.push('🚨 <b>It was a setup.</b> The tip came from the Inspector.');
+  for (const t of a.rivals || []) lines.push(esc(t));
+  if (a.noted?.length) lines.push(`📁 The Inspector's file now has your favourite tricks: ${a.noted.map((ap) => esc(APPROACHES[ap].label.toLowerCase())).join('; ')}. Security will be ready for them.`);
   lines.push(`🕵️ Heat +${r.heatGain} (alarm peaked at ${r.alarmMax}/10, ${count(r.clues, 'clue')} left behind).`);
   h += `<div class="events mt">${lines.map((l) => `<p class="event">${l}</p>`).join('')}</div></section>`;
 
@@ -720,15 +786,24 @@ function headlineGuess(s) {
 function overScreen(G) {
   const s = G.state;
   const t = E.GAME_OVER_TEXT[s.over.reason];
-  return `<section class="title-screen">
-    <div class="title-hero">${skylineSVG(5)}<div class="title-portrait" style="filter:grayscale(1)">${portraitSVG(GUVNOR, { size: 180 })}</div></div>
+  const retired = s.over.reason === 'retired';
+  return `<section class="title-screen ${retired ? 'retired' : ''}">
+    <div class="title-hero">${skylineSVG(5)}<div class="title-portrait" style="${retired ? '' : 'filter:grayscale(1)'}">${portraitSVG(GUVNOR, { size: 180 })}</div></div>
     <h1 class="title-logo" style="font-size:38px">${esc(t.title)}</h1>
     <p>${esc(t.text)}</p>
+    ${retired ? `<section class="card epilogues" style="width:100%;text-align:left"><h2>Where They Ended Up</h2>${(s.over.epilogues || []).map((e) => epilogueCard(s, e)).join('')}</section>` : ''}
     <section class="card" style="width:100%;text-align:left"><h2>Your Career</h2>
     <p>${s.stats.jobs} jobs · ${s.stats.perfect} perfect · ${money(s.stats.earned)} earned · ${s.day} days</p>
     <div class="rap-list">${s.history.map((h, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(h.grade)}<div class="grow"><b>${esc(h.name)}</b></div><span class="v">${money(h.take || 0)}</span></button>`).join('')}</div></section>
     <div class="title-actions"><button class="btn big block" data-act="new-game">New Game</button></div>
   </section>`;
+}
+
+// One epilogue: a face (a crew member, a rival or the Inspector) and what became of them.
+function epilogueCard(s, e) {
+  const d = e.dog && s.dogs[e.dog];
+  const face = d ? portraitSVG(d, { size: 64 }) : e.rival ? rivalFace(s, e.rival, 64) : e.kind === 'inspector' ? portraitSVG(INSPECTOR.dog, { size: 64 }) : '';
+  return `<div class="epilogue ${e.kind}"><div class="boss-pic ${e.kind === 'farm' ? 'faded' : ''}">${face}</div><div class="grow"><b>${e.icon} ${esc(e.title)}</b><p>${esc(e.text)}</p></div></div>`;
 }
 
 const SCREEN_RENDER = {
@@ -755,6 +830,21 @@ function renderModal(G) {
   const open = !!m && (!!G.state || m.type === 'help');
   document.body.classList.toggle('modal-open', open);
   if (!open) { root.innerHTML = ''; return; }
+  if (m.type === 'story' && ['inspector', 'rival'].includes(G.state.story[0].type)) {
+    // The Inspector's moves and the rivals' plotlines: a face, a story, a choice.
+    const st = G.state.story[0];
+    const d = st.dog && G.state.dogs[st.dog];
+    const rv = st.type === 'rival' && RIVALS[st.rival];
+    const face = rv ? rivalFace(G.state, st.rival, 96) : portraitSVG(INSPECTOR.dog, { size: 96 });
+    const who = rv ? `${rv.emblem} ${esc(rv.name)}` : `🕵️ ${esc(INSPECTOR.name)}`;
+    const choices = rv ? rivalChoices(G.state, st) : inspectorChoices(G.state, st);
+    root.innerHTML = `<div class="modal-back"><div class="modal story ${rv ? `rival ${st.rival}` : 'inspector'}" data-stop role="dialog" aria-modal="true">
+      <div class="story-duo"><div class="story-pic">${face}</div>${d ? `<div class="story-pic small">${portraitSVG(d, { size: 64 })}</div>` : ''}</div>
+      <div class="muted center">${who}</div>
+      <h2 class="center">${esc(st.title)}</h2><p class="story-text">${esc(st.text)}</p>
+      <div class="stack">${choices.map((c, i) => `<button class="btn block ${i ? 'ghost' : ''}" data-act="drama" data-i="${i}" ${c.ok ? '' : 'disabled'}>${esc(c.label)}${c.cost ? ` · ${money(c.cost)}` : ''}</button>`).join('')}</div></div></div>`;
+    return;
+  }
   if (m.type === 'story' && G.state.story[0].type === 'drama') {
     const st = G.state.story[0];
     const d = G.state.dogs[st.dog];
@@ -817,7 +907,8 @@ function dogModal(G, d) {
   const primary = [];
   const minor = [];
   const hf = hiringFor(G);
-  const away = isVisitor(d) && d.status === 'free' && d.inTown !== s.job?.id;
+  const away = isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
+  if (s.phase === 'select' && d.status === 'free') primary.push('<span class="chip">Pick a job to hire</span>');
   if (planning && d.status === 'free' && !inCrew && away) primary.push('<span class="chip">Out of town. Stars come and go.</span>');
   else if (planning && d.status === 'free' && !inCrew && d.drama?.away) primary.push('<span class="chip">Sitting this one out.</span>');
   else if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);
