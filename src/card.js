@@ -58,7 +58,7 @@ function cardSVG(dog) {
 }
 
 // How each crew member's night ended, for the recap card.
-export const FATES = { away: 'got away', nicked: 'nicked', farm: 'the farm', ran: 'did a runner', copper: 'a copper!' };
+export const FATES = { away: 'got away', nicked: 'nicked', farm: 'the farm', hospital: 'hospital', ran: 'did a runner', copper: 'a copper!' };
 const GRADE_INK = { S: '#2a6d8e', A: '#a57e1f', B: '#a57e1f', C: '#5a5347', D: '#8a2419', F: '#8a2419' };
 
 // A heist report: what, where, how it went, who did what. Grows to fit the steps.

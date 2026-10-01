@@ -11,6 +11,7 @@ import { ARCS, sceneChoices } from './drama.js';
 import { helpModal, paneModal } from './panes.js';
 import { INSPECTOR, inspectorChoices, moPenalty } from './inspector.js';
 import { RETIRE } from './retire.js';
+import { recordOf, recordLabel, minSentence, briefCost, INJURIES } from './justice.js';
 import { runnerChoices, runnerStatus, runnersList, loose as runnerLoose, HUNT_COST } from './runners.js';
 import { RIVALS, rivalDog, rivalChoices, rivalsOf, rivalStatus } from './rivals.js';
 import { venueSVG, skylineSVG } from './art.js';
@@ -377,11 +378,14 @@ function dogCard(G, d, opts = {}) {
   if (opts.fee && away) right = '<div class="chip">Out of town</div>';
   else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
   if (d.status === 'pound') right = `<div class="chip bad">Pound: ${d.sentence} job${d.sentence > 1 ? 's' : ''}</div>`;
+  if (d.status === 'hospital') right = `<div class="chip warn">🏥 ${count(d.hospital.jobs, 'job')}</div>`;
   if (d.known.undercover && d.undercover) right = '<div class="chip bad">COPPER</div>';
   const flags = [];
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
   if (d.role) flags.push(roleChip(d));
+  if (recordOf(d) >= 3 && d.met) flags.push(`<span class="chip">📁 ${recordOf(d)} previous</span>`);
+  for (const inj of d.injuries || []) flags.push(`<span class="chip warn">🩹 ${esc(inj.text)}</span>`);
   if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
   flags.push(...dramaChips(d));
   return `<button class="dog-card ${d.rarity || ''} ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
@@ -431,6 +435,7 @@ function crewScreen(G) {
   const crew = E.crewDogs(s);
   const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id));
   const pound = E.bookDogs(s).filter((d) => d.status === 'pound');
+  const hospital = E.bookDogs(s).filter((d) => d.status === 'hospital');
   const gone = Object.values(s.dogs).filter((d) => d.met && ['gone', 'farm'].includes(d.status));
   const head = browsing(s)
     ? '<h2>Little Black Book</h2><p class="muted">Everyone you know. Pick a job to hire them.</p>'
@@ -439,6 +444,7 @@ function crewScreen(G) {
   <h2 class="mt">Little Black Book</h2>`;
   return `${head}
   ${book.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">Empty. For now.</p>'}
+  ${hospital.length ? `<h2 class="mt">In Hospital</h2>${hospital.map((d) => dogCard(G, d)).join('')}` : ''}
   ${pound.length ? `<h2 class="mt">In the Pound</h2>${pound.map((d) => dogCard(G, d)).join('')}` : ''}
   ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}
   ${s.history.length ? `<div class="btn-row mt"><button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button></div>` : ''}`;
@@ -630,7 +636,7 @@ function blueprintSVG(G, shown) {
   const stages = job.stages.filter((st) => !st.hidden || surprised.has(st.id));
   const W = 340, cols = 3, rw = 100, rh = 44, gx = 10, gy = 16, ox = 5, oy = 6;
   const rows = Math.ceil(stages.length / cols);
-  const lostCount = shown.filter((b) => b.kind === 'caught' || b.kind === 'lost' || (b.kind === 'betray' && b.dog)).length + r.exposed.length;
+  const lostCount = shown.filter((b) => b.kind === 'caught' || b.kind === 'lost' || b.kind === 'hurt' || (b.kind === 'betray' && b.dog)).length + r.exposed.length;
   const H = oy * 2 + rows * rh + (rows - 1) * gy + (lostCount ? 30 : 0);
   const pos = stages.map((st, k) => {
     const row = Math.floor(k / cols);
@@ -643,6 +649,7 @@ function blueprintSVG(G, shown) {
   const captured = new Set(shown.filter((b) => b.kind === 'caught').map((b) => b.dog));
   const gone = new Set(shown.filter((b) => b.kind === 'betray' && b.dog).map((b) => b.dog));
   const farmed = new Set(shown.filter((b) => b.kind === 'lost').map((b) => b.dog));
+  const hospital = new Set(shown.filter((b) => b.kind === 'hurt').map((b) => b.dog));
   const exposed = new Set(r.exposed);
   const ended = shown.some((b) => b.kind === 'end');
   const coppers = shown.some((b) => b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
@@ -689,7 +696,7 @@ function blueprintSVG(G, shown) {
   });
   // crew tokens
   const crew = r.crew.map((id) => s.dogs[id]);
-  const here = crew.filter((d) => !captured.has(d.id) && !gone.has(d.id) && !exposed.has(d.id) && !farmed.has(d.id));
+  const here = crew.filter((d) => !captured.has(d.id) && !gone.has(d.id) && !exposed.has(d.id) && !farmed.has(d.id) && !hospital.has(d.id));
   const anchor = curIdx >= 0 ? pos[curIdx] : { x: ox, y: oy - 60 };
   here.forEach((d, k) => {
     const tx = anchor.x + rw - 22 - (k % 4) * 15;
@@ -697,7 +704,7 @@ function blueprintSVG(G, shown) {
     svg += `<g transform="translate(${tx} ${ty})"><ellipse cx="10" cy="20" rx="8" ry="2.2" fill="#000" opacity=".4"/><circle cx="10" cy="10" r="10" fill="#f4ead3" stroke="#0c1427" stroke-width="1.4"/><g transform="translate(1 1)">${innerPortrait(d, 18)}</g></g>`;
   });
   // van / gone tray
-  const tray = [...captured].map((id) => ['🚓', s.dogs[id]]).concat([...farmed].map((id) => ['🚜', s.dogs[id]]), [...gone, ...exposed].map((id) => ['💨', s.dogs[id]]));
+  const tray = [...captured].map((id) => ['🚓', s.dogs[id]]).concat([...hospital].map((id) => ['🏥', s.dogs[id]]), [...farmed].map((id) => ['🚜', s.dogs[id]]), [...gone, ...exposed].map((id) => ['💨', s.dogs[id]]));
   const ty = H - 26;
   svg += `<text x="${ox}" y="${ty + 15}" font-size="10" fill="#9ec1f0">${tray.length ? 'Lost:' : ''}</text>`;
   tray.forEach(([ico, d], k) => {
@@ -741,7 +748,12 @@ function aftermathScreen(G) {
   for (const run of r.runners) lines.push(`💨 <b>${esc(shortName(s.dogs[run.id]))}</b> did a runner with ${esc(lootItem(job, run.lootId).name)}.`);
   for (const l of loot(r.dropped)) lines.push(`🚓 Lost to the police: ${esc(l.name)}.`);
   for (const l of r.lost || []) lines.push(`🚜 <b>${esc(shortName(s.dogs[l.id]))}</b> has gone to live on a farm. For good.`);
-  for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound.`);
+  for (const h of r.hurt || []) {
+    const d = s.dogs[h.id];
+    const bill = d.hospital && !d.hospital.paid ? ` <button class="btn small inline" data-act="pay-hospital" data-id="${d.id}" ${s.cash >= d.hospital.bill ? '' : 'disabled'}>🏥 Pay the bill · ${money(d.hospital.bill)}</button>` : d.hospital?.paid ? ' Bill paid.' : '';
+    lines.push(`🏥 <b>${esc(shortName(d))}</b> is in hospital for ${count(h.jobs, 'job')}${h.skill ? `, with ${esc(INJURIES[h.skill].toLowerCase())} for good (${SKILL_INFO[h.skill].icon} −1)` : ''}.${bill}`);
+  }
+  for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound${recordOf(s.dogs[c.id]) > 1 ? ` (${recordOf(s.dogs[c.id]) - 1} previous: the judge noticed)` : ''}.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
   if (a.prize) lines.push(`🎁 Kept: ${KIT[a.prize].icon} <b>${esc(KIT[a.prize].name)}</b>. ${esc(KIT[a.prize].blurb)}`);
   for (const p of a.promoted || []) {
@@ -942,7 +954,8 @@ function dogModal(G, d) {
   const arc = (s.arcs || []).find((a) => a.dog === d.id);
   const undercover = roleChip(d) + (d.known.undercover && d.undercover ? '<span class="chip bad">👮 UNDERCOVER COPPER</span>' : d.cleared ? '<span class="chip good">✓ Checked out</span>' : '')
     + (arc ? `<span class="chip info">📖 ${esc(ARCS[arc.kind].title)}</span>` : '') + dramaChips(d).join('');
-  const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'crew' ? 'on your crew' : d.status;
+  const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'hospital' ? `in hospital (${d.hospital.jobs})` : d.status === 'crew' ? 'on your crew' : d.status;
+  const record = `<span class="chip ${recordOf(d) >= 3 ? 'bad' : ''}">📁 ${esc(recordLabel(d))}</span>` + (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
 
   // Actions: one primary, then compact secondaries.
   const primary = [];
@@ -954,7 +967,9 @@ function dogModal(G, d) {
   else if (planning && d.status === 'free' && !inCrew && d.drama?.away) primary.push('<span class="chip">Sitting this one out.</span>');
   else if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);
   if (planning && inCrew) primary.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
-  if (d.status === 'pound') primary.push(`<button class="btn" data-act="lawyer" data-id="${d.id}">⚖️ Hire a brief · £150</button>`);
+  // A brief cuts a job off a sentence, never more than half of it.
+  if (d.status === 'pound') primary.push(d.sentence > minSentence(d) ? `<button class="btn" data-act="lawyer" data-id="${d.id}" ${s.cash >= briefCost(d) ? '' : 'disabled'}>⚖️ A brief: one job off · ${money(briefCost(d))}</button>` : `<span class="chip">⚖️ They'll serve ${count(d.sentence, 'more job')}. No brief can shorten it.</span>`);
+  if (d.status === 'hospital') primary.push(d.hospital.paid ? '<span class="chip good">🏥 Bill paid</span>' : `<button class="btn" data-act="pay-hospital" data-id="${d.id}" ${s.cash >= d.hospital.bill ? '' : 'disabled'}>🏥 Pay the hospital bill · ${money(d.hospital.bill)}</button>`);
   if (planning && ['free', 'crew'].includes(d.status) && !(d.known.loyalty && (d.cleared || d.known.undercover))) minor.push(`<button class="btn ghost small" data-act="surveil" data-id="${d.id}" ${s.job.daysLeft ? '' : 'disabled'} aria-label="Have them followed, £80, 1 day">🕵️ Tail<small>£80 · 1 day</small></button>`);
   minor.push(`<button class="btn ghost small" data-act="share" data-id="${d.id}" aria-label="Share card">📸 Share<small>their card</small></button>`);
   const canFarm = d.met && ['free', 'crew', 'pound'].includes(d.status) && s.phase !== 'heist';
@@ -974,7 +989,7 @@ function dogModal(G, d) {
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
     <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}</div>
-    <div class="dm-chips">${undercover}${quirks}</div>
+    <div class="dm-chips">${undercover}${record}${quirks}</div>
     <div class="dm-actions">${actions}</div>`;
 }
 

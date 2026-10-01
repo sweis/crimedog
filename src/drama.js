@@ -10,6 +10,7 @@ import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
 import { addGenerosity, addHardness } from './repute.js';
 import { newRunner } from './runners.js';
+import { sendDown, recordOf } from './justice.js';
 
 const MAX_ARCS = 2;
 const START_CHANCE = 0.4;
@@ -282,10 +283,7 @@ function applyFx(state, arc, fx = {}, rng) {
     arc.vars.rank = to ? RARITY[to].label.toLowerCase() : null;
     if (to) note.push(`${displayName(d)} is ${RARITY[to].label}: ✨ ${SIGNATURES[d.signature].name}.`);
   }
-  if (fx.pound) {
-    d.status = 'pound';
-    d.sentence = fx.pound;
-  }
+  if (fx.pound) sendDown(d, fx.pound + Math.floor(recordOf(d) / 2));
   if (fx.leave) {
     d.status = 'gone';
     d.left = fx.leave;

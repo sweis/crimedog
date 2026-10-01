@@ -6,6 +6,7 @@ import { clamp } from './util.js';
 import { lootItem } from './heists.js';
 import { moPenalty, SETUP_TEXT } from './inspector.js';
 import { crewFeeling } from './repute.js';
+import { sentenceFor, rollInjury } from './justice.js';
 
 export const ALARM_MAX = 10;
 
@@ -150,7 +151,7 @@ const END_TEXT = {
 const loyaltyOf = (d) => d.loyalty + d.relation * 0.5;
 
 function outcomeOf(ctx) {
-  const hurt = ctx.captured.length || ctx.lost.length;
+  const hurt = ctx.captured.length || ctx.lost.length || ctx.hurt.length;
   if (ctx.aborted) return 'aborted';
   if (!ctx.secured.length) return 'bust';
   if (ctx.alarmMax === 0 && ctx.clues === 0 && !hurt) return 'clean';
@@ -179,6 +180,7 @@ export function simulate(state, job, rng) {
     exposed: [],
     captured: [],
     lost: [],
+    hurt: [],
     runners: [],
     secured: [],
     dropped: [],
@@ -196,7 +198,7 @@ export function simulate(state, job, rng) {
 
   // ---- Helpers over this job's state
   // Tipped undercover dogs stay "active" during the job; they only reveal themselves after.
-  const gone = (id) => ctx.exposed.includes(id) || [ctx.captured, ctx.runners, ctx.lost].some((xs) => xs.some((x) => x.id === id));
+  const gone = (id) => ctx.exposed.includes(id) || [ctx.captured, ctx.runners, ctx.lost, ctx.hurt].some((xs) => xs.some((x) => x.id === id));
   const active = () => crew.filter((d) => !gone(d.id));
   const learn = (dog, kind, v) => {
     const L = (ctx.learned[dog.id] ||= { skills: [], talents: [], quirks: [], loyalty: false, undercover: false });
@@ -334,10 +336,17 @@ export function simulate(state, job, rng) {
     beat({ kind: 'fail', stage: stageId, text: `${lootName(lostItem)} ${how}.` });
   };
 
+  // A bad fall: usually hospital for a few jobs (sometimes with a lasting injury), now and then the farm.
   const loseDog = (dog, stageId, skill) => {
-    ctx.lost.push({ id: dog.id, stage: stageId });
     const t = (LOSS_TEXT[skill] || LOSS_TEXT.other).replace('{d}', shortName(dog));
-    beat({ kind: 'lost', stage: stageId, dog: dog.id, text: `${t} ${shortName(dog)} has gone to live on a farm.` });
+    if (rng.chance(0.7)) {
+      const inj = rollInjury(rng, skill);
+      ctx.hurt.push({ id: dog.id, stage: stageId, ...inj });
+      beat({ kind: 'hurt', stage: stageId, dog: dog.id, text: `${t} ${shortName(dog)} is carted off to hospital.` });
+    } else {
+      ctx.lost.push({ id: dog.id, stage: stageId });
+      beat({ kind: 'lost', stage: stageId, dog: dog.id, text: `${t} ${shortName(dog)} has gone to live on a farm.` });
+    }
     dropLoot(stageId, 'is left behind');
   };
 
@@ -537,7 +546,7 @@ export function simulate(state, job, rng) {
     pTalk -= 0.2 * feeling.fear; // too scared of you to talk
     if (d.quirks.includes('nevergrass')) pTalk = 0;
     const talked = rng.chance(clamp(pTalk, 0, 0.95));
-    const sentence = rng.int(2, 3) + (ctx.coppers ? 1 : 0);
+    const sentence = sentenceFor(d, rng, { coppers: ctx.coppers });
     learn(d, 'loyalty');
     if (d.quirks.includes('mumbles')) {
       learn(d, 'quirks', 'mumbles');
@@ -702,6 +711,7 @@ export function simulate(state, job, rng) {
     setup: !!ctx.setup,
     captured: interrogations,
     lost: ctx.lost,
+    hurt: ctx.hurt,
     runners: ctx.runners,
     exposed: ctx.exposed,
     tipped: ctx.tipped,
@@ -723,7 +733,7 @@ function skillTalent(t, skill) {
 export function blankResult(crew, extra = {}) {
   return {
     beats: [], outcome: 'clean', secured: [], dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
-    captured: [], lost: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0,
+    captured: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0,
     ...extra,
   };
 }

@@ -13,7 +13,7 @@ import { generosityOf, hardnessOf, generosityBonus, generosityLabel, hardnessLab
 const CATS = {
   fence: ['🤝', 'Fenced loot'], commission: ['🎯', 'Commissions'], front: ['💰', 'Money fronted'], loan: ['🌹', 'Family loan'],
   crew: ['🐾', 'Hiring crew'], pay: ['✂️', 'Crew\'s cut'], kit: ['🧰', 'Kit'], intel: ['🔎', 'Intel & tips'], fixer: ['🗝️', 'The fixer'],
-  pound: ['⚖️', 'Lawyers'], debts: ['📜', 'Debts'], raids: ['💥', 'Raids'], drama: ['📖', 'Crew drama'], wager: ['🎲', 'Wagers & gifts'], recovered: ['💨', 'Got back from runners'],
+  pound: ['⚖️', 'Lawyers'], debts: ['📜', 'Debts'], raids: ['💥', 'Raids'], drama: ['📖', 'Crew drama'], wager: ['🎲', 'Wagers & gifts'], recovered: ['💨', 'Got back from runners'], hospital: ['🏥', 'Hospital bills'],
 };
 // The timeline is booked at the end of each job; things move between jobs
 // (heat cools, raids), so end the line on where it stands now.

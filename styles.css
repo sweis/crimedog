@@ -425,6 +425,8 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 @keyframes shake { 20%, 60% { transform: translateX(-4px) rotate(-.5deg); } 40%, 80% { transform: translateX(4px) rotate(.5deg); } }
 .beat.pear .txt { font-size: 22px; }
 .beat.loot { border-left-color: var(--brass); background-image: var(--grain), linear-gradient(180deg, #fff6d8, #f7e3a8); }
+.beat.hurt { border-left-color: #c9a24a; font-weight: 700; }
+.btn.inline { display: inline-flex; margin-left: 6px; vertical-align: middle; }
 .beat.lost { border-left-color: #3b2a1a; background-image: var(--grain), linear-gradient(180deg, #efe2c6, #e0cfa8); font-weight: 700; }
 .beat.betray, .beat.interrogation { border-left-color: var(--purple); }
 .beat.good, .beat.escape, .beat.luck { border-left-color: var(--blue); }

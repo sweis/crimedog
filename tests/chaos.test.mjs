@@ -13,7 +13,10 @@ test('chaos: hazards, arrests and losses are common from the first jobs', () => 
   assert.ok(Number(early.surprises) >= 0.2, `surprises ${early.surprises}`);
   assert.ok(Number(early.lossWhenPearShaped) >= 0.45, `crew lost when pear-shaped ${early.lossWhenPearShaped}`);
   assert.ok(Number(early.arrestsPerJob) >= 0.5, `arrests ${early.arrestsPerJob}`);
-  assert.ok(Number(early.farmPerJob) >= 0.04, `farm ${early.farmPerJob}`);
+  // Bad falls: mostly hospital now, sometimes the farm.
+  assert.ok(Number(early.farmPerJob) >= 0.015, `farm ${early.farmPerJob}`);
+  assert.ok(Number(early.hospitalPerJob) > Number(early.farmPerJob), `hospital ${early.hospitalPerJob} vs farm ${early.farmPerJob}`);
+  assert.ok(Number(early.farmPerJob) + Number(early.hospitalPerJob) >= 0.06, 'crew still get hurt');
 });
 
 test('crew lost in a heist go to the farm for good', () => {

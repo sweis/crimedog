@@ -12,6 +12,7 @@ import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGr
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
+import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
 import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
@@ -247,6 +248,7 @@ export function hire(state, id) {
   if (!d) return fail('No such dog.');
   if (state.phase !== 'plan') return fail('Not now.');
   if (state.crew.includes(id)) return fail('Already on the crew.');
+  if (d.status === 'hospital') return fail(`${shortName(d)} is in hospital for ${d.hospital.jobs} more job${d.hospital.jobs > 1 ? 's' : ''}.`);
   if (d.status !== 'free') return fail(`${shortName(d)} isn't available.`);
   if (state.crew.length >= MAX_CREW) return fail('Crew\'s full. Six is plenty.');
   if (state.rep < d.minRep && d.relation < 30) return fail(`"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`);
@@ -666,12 +668,17 @@ export function resolveHeist(state) {
   }
   for (const c of r.captured) {
     const d = state.dogs[c.id];
-    d.status = 'pound';
-    d.sentence = c.sentence;
+    sendDown(d, c.sentence);
     d.talked = c.talked;
     d.caughtJob = job.id;
     addRelation(d, c.talked ? -10 : 10);
     leaveCrew(state, c.id);
+  }
+  for (const h of r.hurt || []) {
+    const d = state.dogs[h.id];
+    const bill = admit(d, h, job.id);
+    leaveCrew(state, h.id);
+    news(state, `${displayName(d)} is in hospital after ${job.name}. The bill: ${money(bill)}.`);
   }
   for (const l of r.lost || []) {
     const d = state.dogs[l.id];
@@ -895,23 +902,10 @@ function headline(state) {
 }
 
 // ------------------------------------------------------------------ aftermath extras
-export function lawyer(state, id) {
-  const d = state.dogs[id];
-  if (!d || d.status !== 'pound') return fail('Not in the pound.');
-  const cost = 150;
-  if (!spend(state, cost, 'pound')) return fail(`A brief costs £${cost}.`);
-  d.sentence -= 1;
-  addRelation(d, 8);
-  addGenerosity(state, 2);
-  addHardness(state, -2);
-  if (d.sentence <= 0) {
-    d.status = 'free';
-    d.sentence = 0;
-    addRelation(d, 10);
-    return done(`Your brief gets ${shortName(d)} out on a technicality. Grateful doesn't cover it.`);
-  }
-  return done(`${shortName(d)}'s sentence is cut to ${d.sentence} job${d.sentence > 1 ? 's' : ''}. They won't forget it.`);
-}
+export const payHospitalBill = (state, id) => payHospital(state, state.dogs[id]);
+
+// A brief cuts a sentence, never by more than half (see justice.js).
+export const lawyer = (state, id) => hireBrief(state, state.dogs[id]);
 
 // Word travels: every dog you know feels a little better or worse about you.
 function nudgeKnownDogs(state, delta, exceptId) {
@@ -966,6 +960,10 @@ export function nextJob(state) {
         d.sentence = 0;
         news(state, `${displayName(d)} is out of the pound${d.talked ? '. Nobody buys them a drink.' : ' and back at the bar.'}`);
       }
+    }
+    if (d.status === 'hospital' && !walkedAway) {
+      const out = recover(state, d, state.job?.id);
+      if (out) news(state, out);
     }
   }
   if (state.phase === 'plan') {
