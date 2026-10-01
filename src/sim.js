@@ -475,6 +475,10 @@ export function simulate(state, job, rng) {
     }
     if (stage.kind !== 'vault') return;
     ctx.vaultDone = true;
+    if (job.callingCard) {
+      ctx.clues += 1;
+      beat({ kind: 'info', stage: stage.id, text: 'The crew leave your calling card where the goods used to be: a monogrammed biscuit. Somebody will notice.' });
+    }
     if (APPROACHES[ctx.lastOk]?.swap) ctx.swap = true;
     grabLoot(stage);
     betrayals();

@@ -6,6 +6,7 @@ import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREED
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
+import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
@@ -268,6 +269,8 @@ export function acceptOffer(state, offerId) {
   }
   state.offers = [];
   state.phase = 'plan';
+  tookRivalJob(state, state.job, false);
+  gatecrash(state, state.job);
   refreshPub(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
   news(state, `You took ${state.job.name} (${who}).`);
@@ -290,10 +293,12 @@ export { payDebt } from './groups.js';
 export { chooseDrama } from './drama.js';
 
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
+export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 export function dismissStory(state) {
   const st = state.story[0];
   if (st?.type === 'inspector') return chooseInspector(state, st.choices.length - 1);
+  if (st?.type === 'rival') return chooseRival(state, st.choices.length - 1);
   state.story.shift();
   return done('');
 }
@@ -468,6 +473,13 @@ export function layLow(state) {
 }
 
 // ------------------------------------------------------------------ planning
+// Your calling card on the job: one more clue for the Inspector, but some people notice style.
+export function toggleCallingCard(state) {
+  if (state.phase !== 'plan') return fail('Not now.');
+  state.job.callingCard = !state.job.callingCard;
+  return done(state.job.callingCard ? '🃏 The crew will leave your calling card: a monogrammed biscuit.' : 'No calling card this time.');
+}
+
 export function setTime(state, time) {
   if (!['night', 'day'].includes(time)) return fail('Night or day.');
   state.job.time = time;
@@ -620,6 +632,7 @@ export function resolveHeist(state) {
   for (const l of r.lost || []) {
     const d = state.dogs[l.id];
     d.status = 'farm';
+    d.lostOn = job.name;
     leaveCrew(state, l.id);
     news(state, `${displayName(d)} went to live on a farm after ${job.name}.`);
   }
@@ -627,6 +640,8 @@ export function resolveHeist(state) {
     const d = state.dogs[run.id];
     d.status = 'gone';
     d.relation = -100;
+    d.left = 'runner';
+    d.ranWith = lootItem(job, run.lootId).name;
     leaveCrew(state, run.id);
     news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
   }
@@ -793,6 +808,7 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
+  a.rivals = rivalsAfterJob(state, rngOf(state));
   closeBooks(state, state.job.name, g.letter);
   state.history.unshift(buildRecap(state));
   state.history.length = Math.min(state.history.length, HISTORY_MAX);
@@ -854,6 +870,7 @@ export function farm(state, id) {
   if (state.phase === 'heist') return fail('Not now.');
   const wasPound = d.status === 'pound';
   d.status = 'farm';
+  d.farmedBy = 'you';
   leaveCrew(state, id);
   if (state.phase === 'plan' && state.job) {
     for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k].dog;
@@ -898,6 +915,8 @@ export function nextJob(state) {
   }
   if (state.phase === 'plan') {
     // Walked away. Smelling a setup and walking is just good sense.
+    const wager = tookRivalJob(state, state.job, true);
+    if (wager) news(state, wager);
     if (state.job.sting && state.job.intel.tipster) news(state, `You smelled a rat and left ${state.job.name} well alone. The Inspector is furious.`);
     else {
       addRep(state, -3);
@@ -927,6 +946,8 @@ export function nextJob(state) {
   genOffers(state, rng);
   const move = inspectorMoves(state, rng, { genJob });
   if (move) news(state, `🕵️ ${move.title}.`);
+  const rival = rivalsBetweenJobs(state, rng, { genJob });
+  if (rival) news(state, `${rival.title}.`);
   state.phase = 'select';
   checkGameOver(state);
   return done('Back to the job board.');
