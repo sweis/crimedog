@@ -389,7 +389,7 @@ export function simulate(state, job, rng) {
     for (const l of byRatio) {
       if (used + l.bulk <= cap) { ctx.secured.push(l.id); used += l.bulk; } else left.push(l);
     }
-    beat({ kind: 'loot', stage: stage.id, text: `${['hack', 'fraud'].includes(job.type) ? 'Moved' : 'In the bag'}: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
+    beat({ kind: 'loot', stage: stage.id, text: `${{ hack: 'Moved', fraud: 'Moved', fix: 'The bets come in' }[job.type] || 'In the bag'}: ${ctx.secured.map(lootName).join(', ')}.` + (left.length ? ` Had to leave ${left.map((l) => l.name).join(', ')} — too heavy.` : '') });
   };
 
   const betrayals = () => {
@@ -485,6 +485,10 @@ export function simulate(state, job, rng) {
     smash: { entry: 'The glass holds. The job\'s off. Leg it!' },
     hack: { entry: 'The network won\'t let them in. The job\'s off.', vault: 'The transfer bounces. Nothing moves.' },
     fraud: { entry: 'They don\'t get the job. That\'s that.', vault: 'The books won\'t cook. Nothing to take.' },
+    tunnel: { entry: 'No shop, no tunnel. The job\'s off.', vault: 'The boxes won\'t open. Back down the hole, empty-pawed.' },
+    roof: { entry: 'Nobody can get up there. The job\'s off.' },
+    fix: { entry: 'Nobody can get near the favourite. The fix is off.', vault: 'The favourite wins fair and square. Every bet\'s lost.', exit: 'The bookies won\'t pay out. Scarper!' },
+    train: { entry: 'The train thunders past. The job\'s off.', vault: 'The mail car won\'t open. The train pulls away.' },
   }[job.type] || {};
   const botch = (stage) => {
     const id = stage.id;

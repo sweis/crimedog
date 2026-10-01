@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Crimedog venue sheet</title>
+<style>body{background:#101a30;margin:0;padding:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;font:12px system-ui;color:#f4ead3}figure{margin:0}svg{width:100%;height:auto;display:block;border-radius:8px}</style>
+<body>
+<script type="module">
+// Dev contact sheet: every kind of job at each of its venues. Open via the dev server.
+// ?types=tunnel,roof limits the sheet.
+import { genJob } from '../src/heists.js';
+import { venueSVG } from '../src/art.js';
+import { JOB_TYPES, VENUE_LABELS } from '../src/data.js';
+import { newGame } from '../src/engine.js';
+import { makeRng } from '../src/rng.js';
+const only = new URLSearchParams(location.search).get('types')?.split(',');
+const s = newGame(3);
+let k = 1;
+for (const [type, T] of Object.entries(JOB_TYPES)) {
+  if (only && !only.includes(type)) continue;
+  for (const venueType of T.venues) {
+    const job = genJob(s, makeRng({ s: k++ }), { type, venueType });
+    const f = document.createElement('figure');
+    f.innerHTML = venueSVG(job) + `<figcaption>${T.label} · ${VENUE_LABELS[venueType]} · ${job.name}</figcaption>`;
+    document.body.appendChild(f);
+  }
+}
+window.done = true;
+</script>

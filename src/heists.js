@@ -11,6 +11,8 @@ const JOB_WORDS = {
   butcher: ['Sausage', 'Pork Pie', 'Mutton', 'Cold Cuts'],
   show: ['Rosette', 'Best in Show', 'Blue Ribbon', 'Crufty'],
   auction: ['Gavel', 'Going Going Gone', 'Lot 86', 'Bonehenge'],
+  ring: ['Knockout', 'Third Round', 'Glass Jaw', 'Southpaw'],
+  train: ['Night Mail', 'Mail Bag', 'Sleeper', 'Signal Box'],
 };
 
 // Names that tell you what kind of job it is.
@@ -21,6 +23,10 @@ const TYPE_NAMES = {
   van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`],
   hack: (w) => [`The ${w} Hack`, 'The Wire Job', 'Operation Firewall', 'The Bone-Coin Caper'],
   fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch'],
+  tunnel: (w) => [`The ${w} Tunnel`, 'The Long Dig', 'The Bank Holiday Job', 'Down Under'],
+  roof: (w) => [`The ${w} Rooftop Job`, 'To Catch a Thief', 'Over the Top', 'The Cat Burglar Caper'],
+  fix: (w) => ['The Fix', `The ${w} Fix`, 'Take a Dive', 'Bent as a Nine Bob Note'],
+  train: (w) => ['The Great Mail Robbery', `The ${w} Job`, 'The Night Mail', 'Last Stop'],
 };
 
 function jobName(rng, venueType, star, type) {
@@ -54,6 +60,10 @@ const HAZARDS = {
   van: [['escort', 3], ['stakeout', 0.5]],
   hack: [['trace', 3], ['silent', 1], ['stakeout', 0.5]],
   fraud: [['auditor', 3], ['stakeout', 0.5]],
+  tunnel: [['flood', 3], ['neighbour', 2], ['stakeout', 0.5]],
+  roof: [['pigeons', 3], ['searchlight', 2], ['cat', 1], ['stakeout', 0.5]],
+  fix: [['steward', 3], ['heavies', 2], ['stakeout', 0.5]],
+  train: [['guardvan', 3], ['railpolice', 2], ['stakeout', 0.5]],
 };
 // Specialist steps that make sense for each kind of job.
 const SPECIALS = {
@@ -64,6 +74,10 @@ const SPECIALS = {
   van: ['carpark'],
   hack: ['biometric'],
   fraud: [],
+  tunnel: ['oldvault', 'wall', 'kennel'],
+  roof: ['wall', 'atrium', 'creaky'],
+  fix: ['doorman'],
+  train: ['carpark'],
 };
 
 function pickType(rng, venueType) {
@@ -79,6 +93,8 @@ function options(rng, pool, n, fallback) {
 }
 
 const obstacle = (id, o, extra) => ({ id, kind: 'obstacle', label: OBSTACLES[o].label, icon: OBSTACLES[o].icon, options: OBSTACLES[o].options.slice(), ...extra });
+// A step drawn from a pool: a few of its ways through, never the same mix twice.
+const step = (rng, id, kind, label, icon, pool, n = 3, extra = {}) => ({ id, kind, label, icon, options: options(rng, pool, n), ...extra });
 const hiddenHazards = (hazards) => Object.keys(hazards).filter((h) => OBSTACLES[h]).map((h) => obstacle(`haz_${h}`, h, { hidden: true, hazard: h }));
 const vault = (vaultType, opts, extra) => ({ id: 'vault', kind: 'vault', label: VAULTS[vaultType].label, icon: VAULTS[vaultType].icon, options: opts || VAULTS[vaultType].options.slice(), vaultType, ...extra });
 const exit = (rng) => ({ id: 'exit', kind: 'exit', label: 'Getting Out', icon: '🏃', options: ['x_same', ...rng.sample(EXIT_POOL.filter((e) => e !== 'x_same'), 2)] });
@@ -142,6 +158,50 @@ const LAYOUTS = {
       { id: 'obs_fund', kind: 'obstacle', label: 'Find the Slush Fund', icon: '🗂️', options: ['f_books', 'f_files', 'f_system'] },
       vault('books', null, { noSig: true }),
       { id: 'exit', kind: 'exit', label: 'Resign Quietly', icon: '📨', noSig: true, options: ['f_notice', 'f_shred', 'f_sniffout'] },
+    ];
+  },
+  tunnel({ rng, V, hazards }) {
+    return [
+      step(rng, 'entry', 'entry', 'The Shop Next Door', '🏪', ['u_lease', 'u_squat', 'u_front', 'u_cellars'], 3, { noSig: true }),
+      step(rng, 'obs_dig', 'obstacle', 'The Dig', '⛏️', ['u_shovel', 'u_old', 'u_trains', 'u_bore']),
+      ...hiddenHazards(hazards),
+      step(rng, 'obs_wall', 'obstacle', 'Through the Wall', '🧱', ['u_core', 'u_chisel', 'u_bricks', 'u_mortar']),
+      vault(V.vaults.includes('boxes') ? 'boxes' : rng.pick(V.vaults), options(rng, VAULTS.boxes.options, 3)),
+      step(rng, 'exit', 'exit', 'Back Down the Hole', '🕳️', ['u_backout', 'u_brickup', 'u_laundry']),
+      getaway(rng),
+    ];
+  },
+  roof({ rng, V, hazards }) {
+    return [
+      step(rng, 'entry', 'entry', 'Up the Building', '🧗', ['r_drainpipe', 'r_crane', 'r_fireescape', 'r_cradle', 'r_line']),
+      step(rng, 'obs_roofs', 'obstacle', 'Across the Rooftops', '🏘️', ['r_leap', 'r_plank', 'r_zip', 'r_chimneys']),
+      ...hiddenHazards(hazards),
+      step(rng, 'obs_skylight', 'obstacle', 'The Skylight', '🪟', ['r_glasscut', 'r_sensor', 'r_lower', 'r_warmwire']),
+      vault(rng.pick(V.vaults)),
+      step(rng, 'exit', 'exit', 'Away Over the Roofs', '🌙', ['r_abseil', 'r_climbout', 'r_dressinggown', 'x_same']),
+      getaway(rng),
+    ];
+  },
+  fix({ rng, hazards }) {
+    return [
+      step(rng, 'entry', 'entry', 'Get to the Favourite', '🥊', ['k_trainer', 'k_fan', 'k_window', 'k_liniment'], 3, { noSig: true }),
+      step(rng, 'obs_nobble', 'obstacle', 'Nobble the Favourite', '🧪', ['k_camomile', 'k_purse', 'k_laces', 'k_word']),
+      step(rng, 'obs_bets', 'obstacle', 'Place the Bets', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
+      ...hiddenHazards(hazards),
+      vault('fight', options(rng, VAULTS.fight.options, 3), { noSig: true }),
+      step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true }),
+    ];
+  },
+  train({ rng, hazards, insider }) {
+    const stop = step(rng, 'entry', 'entry', 'Stop the Train', '🚦', ['n_signal', 'n_cow', 'n_jumpon', 'n_cuppa'], 3, { noSig: true });
+    if (insider) stop.options.push('n_fireman');
+    return [
+      stop,
+      step(rng, 'obs_carriages', 'obstacle', 'Through the Carriages', '🚃', ['n_roofs', 'n_ticket', 'n_corridor', 'n_shoulder']),
+      ...hiddenHazards(hazards),
+      vault('mailcar', options(rng, VAULTS.mailcar.options, 3)),
+      step(rng, 'exit', 'exit', 'Off the Train', '🔗', ['n_uncouple', 'n_drive', 'n_jumpoff']),
+      getaway(rng),
     ];
   },
   van({ rng, hazards }) {
@@ -224,6 +284,10 @@ export function genJob(state, rng, opts = {}) {
   if (type === 'van') intel.van_route = false;
   if (type === 'hack') intel.net_map = false;
   if (type === 'fraud') intel.org_chart = false;
+  if (type === 'tunnel') { intel.blueprints = false; intel.tunnel_plan = false; }
+  if (type === 'roof') intel.blueprints = false;
+  if (type === 'fix') intel.routine = false;
+  if (type === 'train') intel.timetable = false;
   intel.loot_value = false;
   if (has('getaway')) intel.escape_routes = false;
   for (const h of Object.keys(hazards)) intel[`hz_${h}`] = false;

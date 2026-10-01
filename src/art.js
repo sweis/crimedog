@@ -165,6 +165,32 @@ function building(u, type, cx, ground, rng) {
     s += `<path d="M${x + 30} ${ground - 26} h${w - 60} l8 -10 h${-w + 44} Z" fill="#7a1f16"/>`;
     for (let i = 0; i < 14; i++) s += `<circle cx="${f1(x + 26 + i * ((w - 52) / 13))}" cy="${ground - 36}" r="1.4" fill="#ffe08a"/>`;
     s += `<rect x="${cx - 16}" y="${ground - 26}" width="32" height="26" fill="url(#${u}win)"/>`;
+  } else if (type === 'ring') {
+    // A boxing club: an old brick hall with a fight-night banner and bulbs.
+    const w = 180, h = 88, x = cx - w / 2, y = ground - h;
+    s += `<path d="M${x - 4} ${y} L${cx} ${y - 22} L${x + w + 4} ${y} Z" fill="#4a2a24"/><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#6a3328"/><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${u}brick)"/>`;
+    s += windows(u, x + 16, y + 10, 5, 1, 20, 16, 13, 0, rng, '#2a1a18');
+    s += `<rect x="${x + 18}" y="${y + 34}" width="${w - 36}" height="20" fill="#9c2e27" stroke="#e2b447" stroke-width="1.5"/><text x="${cx}" y="${y + 48}" text-anchor="middle" font-family="Alfa Slab One, Rockwell, Georgia, serif" font-size="12" letter-spacing="1.5" fill="#f3ead3">FIGHT NIGHT</text>`;
+    for (let i = 0; i < 16; i++) s += `<circle cx="${f1(x + 12 + i * ((w - 24) / 15))}" cy="${f1(y + 30 + Math.sin(i / 2.4) * 2)}" r="1.5" fill="${i % 2 ? '#ffe08a' : '#ff9a4a'}"/>`;
+    s += `<path d="M${cx - 18} ${ground} V${ground - 26} a18 14 0 0 1 36 0 V${ground} Z" fill="#2a1a18"/><path d="M${cx - 15} ${ground} V${ground - 25} a15 11 0 0 1 30 0 V${ground} Z" fill="url(#${u}win)"/>`;
+    s += `<rect x="${x + 12}" y="${ground - 28}" width="22" height="26" fill="#efe6cf"/><circle cx="${x + 23}" cy="${ground - 19}" r="5" fill="#9c2e27"/><rect x="${x + 15}" y="${ground - 10}" width="16" height="3" fill="#1d1b22"/><rect x="${x + w - 34}" y="${ground - 28}" width="22" height="26" fill="#e2b447"/><rect x="${x + w - 31}" y="${ground - 24}" width="16" height="3" fill="#1d1b22"/><rect x="${x + w - 31}" y="${ground - 18}" width="12" height="2" fill="#1d1b22"/>`;
+  } else if (type === 'train') {
+    // A brick viaduct across the scene, the night mail on top.
+    const top = ground - 56;
+    s += `<rect x="0" y="${top}" width="360" height="${ground - top}" fill="#5a3a2e"/><rect x="0" y="${top}" width="360" height="${ground - top}" fill="url(#${u}brick)"/>`;
+    for (let i = 0; i < 6; i++) s += `<path d="M${14 + i * 60} ${ground} V${top + 26} a23 23 0 0 1 46 0 V${ground} Z" fill="#0e1528"/>`;
+    s += `<rect x="0" y="${top - 4}" width="360" height="6" fill="#3a2620"/>`;
+    const tx = cx - 150;
+    for (let c = 0; c < 3; c++) {
+      const kx = tx + 90 + c * 72;
+      s += `<rect x="${kx}" y="${top - 30}" width="66" height="24" rx="3" fill="${c === 1 ? '#8a2419' : '#7a1f16'}"/><rect x="${kx}" y="${top - 32}" width="66" height="4" rx="2" fill="#3a1410"/>`;
+      for (let wdw = 0; wdw < 4; wdw++) s += `<rect x="${kx + 6 + wdw * 15}" y="${top - 25}" width="10" height="8" fill="${rng.chance(0.6) ? `url(#${u}win)` : '#2a1a18'}"/>`;
+      if (c === 1) s += `<text x="${kx + 33}" y="${top - 10}" text-anchor="middle" font-size="5" font-family="system-ui,sans-serif" font-weight="800" fill="#e2b447">ROYAL MAIL</text>`;
+      s += `<circle cx="${kx + 12}" cy="${top - 4}" r="4" fill="#14161f"/><circle cx="${kx + 54}" cy="${top - 4}" r="4" fill="#14161f"/>`;
+    }
+    s += `<rect x="${tx + 20}" y="${top - 34}" width="62" height="28" rx="4" fill="#1d2a22"/><rect x="${tx + 56}" y="${top - 46}" width="24" height="40" rx="2" fill="#24362b"/><rect x="${tx + 60}" y="${top - 42}" width="14" height="10" fill="url(#${u}win)"/><rect x="${tx + 28}" y="${top - 48}" width="9" height="16" fill="#14161f"/><path d="M${tx + 14} ${top - 6} l8 -10 v10 Z" fill="#14161f"/>`;
+    s += `<circle cx="${tx + 34}" cy="${top - 4}" r="6" fill="#14161f"/><circle cx="${tx + 52}" cy="${top - 4}" r="6" fill="#14161f"/><circle cx="${tx + 70}" cy="${top - 4}" r="6" fill="#14161f"/><circle cx="${tx + 22}" cy="${top - 30}" r="5" fill="#ffe3a0"/><path d="M${tx + 22} ${top - 30} L${tx - 40} ${top - 44} L${tx - 40} ${top - 16} Z" fill="#ffe3a0" opacity=".18"/>`;
+    for (let k = 0; k < 5; k++) s += `<circle cx="${f1(tx + 34 + k * 14 + rng.float(-3, 3))}" cy="${f1(top - 54 - k * 7)}" r="${f1(6 + k * 2.5)}" fill="#c9d3e6" opacity="${f1(0.35 - k * 0.05)}"/>`;
   } else {
     // show: striped marquee tent
     const w = 200, x = cx - w / 2, y = ground - 70;
@@ -205,6 +231,17 @@ function props(u, type, W, ground, rng, day) {
         <circle cx="${x + 10}" cy="${ground - 3}" r="4.5" fill="${ink}"/><circle cx="${x + 42}" cy="${ground - 3}" r="4.5" fill="${ink}"/></g>`;
     case 'fraud': // the job advert in the window
       return `<g><rect x="${x + 6}" y="${ground - 34}" width="36" height="14" rx="2" fill="#efe6cf" stroke="#1d1b22"/><text x="${x + 24}" y="${ground - 24.5}" text-anchor="middle" font-size="6" font-family="Alfa Slab One, Georgia, serif" fill="#9c2e27">NOW HIRING</text><rect x="${x + 22}" y="${ground - 20}" width="3" height="20" fill="${ink}"/></g>`;
+    case 'tunnel': // a mound of fresh earth and a TO LET sign
+      return `<g><path d="M${x - 6} ${ground} q16 -16 34 0 Z" fill="#5a3e28"/><path d="M${x + 2} ${ground - 4} q8 -6 16 0" stroke="#7a5a3a" fill="none"/><path d="M${x + 30} ${ground - 2} l6 -18" stroke="#8a6a4a" stroke-width="2"/><path d="M${x + 33} ${ground - 22} l6 2 l-3 6 l-6 -2 Z" fill="#9aa0a8"/>
+        <rect x="${x + 44}" y="${ground - 30}" width="26" height="14" fill="#efe6cf" stroke="#1d1b22"/><text x="${x + 57}" y="${ground - 20}" text-anchor="middle" font-size="6.5" font-family="Alfa Slab One, Georgia, serif" fill="#9c2e27">TO LET</text><rect x="${x + 56}" y="${ground - 16}" width="2.5" height="16" fill="${ink}"/></g>`;
+    case 'roof': { // a figure on the skyline and a rope down the wall
+      const rx = W / 2 + 60;
+      return `<g><path d="M${rx} ${ground - 92} q-3 30 1 60 q3 20 -1 32" stroke="#c9b38a" stroke-width="1.6" fill="none"/><g transform="translate(${rx - 6} ${ground - 108})"><ellipse cx="6" cy="12" rx="5" ry="7" fill="${ink}"/><circle cx="6" cy="3" r="4" fill="${ink}"/><path d="M2 1 l-3 -4 l4 2 M10 1 l3 -4 l-4 2" fill="${ink}"/><rect x="1" y="1.5" width="10" height="2" fill="#2a3a5a"/></g></g>`;
+    }
+    case 'fix': // the bookies next door
+      return `<g><rect x="${x}" y="${ground - 34}" width="48" height="34" fill="#1f3a2a"/><rect x="${x + 2}" y="${ground - 32}" width="44" height="9" fill="#e2b447"/><text x="${x + 24}" y="${ground - 25}" text-anchor="middle" font-size="6.5" font-family="Alfa Slab One, Georgia, serif" fill="#1d1b22">BOOKIES</text><rect x="${x + 6}" y="${ground - 20}" width="18" height="14" fill="url(#${u}win)"/><rect x="${x + 30}" y="${ground - 20}" width="12" height="20" fill="#14161f"/></g>`;
+    case 'train': // a railway signal, at red
+      return `<g><rect x="${x + 20}" y="${ground - 46}" width="3" height="46" fill="${ink}"/><rect x="${x + 15}" y="${ground - 58}" width="13" height="16" rx="3" fill="${ink}"/><circle cx="${x + 21.5}" cy="${ground - 53}" r="3" fill="#ff5a4a"/><circle cx="${x + 21.5}" cy="${ground - 53}" r="7" fill="#ff5a4a" opacity=".25"/><circle cx="${x + 21.5}" cy="${ground - 46}" r="2.5" fill="#2a3a2a"/></g>`;
     default: // a break-in: a rope dangling from the roof
       return `<path d="M${W / 2 + 70} ${ground - 76} q-4 24 2 46 q4 16 -2 30" stroke="#c9b38a" stroke-width="1.6" fill="none"/><path d="M${W / 2 + 66} ${ground - 79} l4 3 l4 -3" stroke="#999" stroke-width="1.4" fill="none"/>`;
   }

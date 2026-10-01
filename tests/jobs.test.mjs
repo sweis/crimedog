@@ -25,7 +25,7 @@ test('the job board offers every kind of job', () => {
     for (const o of s.offers) seen[o.job.type] = (seen[o.job.type] || 0) + 1;
   }
   const total = Object.values(seen).reduce((a, b) => a + b, 0);
-  for (const t of Object.keys(JOB_TYPES)) assert.ok((seen[t] || 0) / total >= 0.06, `${t}: ${seen[t]}/${total}`);
+  for (const t of Object.keys(JOB_TYPES)) assert.ok((seen[t] || 0) / total >= 0.04, `${t}: ${seen[t]}/${total}`);
 });
 
 test('each kind of job has its own shape', () => {
@@ -139,5 +139,43 @@ test('every kind of job plays out to an end', () => {
       assert.equal(r.beats.at(-1).kind, 'end', `${t} ${k}`);
       assert.ok(['clean', 'tidy', 'messy', 'bust', 'aborted'].includes(r.outcome));
     }
+  }
+});
+
+test('the newer kinds of job: tunnels, rooftops, fixes and the night mail', () => {
+  for (const { job } of jobsOf('tunnel')) {
+    assert.ok(['obs_dig', 'obs_wall'].every((id) => ids(job).includes(id)) && job.noInsider);
+    assert.equal(job.stages[0].label, 'The Shop Next Door');
+    if (['bank', 'jeweller'].includes(job.venueType)) assert.equal(job.stages.find((st) => st.kind === 'vault').vaultType, 'boxes');
+  }
+  for (const { job } of jobsOf('roof')) assert.ok(['obs_roofs', 'obs_skylight', 'getaway'].every((id) => ids(job).includes(id)));
+  for (const { job } of jobsOf('fix')) {
+    assert.ok(!ids(job).includes('getaway') && ids(job).includes('obs_bets'));
+    assert.equal(job.stages.find((st) => st.kind === 'vault').vaultType, 'fight');
+  }
+  for (const { job } of jobsOf('train')) {
+    assert.equal(job.venueType, 'train');
+    assert.equal(job.stages.find((st) => st.kind === 'vault').vaultType, 'mailcar');
+    assert.equal(job.stages[0].options.includes('n_fireman'), !job.noInsider);
+  }
+});
+
+test('every kind of job plays through, and a good crew can pull each one off', () => {
+  for (const type of Object.keys(JOB_TYPES)) {
+    const outcomes = {};
+    for (let k = 1; k <= 30; k++) {
+      const s = E.newGame(k);
+      s.cash = 20000;
+      s.offers[0].job = genJob(s, makeRng({ s: k }), { type, tier: 1 });
+      takeJob(s);
+      for (const id of s.pub.slice(0, 4)) E.hire(s, id);
+      for (const d of E.crewDogs(s)) for (const sk of Object.keys(d.skills)) d.skills[sk] = 4;
+      E.autoPlan(s);
+      const r = simulate(s, s.job, makeRng({ s: k }));
+      for (const b of r.beats) if (b.approach) assert.ok(APPROACHES[b.approach], `${type}: ${b.approach}`);
+      outcomes[r.outcome] = (outcomes[r.outcome] || 0) + 1;
+    }
+    const wins = (outcomes.clean || 0) + (outcomes.tidy || 0) + (outcomes.messy || 0);
+    assert.ok(wins >= 12, `${type}: ${JSON.stringify(outcomes)}`);
   }
 });

@@ -9,7 +9,7 @@ test('chaos: hazards, arrests and losses are common from the first jobs', () => 
   const early = chaosStats(60, 5);
   console.log(early);
   assert.equal(Number(early.jobsWithHazard), 1, 'every job hides a hazard');
-  assert.ok(Number(early.jobsWithCat) >= 0.25, `cats ${early.jobsWithCat}`);
+  assert.ok(Number(early.jobsWithCat) >= 0.15, `cats ${early.jobsWithCat}`); // one hazard among many now
   assert.ok(Number(early.surprises) >= 0.2, `surprises ${early.surprises}`);
   assert.ok(Number(early.lossWhenPearShaped) >= 0.45, `crew lost when pear-shaped ${early.lossWhenPearShaped}`);
   assert.ok(Number(early.arrestsPerJob) >= 0.5, `arrests ${early.arrestsPerJob}`);
