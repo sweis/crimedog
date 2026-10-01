@@ -146,6 +146,7 @@ function jobTraits(job) {
   if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
   if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
   if (job.prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
+  if (job.ringer) chips.push('<span class="chip info">🥊 Our own fighter</span>');
   if (job.twist) chips.push(`<span class="chip warn">${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}</span>`);
   if (job.watched) chips.push('<span class="chip bad">🚓 Watched</span>');
   if (job.tip && job.intel.tipster) chips.push(job.sting ? '<span class="chip bad">🚨 It\'s a setup!</span>' : '<span class="chip good">✅ The tip\'s good</span>');

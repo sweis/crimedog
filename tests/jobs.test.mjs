@@ -216,3 +216,21 @@ test('no two break-ins alike: steps and options vary from job to job', () => {
   const obstacles = new Set(jobsOf('breakin', 80).flatMap(({ job }) => job.stages.filter((st) => st.kind === 'obstacle' && !st.hidden).map((st) => st.id)));
   for (const o of ['obs_guards', 'obs_cameras', 'obs_lasers', 'obs_motion', 'obs_watchman', 'obs_gate', 'obs_glassfloor']) assert.ok(obstacles.has(o), o);
 });
+
+test('the fix at the boxing club: spike his kibble, or put our own fighter in the ring', () => {
+  let ringers = 0;
+  let nobbles = 0;
+  for (let k = 1; k <= 60; k++) {
+    const s = E.newGame(k);
+    const job = genJob(s, makeRng({ s: k }), { type: 'fix', venueType: 'ring' });
+    if (job.ringer) {
+      ringers++;
+      assert.deepEqual(ids(job).filter((id) => !id.startsWith('haz_') && id !== 'specialist'), ['entry', 'obs_camp', 'obs_bets', 'vault', 'exit']);
+      assert.equal(job.stages.find((st) => st.kind === 'vault').label, 'Into the Ring');
+    } else {
+      nobbles++;
+      assert.ok(job.stages.find((st) => st.id === 'obs_nobble').options.includes('k_kibble'), 'kibble on the menu at the club');
+    }
+  }
+  assert.ok(ringers > 15 && nobbles > 15, `ringers ${ringers}, nobbles ${nobbles}`);
+});

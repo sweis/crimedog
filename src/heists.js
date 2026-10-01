@@ -195,10 +195,23 @@ const LAYOUTS = {
       getaway(rng),
     ];
   },
-  fix({ rng, hazards }) {
+  fix({ rng, V, hazards }) {
+    // At the boxing club, sometimes one of the crew gets on the card and fights him.
+    if (V === VENUES.ring && rng.chance(0.5)) {
+      return [
+        step(rng, 'entry', 'entry', 'Get on the Card', '📝', ['k_signup', 'k_sparring', 'k_record', 'k_moustache'], 3, { noSig: true }),
+        step(rng, 'obs_camp', 'obstacle', 'Training Camp', '🏋️', ['k_roadwork', 'k_skipping', 'k_tapes', 'k_gloves'], 3, { noSig: true }),
+        step(rng, 'obs_bets', 'obstacle', 'Bet on Ourselves', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
+        ...hiddenHazards(hazards),
+        vault('fight', options(rng, ['k_slug', 'k_dance', 'k_lowblow', 'k_uppercut'], 3), { noSig: true, label: 'Into the Ring' }),
+        step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true }),
+      ];
+    }
+    const nobble = step(rng, 'obs_nobble', 'obstacle', 'Nobble the Favourite', '🧪', ['k_camomile', 'k_purse', 'k_laces', 'k_word', 'k_kibble']);
+    if (V === VENUES.ring && !nobble.options.includes('k_kibble')) nobble.options[rng.int(0, nobble.options.length - 1)] = 'k_kibble';
     return [
       step(rng, 'entry', 'entry', 'Get to the Favourite', '🥊', ['k_trainer', 'k_fan', 'k_window', 'k_liniment'], 3, { noSig: true }),
-      step(rng, 'obs_nobble', 'obstacle', 'Nobble the Favourite', '🧪', ['k_camomile', 'k_purse', 'k_laces', 'k_word']),
+      nobble,
       step(rng, 'obs_bets', 'obstacle', 'Place the Bets', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
       ...hiddenHazards(hazards),
       vault('fight', options(rng, VAULTS.fight.options, 3), { noSig: true }),
@@ -334,6 +347,7 @@ export function genJob(state, rng, opts = {}) {
     tier,
     base: jobBase,
     twist,
+    ringer: stages.some((st) => st.id === 'obs_camp'),
     owner,
     patron: null,
     loot,
