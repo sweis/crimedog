@@ -10,8 +10,10 @@ export function pickOffer(s, policy) {
   if (s.phase !== 'select') return;
   // Careful players prefer a patron's deal and steer clear of angering big outfits.
   const offers = s.offers;
+  // They also steer clear of watched jobs and strangers' tips (unless they've checked them out).
+  const safe = offers.filter((o) => !o.job.watched && !o.job.tip);
   const pick = policy === 'smart'
-    ? offers.find((o) => o.source !== 'own' && !o.job.owner) || offers.find((o) => !o.job.owner) || offers[0]
+    ? safe.find((o) => o.source !== 'own' && !o.job.owner) || safe.find((o) => !o.job.owner) || safe[0] || offers[0]
     : offers[0];
   E.acceptOffer(s, pick.id);
 }
@@ -39,8 +41,11 @@ export function smartJob(s) {
   }
   if (!s.crew.length) { const c = s.pub.map((id) => s.dogs[id]).filter((d) => d.fee <= s.cash).sort((a, b) => a.fee - b.fee)[0]; if (c) E.hire(s, c.id); }
   if (!s.crew.length) return;
-  // Check out strangers when heat is up
-  if (s.heat >= 25) for (const d of E.crewDogs(s)) if (d.jobs === 0 && s.cash > 200) { E.surveil(s, d.id); if (d.known.undercover && d.undercover) E.dismiss(s, d.id); }
+  // Check out strangers once the Inspector's about (and anyone, after he's turned a regular).
+  const grass = s.inspector?.moves?.some((m) => m.move === 'flip');
+  if (s.inspector?.met) for (const d of E.crewDogs(s)) if ((d.jobs === 0 || grass) && s.cash > 200) { E.surveil(s, d.id); if (d.known.undercover && d.undercover) E.dismiss(s, d.id); }
+  // A stranger's tip: find out who's behind it, and walk if it's a setup.
+  if (job.tip) for (let k = 0; k < 3 && !job.intel.tipster && s.cash > 300; k++) E.caseJoint(s, 'tipster');
   const caser = E.crewDogs(s).sort((a, b) => E.caseOdds(s, b).expected - E.caseOdds(s, a).expected)[0];
   for (let k = 0; k < 2 && s.cash > 250 && job.daysLeft > 1; k++) E.caseJoint(s, caser?.id);
   // Kit the plan wants
@@ -55,6 +60,8 @@ export function smartJob(s) {
   if (s.cash > 800) E.buy(s, 'bags');
   if (s.cash > 1500 && job.daysLeft) E.lineUpBuyer(s);
   if (s.cash > 1500 && s.heat > 20) E.buySafehouse(s);
+  // Lie low when the Inspector is close.
+  for (let k = 0; k < 2 && s.heat >= 50 && s.cash > 1200 && job.daysLeft > 0; k++) E.layLow(s);
   if (job.hazards.stakeout && job.intel.hz_stakeout && job.stakeoutTime === 'night') E.setTime(s, 'day');
   for (const k of Object.keys(job.plan)) delete job.plan[k];
   E.autoPlan(s);
@@ -65,6 +72,7 @@ export function smartJob(s) {
 export function answerStories(s, policy) {
   for (let guard = 0; guard < 20 && s.story.length; guard++) {
     const st = s.story[0];
+    if (st.type === 'inspector') { E.chooseInspector(s, policy === 'smart' && st.choices[0].cost && s.cash - st.choices[0].cost > 800 ? 0 : st.choices.length - 1); continue; }
     if (st.type !== 'drama') { E.dismissStory(s); continue; }
     const ch = sceneChoices(s, st);
     E.chooseDrama(s, policy === 'smart' && ch[0].ok && s.cash - ch[0].cost > 800 ? 0 : ch.length - 1);
@@ -80,7 +88,7 @@ export function career(seed, policy, maxJobs = 10, onResult = null) {
     pickOffer(s, policy);
     if (policy === 'smart') smartJob(s);
     else if (s.pub.length) { const d = s.dogs[s.pub[0]]; if (d.fee <= s.cash) E.hire(s, d.id); }
-    if (!s.crew.length) { E.nextJob(s); continue; }
+    if (!s.crew.length || (s.job.sting && s.job.intel.tipster)) { E.nextJob(s); continue; }
     E.pullJob(s);
     if (onResult) onResult(s);
     E.resolveHeist(s);

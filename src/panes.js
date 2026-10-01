@@ -83,7 +83,7 @@ function heatPane(s) {
   return `<h2>🕵️ ${esc(INSPECTOR.name)}</h2>
     <div class="hero-fig">${s.heat}<small>/100 · ${esc(inspectorLabel(s.heat))}</small></div>
     <div class="meter ${sev}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.heat}"><i style="width:${s.heat}%"></i></div>
-    ${t.length > 1 ? lineChart(series(s, 'heat'), { color: DOWN, refs: [{ y: 25, label: 'plants' }, { y: 40, label: 'stings' }], caption: 'Heat after each job. Tap a point.' }) : ''}
+    ${t.length > 1 ? lineChart(series(s, 'heat'), { color: DOWN, refs: [{ y: 12, label: 'coppers' }, { y: 25, label: 'stings' }, { y: 45, label: 'raids' }], caption: 'Heat after each job. Tap a point.' }) : ''}
     <h3 class="dm-h">What the heat brings</h3>
     <ul class="ledger">${HEAT_LEVELS.map(([at, icon, what]) => `<li><span>${s.heat >= at ? '⚠️' : icon} ${esc(what)}</span><b>${at}+</b></li>`).join('')}</ul>
     <h3 class="dm-h">His file on your methods</h3>

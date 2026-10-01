@@ -587,6 +587,132 @@ console.log('1m. Top bar: tap each stat for its pane; help from the title and th
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1n. the Inspector and the new jobs
+console.log('1n. The Inspector: his scene, a setup, his file; the new kinds of job');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=41`);
+  await page.waitForFunction(() => window.cd);
+  // Two jobs in, he introduces himself on the job board.
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    window.cd.setSeed(41);
+    const s = window.cd.live();
+    const his = [];
+    for (let j = 0; j < 2; j++) {
+      his.push(...s.story.filter((x) => x.type === 'inspector'));
+      s.story = [];
+      window.cd.teleport('plan');
+      s.cash += 800;
+      for (const id of s.pub.slice(0, 2)) E.hire(s, id);
+      E.autoPlan(s);
+      E.pullJob(s);
+      E.resolveHeist(s);
+      if (s.after.step === 'deliver') E.deliver(s);
+      if (s.after.step === 'fence') E.fence(s, 'hal');
+      E.payCrew(s, s.after.received ? 30 : 0);
+      E.nextJob(s);
+    }
+    his.push(...s.story.filter((x) => x.type === 'inspector'));
+    s.story = his.slice(0, 1);
+    window.cd.teleport('select');
+  });
+  let st = await page.evaluate(() => window.cd.getState());
+  check(st.inspector.met && st.inspector.moves.includes('plant') && st.inspector.story[0] === 'inspector', `he has introduced himself by job 3 (${st.inspector.moves})`);
+  check(await page.locator('.modal.inspector').count() === 1, 'his scene is up on the job board');
+  await shot(page, 'inspector-scene');
+  await tap(page, '.modal.inspector [data-act="drama"]');
+  st = await page.evaluate(() => window.cd.getState());
+  check(st.story === 0, 'answered with a real tap');
+  // A stranger's tip that is really a setup: cased, it shows.
+  const tipId = await page.evaluate(async () => {
+    const H = await import('/src/heists.js');
+    const I = await import('/src/inspector.js');
+    const R = await import('/src/rng.js');
+    const s = window.cd.live();
+    const job = H.genJob(s, R.makeRng({ s: 5 }), { type: 'roof', twist: 'storm' });
+    I.makeTip(job, true);
+    s.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    s.inspector.plant = true; // and another of his coppers is in the pub
+    window.cd.teleport('select');
+    return job.id;
+  });
+  check((await page.locator(`[data-offer="${tipId}"]`).innerText()).includes('stranger'), 'the tip says who it came from');
+  await shot(page, 'tip-on-board');
+  await tap(page, `[data-act="take-offer"][data-id="${tipId}"]`);
+  check(await page.evaluate(() => { const s = window.cd.live(); return s.pub.some((id) => s.dogs[id].undercover); }), 'his plant is in the pub');
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    s.cash += 1000;
+    for (let k = 0; k < 4 && !s.job.intel.tipster; k++) E.caseJoint(s, 'tipster');
+    window.cd.teleport('job');
+  });
+  const chips = await page.locator('main .job-card').innerText();
+  check(chips.includes('setup') && chips.includes('A Storm Tonight'), 'casing shows it\'s a setup; the twist is on the job');
+  await shot(page, 'setup-spotted');
+  // Pull it anyway: the trap springs at the vault.
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    window.cd.teleport('plan');
+    for (const id of s.pub.filter((x) => !s.dogs[x].undercover).slice(0, 3)) E.hire(s, id);
+    for (const d of E.crewDogs(s)) for (const k of Object.keys(d.skills)) d.skills[k] = 5;
+    E.autoPlan(s);
+    window.cd.teleport('heist');
+    window.cd.step(400);
+  });
+  const res = await page.evaluate(() => window.cd.live().result);
+  check(res.setup || res.aborted || res.outcome === 'bust', `pulling a setup goes badly (${res.setup ? 'sprung' : res.outcome})`);
+  if (res.setup) await shot(page, 'setup-sprung');
+  // The new kinds of job: take each from the board with a tap and plan it.
+  for (const type of ['tunnel', 'roof', 'fix', 'train']) {
+    const id = await page.evaluate(async (t) => {
+      const H = await import('/src/heists.js');
+      const R = await import('/src/rng.js');
+      const s = window.cd.live();
+      window.cd.teleport('select');
+      s.story = [];
+      const job = H.genJob(s, R.makeRng({ s: t.length * 7 }), { type: t, tier: 2 });
+      s.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+      window.cd.teleport('select');
+      return job.id;
+    }, type);
+    await tap(page, `[data-act="take-offer"][data-id="${id}"]`);
+    await page.evaluate(async () => {
+      const E = await import('/src/engine.js');
+      const s = window.cd.live();
+      s.cash += 3000;
+      for (const id of s.pub.filter((x) => !s.dogs[x].undercover).slice(0, 3)) E.hire(s, id);
+      E.autoPlan(s);
+      window.cd.teleport('plan');
+    });
+    const n = await page.locator('main .plan-step').count();
+    const want = await page.evaluate(() => window.cd.live().job.stages.filter((x) => !x.hidden).length);
+    check(n === want && n >= 4, `${type}: plan shows all ${want} steps`);
+    await shot(page, `job-${type}-plan`);
+  }
+  // His file: a trick he has seen twice is marked on the plan and in the heat pane.
+  const ap = await page.evaluate(() => {
+    const s = window.cd.live();
+    const plan = Object.values(s.job.plan).find((p) => p?.approach);
+    s.mo = { [plan.approach]: 2 };
+    window.cd.teleport('plan');
+    return plan.approach;
+  });
+  check((await page.locator(`.opt[data-ap="${ap}"]`).innerText()).includes('seen this before (+2)'), 'the plan marks a trick he knows');
+  await shot(page, 'inspector-file-plan');
+  await tap(page, '.topbar [data-pane="heat"]');
+  const pane = (await page.locator('.modal').innerText()).toLowerCase();
+  check(pane.includes('his file on your methods') && pane.includes('his moves'), 'the heat pane shows his file and his moves');
+  await shot(page, 'pane-heat-file');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {

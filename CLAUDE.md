@@ -85,9 +85,24 @@ Jobs come in different shapes, each with its own steps and options, so no two fe
 - **The Van Job**: stop an armoured van on the road, deal with the guards, crack the back doors.
 - **The Wire Job** (online crime): get into the network, the server room, find the money, move it, cover your tracks. Tech, sneak and nose.
 - **The Paper Trail** (white collar): get a job there, earn their trust, find the slush fund, cook the books, resign quietly.
+- **The Tunnel Job**: take the shop next door, dig, go through the wall into the deposit boxes, and brick it up behind you.
+- **The Rooftop Job** (cat burglary): up the building, across the roofs, in through the skylight, away over the slates.
+- **The Fix**: get to the favourite, nobble him, place the bets, rig the big fight, collect before the bookies twig.
+- **The Night Mail**: stop the train, work through the carriages, empty the mail car, get off before dawn.
+
+No two jobs of a kind should play the same: buildings draw from a pool of obstacles (guards, cameras, lasers, motion sensors,
+night watchmen, gates, glass floors), each step offers a different mix of options, and many jobs carry a **twist** (a storm,
+a pea-souper, a party upstairs, a power cut, a double shift, moving tomorrow, a bigger haul, another crew on the same night).
 
 Some jobs can't take an inside dog (a con has no inside; some places don't hire new staff). Some have a specialist step that only one skill can
 handle, and only a real expert (4+) does it well; when that happens, someone up to it is always in the pub, for a price.
+
+### The Inspector
+
+The Inspector is a character with a face, and he acts. He introduces himself early with a copper planted in the pub, and between
+jobs (more often as heat rises) makes a move, told as a scene with a choice: plants coppers, stakes out a job on the board, warns
+security across town, tails or questions a crew member, leaves tips that are really setups, turns a regular into a grass, raids
+the back room. He keeps a file on the mastermind's methods: a trick seen job after job gets harder, so repeating yourself costs.
 
 ### Casing, roles and special kit
 
