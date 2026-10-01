@@ -1,9 +1,10 @@
 // The top bar's panes (cash, reputation, the Inspector, the day book) and the
 // help page. Each is modal content; renderModal in ui.js wraps it.
-import { GROUPS, RARITY } from './data.js';
 import { esc, money } from './util.js';
 import { inspectorLabel, starChance } from './engine.js';
 import { columnChart, lineChart, UP, DOWN } from './charts.js';
+import { APPROACHES, GROUPS, RARITY } from './data.js';
+import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
 
 // What each kind of money was for.
 const CATS = {
@@ -66,20 +67,28 @@ function repPane(s) {
 }
 
 const HEAT_LEVELS = [
-  [25, '👮', 'Undercover coppers start turning up in the pub'],
-  [40, '🪤', 'Fancy Francesca may be a sting'],
+  [12, '🚓', 'Undercover coppers and stakeouts'],
+  [25, '🪤', 'Stings: fake tips, and Fancy Francesca'],
+  [35, '🐀', 'He turns your regulars into grasses'],
+  [45, '🚪', 'Raids on your back room'],
+  [60, '🚨', 'The police come running sooner'],
   [100, '🚔', 'The Inspector knocks. Game over'],
 ];
 function heatPane(s) {
   const t = s.timeline || [];
   const sev = s.heat >= 60 ? 'serious' : s.heat >= 25 ? 'warning' : 'good';
   const changes = t.slice(1).map((p, i) => ({ label: p.label, d: p.heat - t[i].heat })).reverse().slice(0, 6);
-  return `<h2>🕵️ The Inspector</h2>
+  const file = moFile(s);
+  const moves = (s.inspector?.moves || []).filter((m) => MOVE_LABELS[m.move]).slice(0, 6);
+  return `<h2>🕵️ ${esc(INSPECTOR.name)}</h2>
     <div class="hero-fig">${s.heat}<small>/100 · ${esc(inspectorLabel(s.heat))}</small></div>
     <div class="meter ${sev}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.heat}"><i style="width:${s.heat}%"></i></div>
     ${t.length > 1 ? lineChart(series(s, 'heat'), { color: DOWN, refs: [{ y: 25, label: 'plants' }, { y: 40, label: 'stings' }], caption: 'Heat after each job. Tap a point.' }) : ''}
     <h3 class="dm-h">What the heat brings</h3>
     <ul class="ledger">${HEAT_LEVELS.map(([at, icon, what]) => `<li><span>${s.heat >= at ? '⚠️' : icon} ${esc(what)}</span><b>${at}+</b></li>`).join('')}</ul>
+    <h3 class="dm-h">His file on your methods</h3>
+    ${file.length ? `<ul class="ledger">${file.map((f) => `<li><span>📁 ${esc(APPROACHES[f.ap].label)}</span><b class="out">+${f.pen}</b></li>`).join('')}</ul><p class="muted">Security has been briefed on these. Mix it up and the file goes stale.</p>` : '<p class="muted">Nothing on your methods yet. Vary your tricks and keep it that way.</p>'}
+    ${moves.length ? `<h3 class="dm-h">His moves</h3><ul class="news">${moves.map((m) => `<li><b>Day ${m.day}</b> ${esc(MOVE_LABELS[m.move])}</li>`).join('')}</ul>` : ''}
     <h3 class="dm-h">Cooling off</h3>
     <p class="muted">Clues, alarms, the Old Bill turning up and crew who talk all add heat. It cools a little after every job; lying low (the fixer), a safehouse and fake IDs help.</p>
     ${changes.length ? `<h3 class="dm-h">Lately</h3><ul class="ledger">${changes.map((c) => `<li><span>${esc(c.label)}</span><b class="${c.d > 0 ? 'out' : 'in'}">${c.d >= 0 ? '+' : '−'}${Math.abs(c.d)}</b></li>`).join('')}</ul>` : ''}`;
@@ -102,6 +111,7 @@ const HELP = [
   ['🐾 Crew', `Each dog has skills (only the ones you've seen are shown), talents and quirks. Work together and you learn more; get on and they get better, even rare or legendary. 👑 Leaders steady everyone; 🃏 wildcards bring chaos, good and bad. ★ Stars drift through town with secret moves.`],
   ['📋 Planning', `Casing finds intel and hidden hazards: a good nose smells things out, a hacker finds the systems, a sneak watches the patrols. Get spotted and security goes on alert. The odds on each step are shown for skills you know. Kit and intel open new ways through.`],
   ['💥 When it goes wrong', `A fumbled step goes pear-shaped: someone improvises, alarms ring, the Old Bill may arrive. Crew can get nicked, end up on the farm, do a runner, or turn out to be undercover coppers.`],
+  ['🕵️ The Inspector', `He makes a move between jobs: coppers planted in the pub, stakeouts, tips that are really setups, crew pulled in for questioning, regulars turned into grasses, raids. He also keeps a file on your tricks: use the same one job after job and security will be ready for it. Surveil strangers, case tips before you trust them, and mix it up.`],
   ['🗺️ Kinds of job', `Break-ins, switches (swap it for a replica), long cons, smash & grabs, van jobs, wire jobs and paper trails. Each has its own steps. Some won't take an insider; some need a real specialist.`],
   ['🏙️ The city', `Five outfits offer work once your rep clears their bar. Do right by them and they pay; cross them and they act against you. The Family and the Syndicate lend money, and they collect.`],
   ['📊 The top bar', `Tap 💷 for the books, ⭐ for your reputation, 🕵️ for the Inspector and 📅 for the day book. 📜 Rap sheet keeps every job, and you can share any of them.`],

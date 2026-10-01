@@ -182,7 +182,7 @@ const A = {
     show('job');
   },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
-  'drama'(el) { run(E.chooseDrama, Number(el.dataset.i)); },
+  'drama'(el) { run(G.state.story[0]?.type === 'inspector' ? E.chooseInspector : E.chooseDrama, Number(el.dataset.i)); },
   'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },
   'picked'(el) {
     G.ui.modal = null;

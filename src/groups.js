@@ -3,6 +3,7 @@
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
 import { clamp, fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
 import { genJob, jobTier, revealIntel, totalLootValue } from './heists.js';
+import { makeTip } from './inspector.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
 const OWN_PITCHES = [
@@ -65,6 +66,12 @@ function queueStory(state, gid, kind, vars = {}) {
 
 function ownLead(state, rng) {
   const tier = Math.max(1, jobTier(state) - 1);
+  // Now and then a stranger slips you a juicy tip. Once the Inspector's about, some are his.
+  if (state.stats.jobs >= 2 && rng.chance(0.15)) {
+    const job = genJob(state, rng, { tier, lootMult: 1.4 });
+    makeTip(job, false);
+    return { id: job.id, source: 'own', kind: 'own', job, pitch: rng.pick(OWN_PITCHES) };
+  }
   const job = genJob(state, rng, { tier, lootMult: 0.75 });
   return { id: job.id, source: 'own', kind: 'own', job, pitch: rng.pick(OWN_PITCHES) };
 }

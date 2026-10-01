@@ -4,7 +4,8 @@ import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation, book } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
-import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
+import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel } from './heists.js';
+import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
@@ -107,10 +108,15 @@ export function refreshPub(state, rng = rngOf(state)) {
     const breed = rng.chance(0.7) ? rng.pick(Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary))) : undefined;
     return { primary, breed };
   };
+  // The Inspector plants coppers once he's heard of you; after his first move, one is guaranteed.
+  const I = state.inspector;
   let copperPlanted = false;
   while (pub.length < n) {
-    const undercover = !copperPlanted && state.heat >= 25 && rng.chance((state.heat - 15) / 150);
-    if (undercover) copperPlanted = true;
+    const undercover = !copperPlanted && (I?.plant || (state.heat >= 12 && rng.chance((state.heat - 5) / 120)));
+    if (undercover) {
+      copperPlanted = true;
+      if (I) I.plant = false;
+    }
     const d = genDog(state, rng, { quality, undercover, ...newFace() });
     state.dogs[d.id] = d;
     pub.push(d.id);
@@ -210,6 +216,7 @@ export function hire(state, id) {
   if (hireBlocked(state, d)) return fail(`"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`);
   if (d.drama?.away) return fail(`${shortName(d)} is sitting this one out.`);
   if (isVisitor(d) && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
+  if (d.undercover && d.known.undercover) return fail(`${shortName(d)} works for the Inspector. Not a chance.`);
   const cost = hireCost(state, d);
   if (!spend(state, cost, 'crew')) return fail('You can\'t afford the retainer.');
   d.status = 'crew';
@@ -282,7 +289,11 @@ export function borrow(state) {
 export { payDebt } from './groups.js';
 export { chooseDrama } from './drama.js';
 
+export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
+
 export function dismissStory(state) {
+  const st = state.story[0];
+  if (st?.type === 'inspector') return chooseInspector(state, st.choices.length - 1);
   state.story.shift();
   return done('');
 }
@@ -327,7 +338,7 @@ export function caseJoint(state, who) {
     spend(state, 120, 'intel');
     const k = rng.pick(unknown);
     revealIntel(job, k);
-    return done(`A tipster sells you: ${INTEL[k].label}.`, { revealed: [k] });
+    return done(`A tipster sells you: ${intelLabel(job, k)}.`, { revealed: [k] });
   }
   const d = state.dogs[who];
   if (!d || !state.crew.includes(who)) return fail('Send someone from the crew.');
@@ -346,7 +357,7 @@ export function caseJoint(state, who) {
     revealIntel(job, k);
     d.known.skills[INTEL[k].skill] = true;
   }
-  let msg = `🔎 ${got.map((k) => INTEL[k].label.replace('Hazard: ', '⚠️ ')).join(', ')}`;
+  let msg = `🔎 ${got.map((k) => intelLabel(job, k)).join(', ')}`;
   const spotted = rng.chance(odds.spotted);
   const cover = skillOf(d, 'sneak') >= skillOf(d, 'disguise') ? 'sneak' : 'disguise';
   d.known.skills[cover] = true;
@@ -641,6 +652,7 @@ export function resolveHeist(state) {
     news(state, `You kept the ${KIT[prize].name} from ${job.name}.`);
   }
   addHeat(state, r.heatGain);
+  const noted = recordMO(state, r);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
@@ -649,6 +661,7 @@ export function resolveHeist(state) {
   state.after.improved = improved;
   state.after.promoted = promoted;
   state.after.prize = prize;
+  state.after.noted = noted;
   state.phase = 'aftermath';
   return done('The dust settles.');
 }
@@ -884,9 +897,12 @@ export function nextJob(state) {
     }
   }
   if (state.phase === 'plan') {
-    // Walked away.
-    addRep(state, -3);
-    news(state, `You walked away from ${state.job.name}. People talk.`);
+    // Walked away. Smelling a setup and walking is just good sense.
+    if (state.job.sting && state.job.intel.tipster) news(state, `You smelled a rat and left ${state.job.name} well alone. The Inspector is furious.`);
+    else {
+      addRep(state, -3);
+      news(state, `You walked away from ${state.job.name}. People talk.`);
+    }
     closeBooks(state, `${state.job.name} (walked away)`, null);
     const p = state.job.patron;
     if (p) {
@@ -909,6 +925,8 @@ export function nextJob(state) {
   for (const e of betweenJobs(state, rng)) news(state, e.replace(/\{\w+\}/g, '').trim());
   advanceArcs(state, rng);
   genOffers(state, rng);
+  const move = inspectorMoves(state, rng, { genJob });
+  if (move) news(state, `🕵️ ${move.title}.`);
   state.phase = 'select';
   checkGameOver(state);
   return done('Back to the job board.');

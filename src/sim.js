@@ -4,6 +4,7 @@ import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD } from './dat
 import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
 import { clamp } from './util.js';
 import { lootItem } from './heists.js';
+import { moPenalty, SETUP_TEXT } from './inspector.js';
 
 export const ALARM_MAX = 10;
 
@@ -58,6 +59,7 @@ export function difficulty(state, job, stage, approachId, kitLeft) {
   if (stage.kind === 'vault' && job.hazards.silent && job.intel.hz_silent) d += 1;
   if (stage.id === 'obs_guards' && job.insider) d -= 1;
   d += specialKitBonus(kit, job, stage, a);
+  d += moPenalty(state, approachId); // the Inspector has briefed security on your favourite tricks
   return d;
 }
 
@@ -139,6 +141,7 @@ const END_TEXT = {
   messy: 'Chaos. Sirens. But they\'ve got something.',
   bust: 'Nothing to show for it but sore paws.',
   aborted: 'The job\'s off. Better luck next time.',
+  setup: 'Stitched up like a kipper. The Inspector got his photos.',
 };
 
 const loyaltyOf = (d) => d.loyalty + d.relation * 0.5;
@@ -228,7 +231,8 @@ export function simulate(state, job, rng) {
       ctx.ringing = true;
       beat({ kind: 'alarm', stage: stageId, text: 'BRRRRING! The alarm is going off!' });
     }
-    if (!ctx.coppers && ctx.alarm >= ALARM_MAX) {
+    // Once the Inspector is close, the police are never far away.
+    if (!ctx.coppers && ctx.alarm >= (state.heat >= 60 ? ALARM_MAX - 2 : ALARM_MAX)) {
       ctx.coppers = true;
       beat({ kind: 'alarm', stage: stageId, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
       const unlucky = active();
@@ -536,6 +540,17 @@ export function simulate(state, job, rng) {
     return { id: d.id, talked: false, sentence };
   };
 
+  // A stranger's tip that was the Inspector all along.
+  const springSetup = (stage) => {
+    ctx.setup = true;
+    beat({ kind: 'alarm', stage: stage.id, text: SETUP_TEXT });
+    ctx.ringing = true;
+    ctx.coppers = true;
+    ctx.alarm = ctx.alarmMax = ALARM_MAX;
+    ctx.clues += 3;
+    for (const d of active()) escapeCheck(d, stage.id);
+  };
+
   // ==== The job itself
   beat({ kind: 'intro', stage: null, text: `${String(job.hour).padStart(2, '0')}:00. ${job.venueName}, ${job.district}. The crew is in position.` });
 
@@ -596,6 +611,10 @@ export function simulate(state, job, rng) {
     if (k === troubleAt) trouble(stage);
     wildcards(stage);
     if (!active().length) break;
+    if (stage.kind === 'vault' && job.sting) {
+      springSetup(stage);
+      break;
+    }
     const pick = lead(stage);
     if (!pick) {
       if (stage.hidden) continue;
@@ -653,7 +672,7 @@ export function simulate(state, job, rng) {
 
   const outcome = outcomeOf(ctx);
   const swap = ctx.swap && outcome === 'clean';
-  beat({ kind: 'end', stage: null, text: END_TEXT[swap ? 'swap' : outcome] });
+  beat({ kind: 'end', stage: null, text: END_TEXT[ctx.setup ? 'setup' : swap ? 'swap' : outcome] });
 
   return {
     beats,
@@ -666,6 +685,7 @@ export function simulate(state, job, rng) {
     pearShaped: ctx.pearShaped,
     aborted: ctx.aborted,
     swap,
+    setup: !!ctx.setup,
     captured: interrogations,
     lost: ctx.lost,
     runners: ctx.runners,

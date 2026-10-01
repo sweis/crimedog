@@ -705,6 +705,7 @@ export const INTEL = {
   hz_butler: { skill: 'charm', label: 'Hazard: Suspicious butler', blurb: 'The mark\'s butler trusts nobody. Plan for him.', hazard: 'butler' },
   hz_hero: { skill: 'charm', label: 'Hazard: Have-a-go hero', blurb: 'A local hero drinks next door. He will have a go.', hazard: 'hero' },
   hz_escort: { skill: 'sneak', label: 'Hazard: Police escort', blurb: 'A police car follows the van. Plan for it.', hazard: 'escort' },
+  tipster: { skill: 'charm', label: 'The tipster', blurb: 'Who the stranger with the tip really is.' },
   hz_stakeout: { skill: 'sneak', label: 'Hazard: Police stakeout', blurb: 'The Inspector has a car watching the street at one time of day.', hazard: 'stakeout' },
 };
 

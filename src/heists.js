@@ -258,7 +258,7 @@ export function genJob(state, rng, opts = {}) {
     bribed: false,
     buyer: false,
     fenceVetted: false,
-    stingFence: heat >= 40 && rng.chance(0.3 + (heat - 40) / 100),
+    stingFence: heat >= 30 && rng.chance(0.3 + (heat - 30) / 100),
     safehouse: false,
     fakeIds: false,
     // Cons and office fraud happen in the day: that's when marks and offices are about.
@@ -281,6 +281,12 @@ export const lootItem = (job, id) => job.loot.find((l) => l.id === id);
 
 export function totalLootValue(job) {
   return job.loot.reduce((s, l) => s + l.value, 0);
+}
+
+// What a piece of intel says once you have it.
+export function intelLabel(job, k) {
+  if (k === 'tipster') return job.sting ? '🚨 The tip is a SETUP' : '✅ The tip is genuine';
+  return INTEL[k].label.replace('Hazard: ', '⚠️ ');
 }
 
 export function revealIntel(job, k) {
