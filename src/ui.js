@@ -923,14 +923,11 @@ function renderModal(G) {
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
 
-// Compact profile: sized to fit a phone screen, with actions pinned to the
-// bottom of the sheet so they're always reachable.
-function dogModal(G, d) {
+// The profile card: what you know about a crew member. The same card is the
+// profile sheet in the game and the picture you share (card.js).
+export function profileHTML(G, d) {
   const s = G.state;
-  if (!d) return '';
   const b = BREEDS[d.breed];
-  const inCrew = s.crew.includes(d.id);
-  const planning = s.phase === 'plan';
   const skills = SKILLS.map((sk) => `<div class="skill"><span class="lbl">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}</span>${pips(skillOf(d, sk), d.known.skills[sk])}</div>`).join('');
   const knownT = d.talents.filter((t) => d.known.talents.includes(t));
   const unknownT = d.talents.length - knownT.length;
@@ -949,6 +946,23 @@ function dogModal(G, d) {
     + (arc ? `<span class="chip info">📖 ${esc(ARCS[arc.kind].title)}</span>` : '') + dramaChips(d).join('');
   const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'hospital' ? `in hospital (${d.hospital.jobs})` : d.status === 'crew' ? 'on your crew' : d.status;
   const record = (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
+  return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
+    <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
+    <div class="dm-sub">${[b.label, relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map(esc).join(' · ')}</div></div></div>
+    <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
+    <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
+    <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
+    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}<div class="dm-trait" title="${esc(recordLabel(d))}"><span>Record</span><b class="${recordOf(d) >= 3 ? 'bad' : ''}">${recordOf(d) ? `${recordOf(d)} prev.` : 'Clean'}</b></div></div>
+    <div class="dm-chips">${undercover}${record}${quirks}</div>`;
+}
+
+// Compact profile: sized to fit a phone screen, with actions pinned to the
+// bottom of the sheet so they're always reachable.
+function dogModal(G, d) {
+  const s = G.state;
+  if (!d) return '';
+  const inCrew = s.crew.includes(d.id);
+  const planning = s.phase === 'plan';
 
   // Actions: one primary, then compact secondaries.
   const primary = [];
@@ -975,14 +989,7 @@ function dogModal(G, d) {
     actions = `${primary.length ? `<div class="dm-row">${primary.join('')}</div>` : ''}<div class="dm-row minor">${minor.join('')}</div>`;
   }
 
-  return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
-    <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-    <div class="dm-sub">${[b.label, relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map(esc).join(' · ')}</div></div></div>
-    <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
-    <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
-    <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
-    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}<div class="dm-trait" title="${esc(recordLabel(d))}"><span>Record</span><b class="${recordOf(d) >= 3 ? 'bad' : ''}">${recordOf(d) ? `${recordOf(d)} prev.` : 'Clean'}</b></div></div>
-    <div class="dm-chips">${undercover}${record}${quirks}</div>
+  return `${profileHTML(G, d)}
     <div class="dm-actions">${actions}</div>`;
 }
 

@@ -1087,7 +1087,7 @@ console.log('3. Stills sweep over every screen');
   await page.waitForSelector('[data-card-preview]');
   await page.waitForTimeout(300);
   const w = await page.$eval('[data-card-preview]', (img) => img.decode().then(() => img.naturalWidth));
-  check(w === 600, `share card renders a 600px PNG (${w})`);
+  check(w === 780, `share card renders a 780px PNG, the profile card at 2x (${w})`);
   await shot(page, 'share-card');
   check(errors.length === 0, `no console errors in sweep (${errors.join(' | ')})`);
   await ctx.close();
