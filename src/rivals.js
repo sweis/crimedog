@@ -149,9 +149,9 @@ const MOVES = {
       text = '"Not bad, Guv\'nor. Almost as good as my Tuesday. — D." It\'s the first time he hasn\'t been rude. Nearly.';
     } else if (['D', 'F'].includes(last)) {
       addRep(state, -2);
-      text = '"Saw the papers. HA! — D." He\'s been showing the note round the Dog & Duck. (-2 rep)';
+      text = '"Saw the papers. HA! You were only supposed to blow the bloody doors off. — D." He\'s been showing the note round the Dog & Duck. (-2 rep)';
     } else {
-      text = '"Steady work, Guv\'nor. Steady. Like a milkman. — D." There\'s a pint of milk on the doorstep. He\'s very pleased with himself.';
+      text = state.day % 2 ? '"Steady work, Guv\'nor. Steady. Like a milkman. — D." There\'s a pint of milk on the doorstep. He\'s very pleased with himself.' : '"You know what they call a mastermind who plays it safe? A milkman. Are you in or out, Guv\'nor? — D." There\'s a set of steak knives with it. Second prize.';
     }
     return scene(state, 'dan', 'note', { title: 'Another Note from Dan', text, choices: dealWith(state, 'dan', 300) });
   },
@@ -312,12 +312,16 @@ export function rivalsAfterJob(state, rng) {
     if (job.callingCard) gain += { S: 2, A: 2, B: 1 }[grade] || 0;
     if (g.test) {
       g.test = false;
-      if (['S', 'A'].includes(grade) && state.result.alarmMax === 0) {
+      // "Not a single alarm" means the alarm never went off (or rang silently at the
+      // station), not that the meter never twitched.
+      const rang = (state.result.beats || []).some((b) => b.kind === 'alarm') || state.result.coppers;
+      if (['S', 'A'].includes(grade) && !rang) {
         g.ready = true;
         log.push('👻 Somewhere in the dark, someone is applauding. Quietly.');
       } else {
         g.interest = 5;
-        log.push('👻 A grey feather on your desk, snapped in two. The Ghost wanted better than that.');
+        const why = rang ? 'The alarm went off. The Ghost wanted silence.' : `${grade === 'B' ? 'A' : 'An'} ${grade}. The Ghost wanted an A or better.`;
+        log.push(`👻 A grey feather on your desk, snapped in two. ${why} They'll be watching for another try.`);
       }
     } else if (gain) {
       g.interest += gain;
@@ -363,7 +367,7 @@ export function ghostScene(state, rng) {
     g.test = true;
     return scene(state, 'ghost', 'test', {
       title: 'An Audition',
-      text: '"I want to see you work. Your next job: an A or better, and not a single alarm. Do that, and we\'ll talk. — G."',
+      text: '"I want to see you work. Your next job: an A or better, and the alarm never goes off. Do that, and we\'ll talk. — G."',
       choices: [{ label: 'Challenge accepted' }],
     });
   }
@@ -409,7 +413,7 @@ export function rivalStatus(r, id) {
   if (r.status === 'joined') return 'On your crew';
   if (r.status === 'away') return `In the pound (${r.away} more)`;
   if (r.status === 'done') return { robbed: 'Robbed and run off', wager: 'Paid up and left town' }[r.ended] || 'Gone';
-  if (id === 'ghost') return r.test ? 'Watching your next job' : 'Watching';
+  if (id === 'ghost') return r.test ? 'Audition: next job an A or better, no alarm going off' : 'Watching';
   if (id === 'dan') return r.wager ? 'A wager on the board' : `${r.notes} note${r.notes === 1 ? '' : 's'}`;
   return r.beef >= 3 ? 'At war with you' : r.beef >= 1 ? 'A grudge' : 'Keeping their distance';
 }

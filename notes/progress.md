@@ -13,7 +13,7 @@
 ## Architecture
 | File | What |
 |---|---|
-| `src/data.js` | All content: 10 skills, 100 talents, 16 quirks, 22 breeds / 9 factions, 5 groups, voices, names, catchphrases, kit, approaches, venues, loot, intel, fences |
+| `src/data.js` | All content: 10 skills, 100 talents, 23 quirks, 22 breeds / 9 factions, 5 groups, voices, names, catchphrases, kit, approaches, venues, loot, intel, fences |
 | `src/dogs.js` | Dog generation, derived skills, procedural SVG portraits |
 | `src/heists.js` | Job generation: venue → ordered stages (entry, obstacles, hidden hazards, vault, exit, getaway), each with 3–5 approaches |
 | `src/sim.js` | Pure heist resolution → list of beats + outcome (pear-shaped improvisation, chaos, alarms, captures, betrayals, undercover coppers, interrogation) |
@@ -89,7 +89,21 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Records, briefs, hospital; nest egg off the board (latest, 0.13.0)
+## Grey Ghost audition fix (0.14.1)
+- The audition ("an A or better, and not a single alarm") failed whenever the alarm meter moved at all (peak ≥ 1/10), even if the alarm never went off: players saw S grades with no alarm fail. Now it fails only if the alarm actually rang (an `alarm` beat: the bell, a silent alarm, sirens or a setup) or the grade is below A. The failure note says which, and the Players tab spells out the audition terms.
+- Probe (150 seeded careers, audition armed every job): all S jobs and all A jobs without an alarm going off pass.
+
+## Names, nicknames, film nods (0.14.0)
+- **No shared names**: `genDog` draws first names and nicknames from pools filtered by `namesInUse` (every living dog's short name and nick; farmed/gone dogs free theirs). Same RNG draw count, so seeds stay stable. Legendary signature nicks get sequels if taken ("The Phantom II", "III", "Returns"); `promote(dog, state)` uses it too. Existing saves aren't renamed.
+- **Bigger pools**: ~15–25 first names per voice, 10+ surnames per voice, 112 nicknames (film faces: Bullet-Dodger, One-Punch, Verbal, Baby Face, The Closer, Sheep-Counter, Backup Plan, The Tell…).
+- **Seven film-nod quirks** (effects in `sim.odds`/`attempt`/`escapeCheck`, `engine.payCrew`; revealed via `learn`): Thirty Seconds Flat (escape ≥ 90%), Doesn't Tip (cut swings capped at ±3), A Closer (+0.1 at the vault), Has a Tell (−0.1 charm/disguise), Heavy Is Reliable (+muscle, −agility), Back-Up Plan (+0.15 improvising), Blows the Doors Off (+0.1 and +1 noise on drill work). New clashes: Doesn't Tip/Greedy, Tell/Closer.
+- **References** (Mamet's Heist, House of Games, The Spanish Prisoner, Glengarry, Snatch, Lock Stock, The Gentlemen, Reservoir Dogs, Heat, Ronin, Ocean's, The Italian Job, The Usual Suspects, The Godfather, Goodfellas): 15 new catchphrases; voice lines; chaos and wildcard beats; job names per type; group pitches; fence blurbs; Inspector and Dandy Dan lines; game-over texts.
+- **Grade verdicts** (`VERDICTS` in data.js) on the grade card; **headline variants** per outcome (plus a sting headline for setups); **Reservoir codenames** in ~35% of heist intros (someone is always Mr Pink). All picked with `pickBy` (a stable hash of job id + venue), so they use no game RNG.
+- A dog never says the same line twice running in one heist.
+- Content probe (`tests/names.test.mjs`): no nationality/real-place words or " dog " in names, quirks, catchphrases, voices, chaos, wildcard, verdicts.
+- Verified: 149 unit tests; smoke incl. new `12b-verdict` capture (verdict on the grade card). Codename intro covered by a unit test over 20 seeded jobs, not by a capture.
+
+## Records, briefs, hospital; nest egg off the board (0.13.0)
 - `src/justice.js`. Records: `dog.record` (previous convictions) from the look seed at generation (so no RNG draw shifts): ~25% clean, ~45% one or two, ~25% three to seven; undercovers 1–3; stars +1/+2. `sendDown` adds a conviction. Sentence = 1–2 + min(4, record) + 1 if the police were there (−1 if they talked). Drama "nicked" ends: fx.pound + record/2.
 - Briefs: £150 + £50 per previous (to 6); one job off each; never below half the original sentence (`minSentence`), so a sentence can't be bought off. The profile says when no brief can shorten it.
 - Hospital: in the sim `loseDog` sends 70% to hospital (2–4 jobs) and 30% to the farm; 35% of hospital stays leave a lasting injury (−1 to the skill they were using; `d.injuries`, shown on the profile and cards). Bill £120 a job (+£100 for a lasting injury); pay it (aftermath, profile) for +12 relation, +5 loyalty, a little generosity; unpaid at discharge: −15 relation, −8 loyalty. Status `hospital`, counted down in `nextJob`; can't be hired. Crew tab: In Hospital. Recap fate 'hospital'. Chaos probe: farm 0.04/job, hospital 0.08/job.

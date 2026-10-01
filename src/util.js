@@ -5,6 +5,15 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 export const money = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
 export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+// A stable pick for flavour text, so it doesn't use up a draw from the game's RNG.
+export const hashOf = (s) => {
+  let h = 2166136261;
+  for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+};
+export const pickBy = (key, list) => list[hashOf(key) % list.length];
 
 // Every player action returns one of these.
 export const fail = (msg) => ({ ok: false, msg });

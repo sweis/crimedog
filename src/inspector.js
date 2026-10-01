@@ -57,7 +57,7 @@ const MOVES = {
       insp(state).plant = true;
       return {
         title: 'A New Face',
-        text: 'Word from behind the bar: there\'s a newcomer at the Dog & Duck. Very keen. Very good. Asks a lot of questions about you. Somebody in the pub this time isn\'t who they say they are.',
+        text: 'Word from behind the bar: there\'s a newcomer at the Dog & Duck. Very keen. Very good. Asks a lot of questions about you. Somebody in the pub this time isn\'t who they say they are. Anybody could be anybody.',
         choices: [{ label: 'Noted. Nobody gets hired without a look.' }],
       };
     },
@@ -86,7 +86,7 @@ const MOVES = {
       state.sabotage = (state.sabotage || 0) + 1;
       return {
         title: 'Word to the Wise',
-        text: 'The Inspector has been round every security firm in town with a slideshow. "Be on your guard," he says. They are. Your next job starts on alert.',
+        text: 'The Inspector has been round every security firm in town with a slideshow. "Be on your guard," he says. They are. He ends every talk with "Here endeth the lesson." Your next job starts on alert.',
         choices: [{ label: 'Typical.' }],
       };
     },
@@ -114,7 +114,7 @@ const MOVES = {
       return {
         title: 'Helping With Enquiries',
         dog: d.id,
-        text: `The Inspector has pulled ${displayName(d)} in "to help with enquiries". Bright lamp. Bad tea. He wants to know who they work for.`,
+        text: `The Inspector has pulled ${displayName(d)} in "to help with enquiries". Bright lamp. Bad tea. He wants to know who they work for, and he keeps asking about someone called Keyser Collie.`,
         choices: [{ label: 'Send a good brief', cost: 150, effect: 'brief' }, { label: 'Leave them to it', effect: 'grilled' }],
       };
     },
