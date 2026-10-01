@@ -134,11 +134,13 @@ test('the Grey Ghost: calling cards and clean work win them over; a clean auditi
   const s = E.newGame(8);
   const g = rivalsOf(s).ghost;
   // How a job went, as far as the Ghost cares.
-  const job = (grade, callingCard, alarmMax = 0) => {
+  // rang: the alarm went off (the meter can twitch without it ringing).
+  let said = [];
+  const job = (grade, callingCard, alarmMax = 0, rang = alarmMax >= 6) => {
     s.job = { callingCard };
     s.after = { grade: { letter: grade }, securedValue: 1000 };
-    s.result = { alarmMax };
-    rivalsAfterJob(s, E.rngOf(s));
+    s.result = { alarmMax, beats: rang ? [{ kind: 'alarm', text: 'BRRRRING!' }] : [] };
+    said = rivalsAfterJob(s, E.rngOf(s));
   };
   job('C', false);
   assert.equal(g.interest, 0, 'an ordinary job: nothing');
@@ -150,11 +152,18 @@ test('the Grey Ghost: calling cards and clean work win them over; a clean auditi
   assert.ok(g.gift, 'a gift');
   job('A', true);
   assert.ok(g.test, 'an audition');
-  job('A', false, 2);
+  job('A', false, 6);
   assert.ok(!g.test && g.interest === 5, 'an alarm: not good enough');
+  assert.match(said.join(' '), /alarm went off/, 'and you are told why');
   job('A', true);
   assert.ok(g.test, 'a second audition');
-  job('A', false, 0);
+  job('B', false, 0);
+  assert.ok(!g.test && g.interest === 5, 'a B: not good enough');
+  assert.match(said.join(' '), /A B\. The Ghost wanted an A or better/);
+  job('A', true);
+  assert.ok(g.test, 'a third audition');
+  job('S', false, 3);
+  assert.ok(!g.test, 'the meter twitched but the alarm never went off: that counts');
   const st = s.story.find((x) => x.type === 'rival' && x.move === 'join');
   assert.ok(st, 'the meeting');
   s.story = [st];

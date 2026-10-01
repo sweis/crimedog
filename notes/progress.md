@@ -89,7 +89,11 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Names, nicknames, film nods (latest, 0.14.0)
+## Grey Ghost audition fix (0.14.1)
+- The audition ("an A or better, and not a single alarm") failed whenever the alarm meter moved at all (peak ≥ 1/10), even if the alarm never went off: players saw S grades with no alarm fail. Now it fails only if the alarm actually rang (an `alarm` beat: the bell, a silent alarm, sirens or a setup) or the grade is below A. The failure note says which, and the Players tab spells out the audition terms.
+- Probe (150 seeded careers, audition armed every job): all S jobs and all A jobs without an alarm going off pass.
+
+## Names, nicknames, film nods (0.14.0)
 - **No shared names**: `genDog` draws first names and nicknames from pools filtered by `namesInUse` (every living dog's short name and nick; farmed/gone dogs free theirs). Same RNG draw count, so seeds stay stable. Legendary signature nicks get sequels if taken ("The Phantom II", "III", "Returns"); `promote(dog, state)` uses it too. Existing saves aren't renamed.
 - **Bigger pools**: ~15–25 first names per voice, 10+ surnames per voice, 112 nicknames (film faces: Bullet-Dodger, One-Punch, Verbal, Baby Face, The Closer, Sheep-Counter, Backup Plan, The Tell…).
 - **Seven film-nod quirks** (effects in `sim.odds`/`attempt`/`escapeCheck`, `engine.payCrew`; revealed via `learn`): Thirty Seconds Flat (escape ≥ 90%), Doesn't Tip (cut swings capped at ±3), A Closer (+0.1 at the vault), Has a Tell (−0.1 charm/disguise), Heavy Is Reliable (+muscle, −agility), Back-Up Plan (+0.15 improvising), Blows the Doors Off (+0.1 and +1 noise on drill work). New clashes: Doesn't Tip/Greedy, Tell/Closer.
