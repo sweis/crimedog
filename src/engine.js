@@ -1,7 +1,7 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, addRelation } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, addRelation, book } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem } from './heists.js';
@@ -57,6 +57,7 @@ export function newGame(seed = Date.now() % 1e9, name = 'The Guv\'nor') {
   mate.fee = feeFor(mate);
   state.dogs[mate.id] = mate;
   genOffers(state, rng);
+  timelinePoint(state, 'Start');
   news(state, `You set up shop in a back room above the Dog & Duck. Your old mate ${displayName(mate)} is propping up the bar.`);
   return state;
 }
@@ -175,9 +176,9 @@ export function crewDogs(state) {
 export function bookDogs(state) {
   return Object.values(state.dogs).filter((d) => d.met);
 }
-function spend(state, amount) {
+function spend(state, amount, cat) {
   if (state.cash < amount) return false;
-  state.cash -= amount;
+  book(state, cat, -amount);
   return true;
 }
 function useDay(state) {
@@ -210,7 +211,7 @@ export function hire(state, id) {
   if (d.drama?.away) return fail(`${shortName(d)} is sitting this one out.`);
   if (isVisitor(d) && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
   const cost = hireCost(state, d);
-  if (!spend(state, cost)) return fail('You can\'t afford the retainer.');
+  if (!spend(state, cost, 'crew')) return fail('You can\'t afford the retainer.');
   d.status = 'crew';
   d.met = true;
   state.crew.push(id);
@@ -253,7 +254,7 @@ export function acceptOffer(state, offerId) {
   if (!offer) return fail('That offer\'s gone.');
   state.job = offer.job;
   const p = state.job.patron;
-  if (p?.front) state.cash += p.front;
+  if (p?.front) book(state, 'front', p.front);
   if (state.sabotage) {
     raiseAlert(state.job, 'Someone tipped off security', state.sabotage);
     state.sabotage = 0;
@@ -268,7 +269,7 @@ export function acceptOffer(state, offerId) {
 
 export function digLeads(state) {
   if (state.phase !== 'select') return fail('Not now.');
-  if (!spend(state, 40)) return fail('A round of drinks for tips costs £40.');
+  if (!spend(state, 40, 'intel')) return fail('A round of drinks for tips costs £40.');
   rerollOwnLeads(state, rngOf(state));
   return done('You buy a round and listen. Two fresh leads.');
 }
@@ -292,7 +293,7 @@ export function buy(state, kitId) {
   if (!k) return fail('No such kit.');
   if (k.special) return fail('Not for sale. You\'ll have to find one on a job.');
   if (!k.consumable && state.kit[kitId] > 0) return fail('You already have one.');
-  if (!spend(state, k.price)) return fail('Can\'t afford it.');
+  if (!spend(state, k.price, 'kit')) return fail('Can\'t afford it.');
   state.kit[kitId] = (state.kit[kitId] || 0) + 1;
   return done(`Bought ${k.name}.`);
 }
@@ -323,7 +324,7 @@ export function caseJoint(state, who) {
   if (who === 'tipster') {
     if (state.cash < 120) return fail('The tipster wants £120.');
     if (!useDay(state)) return fail('No days left before the job.');
-    spend(state, 120);
+    spend(state, 120, 'intel');
     const k = rng.pick(unknown);
     revealIntel(job, k);
     return done(`A tipster sells you: ${INTEL[k].label}.`, { revealed: [k] });
@@ -332,7 +333,7 @@ export function caseJoint(state, who) {
   if (!d || !state.crew.includes(who)) return fail('Send someone from the crew.');
   if (state.cash < 40) return fail('Expenses are £40.');
   if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 40);
+  spend(state, 40, 'intel');
   const odds = caseOdds(state, d);
   if (hasSpecial(d, 'intel')) {
     const t = d.talents.find((x) => ['radio', 'bloodhound', 'casing'].includes(x));
@@ -363,7 +364,7 @@ export function surveil(state, id) {
   if (d.known.loyalty && (d.known.undercover || d.cleared)) return fail(`You already know all about ${shortName(d)}.`);
   if (state.cash < 80) return fail('Surveillance costs £80.');
   if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 80);
+  spend(state, 80, 'intel');
   const rng = rngOf(state);
   d.met = true;
   d.known.loyalty = d.known.nerve = d.known.greed = true;
@@ -393,7 +394,7 @@ export function plantInsider(state, id) {
   if (job.insider) return fail('You already have someone inside.');
   if (state.cash < 100) return fail('Costs £100 for a fake reference.');
   if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 100);
+  spend(state, 100, 'fixer');
   const rng = rngOf(state);
   const s = Math.max(skillOf(d, 'disguise'), skillOf(d, 'charm'));
   d.known.skills[skillOf(d, 'disguise') >= skillOf(d, 'charm') ? 'disguise' : 'charm'] = true;
@@ -410,7 +411,7 @@ export function bribeGuard(state) {
   if (!job.stages.some((s) => s.id === 'obs_guards')) return fail('There are no guards to bribe.');
   if (job.bribed) return fail('Already bribed.');
   const cost = 150 * job.tier;
-  if (!spend(state, cost)) return fail(`The guard wants £${cost}.`);
+  if (!spend(state, cost, 'fixer')) return fail(`The guard wants £${cost}.`);
   const rng = rngOf(state);
   if (rng.chance(0.75)) {
     job.bribed = true;
@@ -422,13 +423,13 @@ export function bribeGuard(state) {
 
 export function buySafehouse(state) {
   if (state.job.safehouse) return fail('Already sorted.');
-  if (!spend(state, 250)) return fail('A safehouse costs £250.');
+  if (!spend(state, 250, 'fixer')) return fail('A safehouse costs £250.');
   state.job.safehouse = true;
   return done('A lock-up behind the launderette. Somewhere to lie low after the job.');
 }
 export function buyFakeIds(state) {
   if (state.job.fakeIds) return fail('Already sorted.');
-  if (!spend(state, 200)) return fail('Fake IDs cost £200.');
+  if (!spend(state, 200, 'fixer')) return fail('Fake IDs cost £200.');
   state.job.fakeIds = true;
   return done('Fresh papers for everyone. Captured crew will be harder to trace.');
 }
@@ -436,20 +437,20 @@ export function lineUpBuyer(state) {
   if (state.job.buyer) return fail('The Collector is already waiting.');
   if (state.cash < 150) return fail('Costs £150 to get a meeting.');
   if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 150);
+  spend(state, 150, 'fixer');
   state.job.buyer = true;
   return done('The Collector agrees to buy the lot — at full value.');
 }
 export function vetFence(state) {
   if (state.job.fenceVetted) return fail('Already looked into her.');
-  if (!spend(state, 60)) return fail('Costs £60.');
+  if (!spend(state, 60, 'fixer')) return fail('Costs £60.');
   state.job.fenceVetted = true;
   return done(state.job.stingFence ? 'Fancy Francesca drives a police-issue car. She\'s a STING.' : 'Fancy Francesca checks out. Just flashy.');
 }
 export function layLow(state) {
   if (state.cash < 100) return fail('Lying low costs £100.');
   if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 100);
+  spend(state, 100, 'fixer');
   const before = state.heat;
   addHeat(state, -8);
   return done(`You keep your head down. The Inspector's trail goes cold (-${before - state.heat} heat).`);
@@ -667,7 +668,7 @@ export function deliver(state) {
   const pay = Math.max(0, p.fee - (p.front || 0));
   a.received += pay;
   a.gross += p.deal === 'marker' ? p.debtClear : p.fee;
-  state.cash += pay;
+  book(state, 'commission', pay);
   state.stats.earned += pay;
   a.step = toFence(state).length ? 'fence' : 'pay';
   const G = GROUPS[p.group];
@@ -712,7 +713,7 @@ export function fence(state, fenceId) {
     msg += ` ${GROUPS[p.group].name} take their ${p.cut}%: ${money(a.patronCut)}.`;
   }
   a.received += net;
-  state.cash += net;
+  book(state, 'fence', net);
   state.stats.earned += net;
   a.step = 'pay';
   return done(msg);
@@ -727,7 +728,7 @@ export function payCrew(state, pct) {
   const owed = r.crew.filter((id) => r.escaped.includes(id) || r.captured.some((c) => c.id === id));
   const share = Math.round((a.received * pct) / 100);
   if (share > state.cash) return fail('You can\'t cover that.');
-  state.cash -= share;
+  book(state, 'pay', -share);
   a.cut = pct;
   a.paid = share;
   for (const id of owed) {
@@ -779,9 +780,26 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
+  closeBooks(state, state.job.name, g.letter);
   state.history.unshift(buildRecap(state));
   state.history.length = Math.min(state.history.length, HISTORY_MAX);
   news(state, `${state.job.name}: grade ${g.letter}. ${a.headline}`);
+}
+
+// Close the books on a job: what came in and went out since the last one, and
+// where cash, rep and heat stood afterwards (for the top bar's panes).
+const BOOKS_MAX = 30;
+function closeBooks(state, label, grade) {
+  const b = (state.books ||= { open: {}, jobs: [] });
+  const net = Object.values(b.open).reduce((sum, v) => sum + v, 0);
+  b.jobs.unshift({ label, grade, day: state.day, items: b.open, net });
+  b.jobs.length = Math.min(b.jobs.length, BOOKS_MAX);
+  b.open = {};
+  timelinePoint(state, label);
+}
+function timelinePoint(state, label) {
+  (state.timeline ||= []).push({ day: state.day, label, cash: state.cash, rep: state.rep, heat: state.heat });
+  if (state.timeline.length > BOOKS_MAX + 1) state.timeline.shift();
 }
 
 function headline(state) {
@@ -800,7 +818,7 @@ export function lawyer(state, id) {
   const d = state.dogs[id];
   if (!d || d.status !== 'pound') return fail('Not in the pound.');
   const cost = 150;
-  if (!spend(state, cost)) return fail(`A brief costs £${cost}.`);
+  if (!spend(state, cost, 'pound')) return fail(`A brief costs £${cost}.`);
   d.sentence -= 1;
   addRelation(d, 8);
   if (d.sentence <= 0) {
@@ -869,6 +887,7 @@ export function nextJob(state) {
     // Walked away.
     addRep(state, -3);
     news(state, `You walked away from ${state.job.name}. People talk.`);
+    closeBooks(state, `${state.job.name} (walked away)`, null);
     const p = state.job.patron;
     if (p) {
       const G = GROUPS[p.group];
@@ -876,7 +895,7 @@ export function nextJob(state) {
       if (p.front) {
         const g = state.groups[p.group];
         const back = Math.min(state.cash, p.front);
-        state.cash -= back;
+        book(state, 'debts', -back);
         if (back < p.front) g.debt = { amount: (g.debt?.amount || 0) + (p.front - back), patience: 2 };
       }
       news(state, `${G.boss} heard you walked away. Not a good look.`);
