@@ -89,7 +89,15 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Version in the help panel (latest)
+## Bottom bar everywhere, runners, reputation's sides, amends (latest, 0.12.0)
+- Navigation: the bottom bar shows between jobs too (six tabs: Job, Pub, Crew, Kit, Fixer, Players). Between jobs the Job tab is the job board and Fixer is disabled. New Players tab (`playersScreen`): debts, the outfits (with amends), the competition (rivals and runners). The board keeps a debt reminder linking there. No bar during the heist playback and aftermath (they run in sequence).
+- `src/repute.js`: `state.generosity` (0–100, start 50) and `state.hardness` (−100..100). The ⭐ score includes a generosity bonus of round((g−50)×0.3), applied through `addRep(…, 'generosity')`; `state.repParts` tracks the parts. Cuts move both (`CUT_REPUTE`); briefs and paying for drama: generous and soft; the farm: +15 hard (+5 for a copper); rival snubs and set-ups: harder; peace: softer. Effects (`crewFeeling`): fear = max(0,h)/100×0.7 off runner and talk chances; soft adds up to +0.04 runner chance; warmth = −h/25 relation per paid job. The reputation pane shows the parts, a generosity meter and a soft–hard dial.
+- `src/runners.js`: a runner (on a job, or a drama arc's runner ending) becomes `state.runners[dogId]` with a plotline: loose → hunting (£150) → found after 2 leads (1 a job, +1 with a nose or sneak 4+ in your book) → steal it back (hideout break-in on the board, persists until taken; a win ends it) / the farm (+12 hard, +2 rep, half back) / mercy (−12 hard, 30% back, back in your book) / let go (−4 hard). Loose runners: 20% a job, +4 heat or security on alert. Story type `runner`; Players tab rows with the actions.
+- Amends (`groups.js`): at standing −20 or worse. Pay: debt×1.25 + 20×grudge, standing to 0. Job: `groupOffer(…, 'amends')`: tier 3, base +1, no fee, persists on the board (`g.amends`) until taken; success: standing to 15 and debt cleared; failure: −15 standing, no new debt.
+- Graphics: notes/graphics-engines.md (research, no code change): stay DOM+SVG; make the heist board a persistent scene animated with WAAPI plus a portrait bitmap cache; if that isn't enough, a PixiJS v8 canvas for the heist board only. Phaser and Kaplay don't fit.
+- Verified: 132 unit tests (repute, runners, amends new), smoke 1p (bar between jobs, Players tab) and 1q (runner scene, hunt, found, mercy on the Players tab; amends; reputation pane) with real taps. Version 0.12.0. Not verified: human playtest of the hardness balance; real phones.
+
+## Version in the help panel
 - `src/version.js` exports `VERSION` (0.11.0), shown at the foot of the help panel and in `getState().version`. package.json's version matches (tests/version.test.mjs). Bump both with each release to main.
 
 ## The talent, from the job board

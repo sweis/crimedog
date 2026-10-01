@@ -113,6 +113,25 @@ mysteries who can be won over (the Grey Ghost: notices calling cards left on goo
 can join the crew). Each has a plotline told in scenes between jobs. Troublemakers can be ratted out (costs rep and puts the
 Ghost off), set up, or robbed (their place goes on the job board).
 
+### Reputation, and how the crew see you
+
+Reputation has more than one side. The score (it unlocks outfits and better crew) is the mastermind's track record plus how
+generous they are with the take: a fair or generous cut raises it, stiffing the crew lowers it. Separately, a soft-to-hard scale
+doesn't count towards the score but changes the crew: hard masterminds (the farm, stiffing the crew, setting people up) are feared,
+so fewer crew do runners or talk, but they're slower to warm to you; soft ones (mercy, paying for a brief, helping with drama) are
+liked, and easier to cross.
+
+### Runners
+
+A crew member who does a runner doesn't vanish: they become a rival. Put the word out and, a job or two later, they're found
+(quicker with a good nose or sneak in your book). Then steal it back (their hideout goes on the job board), send them to the
+farm, show mercy (they come back to your book, grateful), or let it go. While loose they make trouble.
+
+### Making amends
+
+An outfit that has turned on the mastermind can be squared: pay up (the debt plus interest, and something for the trouble), or
+do them a hard job for nothing. Done, they're back on side; botched, it's worse.
+
 ### Retirement
 
 The long game is the nest egg: put away a large sum (£100,000, many good jobs' worth) and the mastermind can retire to the Costa

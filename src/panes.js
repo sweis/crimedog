@@ -87,7 +87,7 @@ function repPane(s) {
     <ul class="ledger">${unlocks.map(([min, what]) => `<li><span>${s.rep >= min ? '✅' : '🔒'} ${esc(what)}</span><b>${min}+</b></li>`).join('')}
       <li><span>🌟 Chance a star's in the pub</span><b>${Math.round(starChance(s.rep) * 100)}%</b></li></ul>
     ${changes.length ? `<h3 class="dm-h">Lately</h3><ul class="ledger">${changes.map((c) => `<li><span>${esc(c.label)}</span><b class="${c.d < 0 ? 'out' : 'in'}">${c.d >= 0 ? '+' : '−'}${Math.abs(c.d)}</b></li>`).join('')}</ul>` : ''}
-    <p class="muted">Good grades raise it; flops, walking away and farming real crooks lower it. At 0, nobody will work for you.</p>`;
+    <p class="muted">Good grades and a fair cut raise it; flops, walking away, stiffing the crew and farming real crooks lower it. At 0, nobody will work for you.</p>`;
 }
 
 const HEAT_LEVELS = [

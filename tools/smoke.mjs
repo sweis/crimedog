@@ -845,6 +845,48 @@ console.log('1p. The bottom bar between jobs: pub, crew, players, back to the bo
   await ctx.close();
 }
 
+// ---------------------------------------------------------------- 1q. runners, amends, reputation
+console.log('1q. A runner hunted down and forgiven; amends with a crossed outfit; the sides of a reputation');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=71`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(71); window.cd.teleport('select'); window.cd.spawn('cash', 6000); window.cd.spawn('runner'); window.cd.teleport('select'); });
+  check(await page.locator('.modal.runner').count() === 1, 'the runner\'s scene is up');
+  await shot(page, 'runner-scene');
+  await tap(page, '.modal.runner [data-act="drama"][data-i="0"]');
+  let st = await page.evaluate(() => window.cd.getState());
+  check(st.runners[0]?.stage === 'hunting', `the word is out (${st.runners[0]?.stage})`);
+  // Two jobs' worth of leads, then they're found.
+  await page.evaluate(async () => { const R = await import('/src/runners.js'); const s = window.cd.live(); R.runnersBetweenJobs(s, { chance: () => false, pick: (a) => a[0] }); R.runnersBetweenJobs(s, { chance: () => false, pick: (a) => a[0] }); s.story = []; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="players"]');
+  check(await page.locator('main [data-act="runner-act"][data-effect="mercy"]').count() === 1, 'found: the Players tab offers mercy, the farm, or stealing it back');
+  await page.locator('main [data-act="runner-act"]').first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'runner-found');
+  await tap(page, 'main [data-act="runner-act"][data-effect="mercy"]');
+  st = await page.evaluate(() => window.cd.getState());
+  check(st.runners[0].ended === 'mercy' && st.repute.hardness < 0, `mercy: back in your book, and you\'re softer (${st.repute.hardness})`);
+  // An outfit that's turned on you: make amends with a hard job.
+  await page.evaluate(() => { const s = window.cd.live(); s.groups.firm.standing = -60; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="players"]');
+  check(await page.locator('main [data-act="amends"][data-g="firm"]').count() === 2, 'the Firm can be squared: pay up or a hard job');
+  await page.locator('main [data-act="amends"][data-g="firm"]').first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'amends');
+  await tap(page, 'main [data-act="amends"][data-g="firm"][data-how="job"]');
+  await tap(page, '.nav [data-to="job"]');
+  check(await page.locator('main .offer button', { hasText: 'Make amends' }).count() === 1, 'the amends job is on the job board');
+  // The sides of a reputation.
+  await tap(page, '.topbar [data-pane="rep"]');
+  const pane = (await page.locator('.modal').innerText()).toLowerCase();
+  check(pane.includes('track record') && pane.includes('generosity') && pane.includes('soft or hard'), 'the reputation pane shows its sides');
+  await shot(page, 'pane-rep-sides');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 // ---------------------------------------------------------------- 1d. hire from a plan step
 console.log('1d. Hiring from a planning step returns to that step');
 {
