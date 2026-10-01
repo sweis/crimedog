@@ -12,6 +12,7 @@ import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwn
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
+import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
 import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -306,6 +307,7 @@ export function acceptOffer(state, offerId) {
   state.offers = [];
   state.phase = 'plan';
   tookRivalJob(state, state.job, false);
+  tookRunnerJob(state, state.job);
   gatecrash(state, state.job);
   pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
@@ -330,12 +332,15 @@ export { chooseDrama } from './drama.js';
 
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
 export const retireNow = (state) => retire(state, rngOf(state));
+export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), { genJob });
+export const runnerAction = (state, dogId, effect) => actOnRunner(state, dogId, effect, rngOf(state), { genJob });
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 export function dismissStory(state) {
   const st = state.story[0];
   if (st?.type === 'inspector') return chooseInspector(state, st.choices.length - 1);
   if (st?.type === 'rival') return chooseRival(state, st.choices.length - 1);
+  if (st?.type === 'runner') return chooseRunner(state, st.choices.length - 1);
   state.story.shift();
   return done('');
 }
@@ -680,6 +685,8 @@ export function resolveHeist(state) {
     d.left = 'runner';
     d.ranWith = lootItem(job, run.lootId).name;
     leaveCrew(state, run.id);
+    // They don't just vanish: they become someone to hunt down.
+    newRunner(state, d, d.ranWith, lootItem(job, run.lootId).value, rng);
     news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
   }
   for (const id of [...r.exposed, ...r.tipped]) {
@@ -851,7 +858,7 @@ function finishGrade(state) {
   if (g.letter === 'S') state.stats.perfect += 1;
   if (!a.securedValue) state.stats.busts += 1;
   a.headline = headline(state);
-  a.rivals = rivalsAfterJob(state, rngOf(state));
+  a.rivals = [...rivalsAfterJob(state, rngOf(state)), ...runnersAfterJob(state)];
   closeBooks(state, state.job.name, g.letter);
   state.history.unshift(buildRecap(state));
   state.history.length = Math.min(state.history.length, HISTORY_MAX);
@@ -994,6 +1001,7 @@ export function nextJob(state) {
   if (move) news(state, `🕵️ ${move.title}.`);
   const rival = rivalsBetweenJobs(state, rng, { genJob });
   if (rival) news(state, `${rival.title}.`);
+  for (const e of runnersBetweenJobs(state, rng)) news(state, `💨 ${e}`);
   refreshPub(state, rng);
   state.phase = 'select';
   checkGameOver(state);

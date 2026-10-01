@@ -6,6 +6,7 @@ import { blankResult } from './sim.js';
 import { startArc } from './drama.js';
 import { inspectorMoves, moFile } from './inspector.js';
 import { rivalsBetweenJobs, rivalsOf, ghostScene } from './rivals.js';
+import { newRunner } from './runners.js';
 import { genJob } from './heists.js';
 import { KIT } from './data.js';
 import { VERSION } from './version.js';
@@ -61,6 +62,7 @@ export function snapshot(G) {
     after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received, relations: s.after.relations } : null,
     over: s?.over ?? null,
     version: VERSION,
+    runners: s?.runners ? Object.values(s.runners).map((r) => ({ dog: r.dog, stage: r.stage, leads: r.leads, ended: r.ended || null, board: r.board?.id || null })) : [],
     repute: s ? { rep: s.rep, generosity: s.generosity ?? 50, hardness: s.hardness ?? 0, parts: s.repParts || {} } : null,
     stats: s?.stats,
     frameMs: +G.stats.frameMs.toFixed(2),
@@ -181,6 +183,15 @@ export function installDebug(G) {
         }
         G.commit();
         return s.story.at(-1)?.move;
+      }
+      if (kind === 'runner') {
+        // One of your book does a runner: spawn('runner') — their plotline starts.
+        const d = Object.values(s.dogs).find((x) => x.met && x.status === 'free' && !x.undercover);
+        if (!d) return null;
+        Object.assign(d, { status: 'gone', left: 'runner', relation: -100, ranWith: 'the biscuit tin' });
+        newRunner(s, d, 'the biscuit tin', 800, E.rngOf(s));
+        G.commit();
+        return d.id;
       }
       if (kind === 'retire') { s.cash = Math.max(s.cash, 100000); G.commit(); return s.cash; }
       if (kind === 'cash') { s.cash += Number(at) || 1000; G.commit(); return s.cash; }

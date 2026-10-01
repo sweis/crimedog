@@ -9,6 +9,7 @@ import { clamp, money, fail, done, addHeat, addRelation, book } from './util.js'
 import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
 import { addGenerosity, addHardness } from './repute.js';
+import { newRunner } from './runners.js';
 
 const MAX_ARCS = 2;
 const START_CHANCE = 0.4;
@@ -293,6 +294,8 @@ function applyFx(state, arc, fx = {}, rng) {
       const taken = Math.min(state.cash, round10(Math.max(100, state.cash * 0.15)));
       book(state, 'drama', -taken);
       arc.vars.taken = taken;
+      d.ranWith = `${money(taken)} of yours`;
+      newRunner(state, d, d.ranWith, taken, rng);
     }
     if (fx.leave === 'grass') addHeat(state, 20);
   }

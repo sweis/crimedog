@@ -132,7 +132,7 @@ export function genOffers(state, rng) {
 }
 
 export function rerollOwnLeads(state, rng) {
-  state.offers = state.offers.filter((o) => o.source !== 'own' || o.job.rivalHit || o.job.wager);
+  state.offers = state.offers.filter((o) => o.source !== 'own' || o.job.rivalHit || o.job.wager || o.job.runnerHit);
   state.offers.unshift(ownLead(state, rng), ownLead(state, rng));
 }
 

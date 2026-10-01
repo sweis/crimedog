@@ -11,6 +11,7 @@ import { ARCS, sceneChoices } from './drama.js';
 import { helpModal, paneModal } from './panes.js';
 import { INSPECTOR, inspectorChoices, moPenalty } from './inspector.js';
 import { RETIRE } from './retire.js';
+import { runnerChoices, runnerStatus, runnersList, loose as runnerLoose, HUNT_COST } from './runners.js';
 import { RIVALS, rivalDog, rivalChoices, rivalsOf, rivalStatus } from './rivals.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
@@ -195,14 +196,15 @@ function selectScreen(G) {
     const job = o.job;
     const stars = '★'.repeat(job.tier) + '☆'.repeat(3 - job.tier);
     const rival = job.rivalHit || (job.wager ? 'dan' : null);
-    const pic = rival ? `<div class="boss-pic">${rivalFace(s, rival, 48)}</div>` : o.source === 'own' ? `<div class="boss-pic own">${job.tip ? '✉️' : '🔎'}</div>` : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
-    const whoName = job.rivalHit ? `${RIVALS[rival].emblem} Rob ${esc(RIVALS[rival].name)}` : job.wager ? `💌 Dandy Dan's wager · ${money(job.wager)}` : o.source !== 'own' ? `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}` : job.tip ? 'A stranger\'s tip' : 'Your own lead';
+    const runner = job.runnerHit && s.dogs[job.runnerHit];
+    const pic = runner ? `<div class="boss-pic">${portraitSVG(runner, { size: 48 })}</div>` : rival ? `<div class="boss-pic">${rivalFace(s, rival, 48)}</div>` : o.source === 'own' ? `<div class="boss-pic own">${job.tip ? '✉️' : '🔎'}</div>` : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
+    const whoName = runner ? `💨 Get it back from ${esc(shortName(runner))}` : job.rivalHit ? `${RIVALS[rival].emblem} Rob ${esc(RIVALS[rival].name)}` : job.wager ? `💌 Dandy Dan's wager · ${money(job.wager)}` : o.source !== 'own' ? `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}` : job.tip ? 'A stranger\'s tip' : 'Your own lead';
     h += `<section class="card offer ${o.kind === 'marker' ? 'marker' : ''}" data-offer="${o.id}">
       ${venueSVG(job, { compact: true })}
       <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
-      ${job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
+      ${runner ? `<div class="quote">They ran with ${esc(job.loot[0].name)}. Not for long.</div>` : job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
       <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
       <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
   }
@@ -233,11 +235,23 @@ function playersScreen(G) {
   h += '</section>';
   const R = rivalsOf(s);
   const known = Object.keys(R).filter((id) => R[id].met);
+  const runners = runnersList(s).filter((r) => s.dogs[r.dog]);
   h += '<h2 class="mt">The Competition</h2>';
-  if (!known.length) return h + '<p class="muted">Nobody\'s noticed you yet. They will.</p>';
+  if (!known.length && !runners.length) return h + '<p class="muted">Nobody\'s noticed you yet. They will.</p>';
   h += '<section class="card dark">';
   for (const id of known) h += rivalRow(G, id);
+  // Crew who did a runner: rivals now, and yours to deal with.
+  for (const r of runners.sort((a, b) => runnerLoose(b) - runnerLoose(a))) h += runnerRow(G, r);
   return h + '</section>';
+}
+
+function runnerRow(G, r) {
+  const s = G.state;
+  const d = s.dogs[r.dog];
+  const btn = (effect, label, cost) => `<button class="btn small ${effect === 'farm' ? 'red' : 'ghost'}" data-act="runner-act" data-id="${d.id}" data-effect="${effect}" ${cost && s.cash < cost ? 'disabled' : ''}>${label}${cost ? ` · ${money(cost)}` : ''}</button>`;
+  const acts = s.phase !== 'select' ? [] : r.stage === 'loose' ? [btn('hunt', '🔎 Put the word out', HUNT_COST), btn('letgo', 'Let them go')]
+    : r.stage === 'found' ? [...(r.board ? [] : [btn('stealback', '💰 Steal it back')]), btn('farm', '🚜 The farm'), btn('mercy', '🤝 Mercy')] : [];
+  return `<div class="player"><div class="boss-pic ${runnerLoose(r) ? '' : 'faded'}">${portraitSVG(d, { size: 44 })}</div><div class="grow"><div class="row spread"><b>💨 ${esc(displayName(d))}</b><span class="chip ${runnerLoose(r) ? 'bad' : ''}">${esc(runnerStatus(r))}</span></div><div class="muted">Did a runner with ${esc(r.took)}.</div>${acts.length ? `<div class="btn-row runner-acts">${acts.join('')}</div>` : ''}</div></div>`;
 }
 
 function rivalRow(G, id) {
@@ -849,15 +863,16 @@ function renderModal(G) {
   const open = !!m && (!!G.state || m.type === 'help');
   document.body.classList.toggle('modal-open', open);
   if (!open) { root.innerHTML = ''; return; }
-  if (m.type === 'story' && ['inspector', 'rival'].includes(G.state.story[0].type)) {
-    // The Inspector's moves and the rivals' plotlines: a face, a story, a choice.
+  if (m.type === 'story' && ['inspector', 'rival', 'runner'].includes(G.state.story[0].type)) {
+    // The Inspector's moves, the rivals' and runners' plotlines: a face, a story, a choice.
     const st = G.state.story[0];
-    const d = st.dog && G.state.dogs[st.dog];
+    const runner = st.type === 'runner' && G.state.dogs[st.dog];
+    const d = !runner && st.dog && G.state.dogs[st.dog];
     const rv = st.type === 'rival' && RIVALS[st.rival];
-    const face = rv ? rivalFace(G.state, st.rival, 96) : portraitSVG(INSPECTOR.dog, { size: 96 });
-    const who = rv ? `${rv.emblem} ${esc(rv.name)}` : `🕵️ ${esc(INSPECTOR.name)}`;
-    const choices = rv ? rivalChoices(G.state, st) : inspectorChoices(G.state, st);
-    root.innerHTML = `<div class="modal-back"><div class="modal story ${rv ? `rival ${st.rival}` : 'inspector'}" data-stop role="dialog" aria-modal="true">
+    const face = runner ? portraitSVG(runner, { size: 96 }) : rv ? rivalFace(G.state, st.rival, 96) : portraitSVG(INSPECTOR.dog, { size: 96 });
+    const who = runner ? `💨 ${esc(displayName(runner))}` : rv ? `${rv.emblem} ${esc(rv.name)}` : `🕵️ ${esc(INSPECTOR.name)}`;
+    const choices = runner ? runnerChoices(G.state, st) : rv ? rivalChoices(G.state, st) : inspectorChoices(G.state, st);
+    root.innerHTML = `<div class="modal-back"><div class="modal story ${runner ? 'rival runner' : rv ? `rival ${st.rival}` : 'inspector'}" data-stop role="dialog" aria-modal="true">
       <div class="story-duo"><div class="story-pic">${face}</div>${d ? `<div class="story-pic small">${portraitSVG(d, { size: 64 })}</div>` : ''}</div>
       <div class="muted center">${who}</div>
       <h2 class="center">${esc(st.title)}</h2><p class="story-text">${esc(st.text)}</p>
