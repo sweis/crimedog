@@ -279,7 +279,7 @@ function applyFx(state, arc, fx = {}, rng) {
     if (fx.trouble) d.drama.trouble = { kind: fx.trouble, text: fill(TROUBLE_TEXT[fx.trouble], arc, d) };
   }
   if (fx.promote) {
-    const to = promote(d);
+    const to = promote(d, state);
     arc.vars.rank = to ? RARITY[to].label.toLowerCase() : null;
     if (to) note.push(`${displayName(d)} is ${RARITY[to].label}: ✨ ${SIGNATURES[d.signature].name}.`);
   }

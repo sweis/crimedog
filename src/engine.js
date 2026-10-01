@@ -1,7 +1,7 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, addRelation, book } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
@@ -709,7 +709,7 @@ export function resolveHeist(state) {
   for (const id of r.escaped) {
     const d = state.dogs[id];
     if (!earnedPromotion(d)) continue;
-    promoted.push({ id, to: promote(d) });
+    promoted.push({ id, to: promote(d, state) });
     state.stats.promoted = (state.stats.promoted || 0) + 1;
     news(state, `${displayName(d)} has made a name for themselves: ${d.rarity}, ✨ ${SIGNATURES[d.signature].name}.`);
   }
@@ -823,6 +823,8 @@ export function payCrew(state, pct) {
     const d = state.dogs[id];
     let delta = a.received > 0 ? cut.rel : pct > 0 ? cut.rel : -2;
     if (d.quirks.includes('greedy') && pct < 45) { delta -= 8; if (!d.known.quirks.includes('greedy')) d.known.quirks.push('greedy'); }
+    // Doesn't tip, doesn't want tipping: the size of the cut barely registers.
+    if (d.quirks.includes('nopink') && pct !== 30) { delta = Math.max(-3, Math.min(3, delta)); if (!d.known.quirks.includes('nopink')) d.known.quirks.push('nopink'); }
     if (r.outcome !== 'bust' && r.outcome !== 'aborted') { d.wins += 1; delta += 5; }
     addRelation(d, delta + warmth);
   }
@@ -893,12 +895,14 @@ function timelinePoint(state, label) {
 function headline(state) {
   const r = state.result;
   const v = state.job.venueName.toUpperCase();
-  if (r.outcome === 'clean' && r.swap) return `"QUIET NIGHT AT ${v}," SAYS MANAGER`;
-  if (r.outcome === 'clean') return `MYSTERY AT ${v}: POLICE BAFFLED`;
-  if (r.outcome === 'tidy') return `DARING RAID ON ${v}`;
-  if (r.outcome === 'messy') return `CHAOS AT ${v} AS GANG FLEES WITH LOOT`;
-  if (r.outcome === 'aborted') return `ATTEMPTED BREAK-IN AT ${v} FOILED`;
-  return `BUNGLING GANG LEAVES ${v} EMPTY-PAWED`;
+  const pick = (list) => pickBy(`${state.job.id}|${state.job.venueName}`, list);
+  if (r.setup) return `STING AT ${v}: "ANYBODY COULD BE ANYBODY," SAYS INSPECTOR`;
+  if (r.outcome === 'clean' && r.swap) return pick([`"QUIET NIGHT AT ${v}," SAYS MANAGER`, `NOTHING TO SEE AT ${v}. OR IS THERE?`]);
+  if (r.outcome === 'clean') return pick([`MYSTERY AT ${v}: POLICE BAFFLED`, `${v} RAID: YARD ROUNDS UP THE USUAL SUSPECTS`, `"LIKE THEY WERE NEVER THERE," SAYS ${v} GUARD`]);
+  if (r.outcome === 'tidy') return pick([`DARING RAID ON ${v}`, `${v} HIT IN THIRTY SECONDS FLAT`, `"IT WAS LIKE A FILM," SAYS ${v} NIGHT WATCHMAN`]);
+  if (r.outcome === 'messy') return pick([`CHAOS AT ${v} AS GANG FLEES WITH LOOT`, `"THEY BLEW THE BLOODY DOORS OFF," SAYS ${v} STAFF`, `SNATCH! GANG GRABS WHAT IT CAN AT ${v}`]);
+  if (r.outcome === 'aborted') return pick([`ATTEMPTED BREAK-IN AT ${v} FOILED`, `GANG GOES HOME EARLY FROM ${v}`]);
+  return pick([`BUNGLING GANG LEAVES ${v} EMPTY-PAWED`, `LOCK, STOCK AND NO LOOT AT ${v}`, `${v} RAID: "NEVER UNDERESTIMATE THE PREDICTABILITY OF STUPIDITY"`]);
 }
 
 // ------------------------------------------------------------------ aftermath extras
@@ -1028,9 +1032,9 @@ export function checkGameOver(state) {
 
 export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
-  nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls.' },
+  nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Coffee\'s for closers, and you\'re not getting any.' },
   retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
-  broke: { title: 'Skint', text: 'Not a penny to your name and not a dog to your name either. Time to get a proper job.' },
+  broke: { title: 'Skint', text: 'Not a penny to your name and not a dog to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
 };
 
 // Make sure crew/status bookkeeping is consistent (used by tests).

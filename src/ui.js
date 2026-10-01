@@ -1,8 +1,8 @@
 // DOM rendering. Every screen is a function of (state, ui) -> HTML string;
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
-import { esc, money, count } from './util.js';
-import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS } from './data.js';
+import { esc, money, count, pickBy } from './util.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS, VERDICTS } from './data.js';
 import { portraitSVG, displayName, shortName, skillOf, relationLabel, band, topSkills, isVisitor, specialty, roleLevel } from './dogs.js';
 import { visibleStages, lootItem, intelLabel } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
@@ -799,6 +799,7 @@ function aftermathScreen(G) {
     const maxes = { loot: 35, fence: 15, stealth: 20, crew: 15, clues: 10, pay: 5 };
     h += `<section class="card center"><div class="grade ${g.letter}" data-grade="${g.letter}">${g.letter}</div><p><b>${g.score}/100</b> · Rep ${a.repDelta >= 0 ? '+' : ''}${a.repDelta}</p>
     ${g.letter === 'S' ? '<p class="chip good">The perfect heist.</p>' : ''}
+    <p class="verdict muted"><i>${esc(pickBy(`${s.job.id}|${s.job.venueName}|${g.letter}`, VERDICTS[g.letter]))}</i></p>
     <table class="parts">${Object.entries(g.parts).map(([k, v]) => `<tr><td>${labels[k]}</td><td>${v}/${maxes[k]}</td></tr>`).join('')}</table></section>`;
     if (a.relations?.length) {
       h += '<section class="card"><h2>The Players</h2>';

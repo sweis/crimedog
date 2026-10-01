@@ -153,6 +153,14 @@ export const QUIRKS = {
   lucky: { name: 'Born Lucky', good: true, blurb: 'Things just go his way. Once a job, anyway.' },
   napper: { name: 'Needs a Nap', good: false, blurb: 'Flags badly towards the end of a long night.' },
   glory: { name: 'Glory Hound', good: null, blurb: 'Brilliant when showing off. Leaves a calling card.' },
+  // Nods to the films.
+  thirtysec: { name: 'Thirty Seconds Flat', good: true, blurb: 'Gets attached to nothing. Out the door the second the heat\'s on: very hard to catch.' },
+  nopink: { name: 'Doesn\'t Tip', good: null, blurb: 'Doesn\'t believe in tipping, or being tipped. Generous cuts and tight ones leave them cold.' },
+  closer: { name: 'A Closer', good: true, blurb: 'Always be closing. Sharper at the vault, where the deal gets done.' },
+  tell: { name: 'Has a Tell', good: false, blurb: 'An ear twitches when they lie. Worse at charm and disguise.' },
+  heavy: { name: 'Heavy Is Reliable', good: null, blurb: 'Heavy is good. Stronger when it comes to muscle, slower over the rooftops.' },
+  backup: { name: 'Back-Up Plan', good: true, blurb: 'Wouldn\'t clear their throat without a back-up plan. Better when they have to improvise.' },
+  doorsoff: { name: 'Blows the Doors Off', good: null, blurb: 'Brilliant with a drill. You were only supposed to blow the bloody doors off.' },
 };
 
 export const BREEDS = {
@@ -195,42 +203,42 @@ export const FACTIONS = {
 export const VOICES = {
   cockney: {
     hire: ['Alright guv\'nor, I\'m in.', 'Say no more. Nudge nudge.', 'Proper job. Count me in.', 'Lovely jubbly.'],
-    ok: ['Sorted.', 'Easy peasy.', 'Told ya. Nuffin\' to it.', 'Have it!', 'Lovely jubbly.', 'Like takin\' a bone off a puppy.'],
-    fail: ['Cor blimey!', 'Leave it aht!', 'That\'s torn it!', 'Oh, bloomin\' \'eck.', 'It\'s all gone pear-shaped!'],
-    caught: ['I ain\'t sayin\' nuffin\'!', 'You got nuffin\' on me, copper.'],
+    ok: ['Sorted.', 'Easy peasy.', 'Told ya. Nuffin\' to it.', 'Have it!', 'Lovely jubbly.', 'Like takin\' a bone off a puppy.', 'Do I look like I\'m laughing?', 'Proper.', 'Get in!'],
+    fail: ['Cor blimey!', 'Leave it aht!', 'That\'s torn it!', 'Oh, bloomin\' \'eck.', 'It\'s all gone pear-shaped!', 'Bloody hell, it\'s a shambles!', 'Turn it up!'],
+    caught: ['I ain\'t sayin\' nuffin\'!', 'You got nuffin\' on me, copper.', 'It\'s a fair cop. Well, it ain\'t, but fair enough.'],
     talk: ['Alright, alright! I\'ll tell ya everyfink!'],
   },
   posh: {
     hire: ['Splendid. Do count me in, old bean.', 'One does enjoy a little caper.', 'Charmed, I\'m sure.'],
-    ok: ['Frightfully straightforward.', 'Spiffing.', 'Tally-ho!', 'Child\'s play, darling.'],
-    fail: ['I say, how dreadfully awkward.', 'Oh, bother.', 'Good heavens!', 'This is most irregular.'],
+    ok: ['Frightfully straightforward.', 'Spiffing.', 'Tally-ho!', 'Child\'s play, darling.', 'If you wish to be the king of the jungle, it\'s not enough to act like a king.', 'Rather marvellous, actually.'],
+    fail: ['I say, how dreadfully awkward.', 'Oh, bother.', 'Good heavens!', 'This is most irregular.', 'Well, that\'s rather torn it.', 'Mummy will be livid.'],
     caught: ['I shall want my solicitor. And a biscuit.', 'Do you know who my father is?'],
     talk: ['Very well, I shall sing like a canary. Is there tea?'],
   },
   ze: {
     hire: ['Ja. Ze fee is acceptable.', 'Ve are in.', 'Ze plan. Show me ze plan.'],
-    ok: ['Ze plan is vorking.', 'Precisely as calculated.', 'Ja. Sorted.', 'Efficient.'],
-    fail: ['Zis vas not in ze plan!', 'Nein, nein, NEIN!', 'Unacceptable!'],
+    ok: ['Ze plan is vorking.', 'Precisely as calculated.', 'Ja. Sorted.', 'Efficient.', 'Heavy is good. Heavy is reliable.', 'As ze schedule says.'],
+    fail: ['Zis vas not in ze plan!', 'Nein, nein, NEIN!', 'Unacceptable!', 'If it does not vork, you can alvays hit zem viz it.'],
     caught: ['I vill say nozzing.', 'Ze name is... nobody.'],
     talk: ['Fine! Ze plan vas as follows...'],
   },
   neutral: {
     hire: ['I\'m in. Don\'t make me regret it.', 'Right. Let\'s get to work.', 'Fair money. I\'ll do it.'],
-    ok: ['Done.', 'Clean.', 'Like a walk in the park.', 'Nothing to it.'],
-    fail: ['That wasn\'t supposed to happen.', 'Oh no. Oh no no no.', 'Bad dog— bad luck. Bad luck.'],
+    ok: ['Done.', 'Clean.', 'Like a walk in the park.', 'Nothing to it.', 'Whenever there\'s any doubt, there is no doubt.', 'Thirty seconds flat.', 'Smooth.'],
+    fail: ['That wasn\'t supposed to happen.', 'Oh no. Oh no no no.', 'Bad dog— bad luck. Bad luck.', 'Who\'s got a back-up plan? Anyone?', 'This is not a good day.'],
     caught: ['I want my lawyer.', 'No comment.'],
     talk: ['Okay! Okay. I\'ll tell you what I know.'],
   },
   family: {
     hire: ['The Family says you\'re good for it. I\'m in.', 'Sure. Consider it a favour.', 'Business is business.'],
-    ok: ['Just business.', 'Clean. The Don likes clean.', 'Consider it handled.', 'Like I was never there.'],
-    fail: ['This is a disrespect!', 'Somebody\'s gonna answer for this.', 'This was not the arrangement!'],
+    ok: ['Just business.', 'Clean. The Don likes clean.', 'Consider it handled.', 'Like I was never there.', 'Leave the lead. Take the cannoli.', 'An offer they couldn\'t refuse.'],
+    fail: ['This is a disrespect!', 'Somebody\'s gonna answer for this.', 'This was not the arrangement!', 'Just when I thought I was out...', 'Funny how? Funny like a clown?'],
     caught: ['I got nothing to say. I got a good memory, though.', 'Call my lawyer. He\'s family.'],
     talk: ['Okay, okay! But you never heard it from me.'],
   },
   syndicate: {
     hire: ['A fair price. I accept.', 'Your work is tidy. We value tidy.', 'Agreed.'],
-    ok: ['Precisely.', 'As planned.', 'Tidy.', 'Silence is the best signature.'],
+    ok: ['Precisely.', 'As planned.', 'Tidy.', 'Silence is the best signature.', 'The patient hound eats twice.'],
     fail: ['Unacceptable.', 'This will be remembered.', 'A mistake. Mine.'],
     caught: ['...', 'I have nothing to say to you, Inspector.'],
     talk: ['I have shamed myself. Very well.'],
@@ -245,20 +253,20 @@ export const VOICES = {
 };
 
 export const NAMES = {
-  cockney: ['Barry', 'Terry', 'Reggie', 'Ronnie', 'Del', 'Kev', 'Sid', 'Dot', 'Sharon', 'Tracy', 'Arfur', 'Lenny', 'Vinnie', 'Tommy', 'Stan', 'Mabel', 'Ernie', 'Queenie', 'Dougie', 'Frankie', 'Winnie', 'Nobby', 'Chalky', 'Gordon'],
-  posh: ['Percival', 'Cedric', 'Rupert', 'Monty', 'Tarquin', 'Jemima', 'Arabella', 'Pandora', 'Hugo', 'Basil', 'Beatrice', 'Ptolemy', 'Clementine', 'Algernon', 'Felicity', 'Rollo'],
-  ze: ['Klaus', 'Dieter', 'Gunther', 'Heidi', 'Ingrid', 'Fritz', 'Hans', 'Wolfgang', 'Lotte', 'Jurgen', 'Greta', 'Otto'],
-  family: ['Vincent', 'Frankie', 'Tony', 'Lou', 'Nicky', 'Gina', 'Rosa', 'Sonny', 'Benny', 'Carla', 'Paulie', 'Connie'],
-  syndicate: ['Maple', 'Ginger', 'Sesame', 'Pepper', 'Chestnut', 'Toffee', 'Cinder', 'Ember', 'Russet', 'Hazel', 'Kit', 'Ash'],
-  neutral: ['Max', 'Bruno', 'Rex', 'Lulu', 'Pearl', 'Ruby', 'Butch', 'Spike', 'Bernard', 'Winston', 'Gladys', 'Mo', 'Pixie', 'Duke', 'Sadie', 'Rocco', 'Bonnie', 'Jack', 'Nell', 'Otis'],
+  cockney: ['Barry', 'Terry', 'Reggie', 'Ronnie', 'Del', 'Kev', 'Sid', 'Dot', 'Sharon', 'Tracy', 'Arfur', 'Lenny', 'Vinnie', 'Tommy', 'Stan', 'Mabel', 'Ernie', 'Queenie', 'Dougie', 'Frankie', 'Winnie', 'Nobby', 'Chalky', 'Gordon', 'Alfie', 'Bert', 'Charlie', 'Danny', 'Eddie', 'Harry', 'Jimmy', 'Mickey', 'Smudge', 'Tel', 'Vic', 'Wally', 'Shirl', 'Babs', 'Doris', 'Maureen', 'Bev', 'Rita', 'Kenny', 'Trev', 'Gaz', 'Billy', 'Darren', 'Lol', 'Pat'],
+  posh: ['Percival', 'Cedric', 'Rupert', 'Monty', 'Tarquin', 'Jemima', 'Arabella', 'Pandora', 'Hugo', 'Basil', 'Beatrice', 'Ptolemy', 'Clementine', 'Algernon', 'Felicity', 'Rollo', 'Crispin', 'Peregrine', 'Hector', 'Jasper', 'Montague', 'Barnaby', 'Octavia', 'Imogen', 'Cordelia', 'Lavinia', 'Fenella', 'Bunty', 'Tilly', 'Archibald', 'Bertram', 'Giles', 'Rafe', 'Sebastian', 'Lysander'],
+  ze: ['Klaus', 'Dieter', 'Gunther', 'Heidi', 'Ingrid', 'Fritz', 'Hans', 'Wolfgang', 'Lotte', 'Jurgen', 'Greta', 'Otto', 'Ulrich', 'Helmut', 'Konrad', 'Gisela', 'Brunhilde', 'Wilhelm', 'Lukas', 'Anke', 'Rolf', 'Uwe', 'Sigrid', 'Manfred'],
+  family: ['Vincent', 'Frankie', 'Tony', 'Lou', 'Nicky', 'Gina', 'Rosa', 'Sonny', 'Benny', 'Carla', 'Paulie', 'Connie', 'Vito', 'Carmine', 'Sal', 'Tessa', 'Marco', 'Gino', 'Nico', 'Lucia', 'Joey', 'Dino', 'Teresa', 'Enzo'],
+  syndicate: ['Maple', 'Ginger', 'Sesame', 'Pepper', 'Chestnut', 'Toffee', 'Cinder', 'Ember', 'Russet', 'Hazel', 'Kit', 'Ash', 'Willow', 'Fern', 'Saffron', 'Juniper', 'Rowan', 'Cedar', 'Flint', 'Brindle', 'Amber', 'Sorrel', 'Wren', 'Sable'],
+  neutral: ['Max', 'Bruno', 'Rex', 'Lulu', 'Pearl', 'Ruby', 'Butch', 'Spike', 'Bernard', 'Winston', 'Gladys', 'Mo', 'Pixie', 'Duke', 'Sadie', 'Rocco', 'Bonnie', 'Jack', 'Nell', 'Otis', 'Scout', 'Dash', 'Ziggy', 'Bandit', 'Rufus', 'Murphy', 'Daisy', 'Penny', 'Archie', 'Teddy', 'Bailey', 'Ollie', 'Rosie', 'Milo', 'Bramble', 'Pickle', 'Nugget', 'Gus', 'Moose', 'Waffles', 'Fudge'],
 };
 export const SURNAMES = {
-  cockney: ['Barkley', 'Pawson', 'Kibbleton', 'Growler', 'Fetcham', 'Muttson', 'Collarbone', 'Biscuitt', 'Chewson', 'Scratchley', 'Leadbetter', 'Howlett', 'Snoutley', 'Gravy'],
-  posh: ['Woofington', 'Fluffington-Smythe', 'Poodleston', 'Pawsworth-Grey', 'de Barkley', 'Snootington', 'Waggstaff', 'Furrington', 'Houndsworth'],
-  ze: ['von Sniffen', 'Schnauzmann', 'Droolberg', 'Barkhausen', 'Wuffmeister', 'Knochenbauer', 'Pfotenhauer'],
-  family: ['Longshanks', 'Sleekcoat', 'Velvetpaw', 'Slimleg', 'Silverstreak', 'Narrowmore', 'Finewhisker'],
-  syndicate: ['Curltail', 'Foxface', 'Stillwater', 'Quietstep', 'Redcoat', 'Nightpaw', 'Sharpear'],
-  neutral: ['Bonewright', 'Snufflebottom', 'Barkworth', 'Tailor', 'Houndsworth', 'Muttley-Jones', 'Pawley', 'Wagner-Smith', 'Chewbury', 'Fetch'],
+  cockney: ['Barkley', 'Pawson', 'Kibbleton', 'Growler', 'Fetcham', 'Muttson', 'Collarbone', 'Biscuitt', 'Chewson', 'Scratchley', 'Leadbetter', 'Howlett', 'Snoutley', 'Gravy', 'Scruffton', 'Chewley', 'Muttworth', 'Tailby', 'Mudge', 'Scrapps', 'Bonehill', 'Biscoe', 'Bangers', 'Crumble', 'Dripping', 'Pickles', 'Kipper', 'Mash', 'Whelk'],
+  posh: ['Woofington', 'Fluffington-Smythe', 'Poodleston', 'Pawsworth-Grey', 'de Barkley', 'Snootington', 'Waggstaff', 'Furrington', 'Houndsworth', 'Barkington-Smythe', 'Fetchingham', 'St. Woofs', 'Pawlett-Fiennes', 'Wagglesworth', 'Ruffleshaw', 'Collingwood-Paws'],
+  ze: ['von Sniffen', 'Schnauzmann', 'Droolberg', 'Barkhausen', 'Wuffmeister', 'Knochenbauer', 'Pfotenhauer', 'Bellmann', 'Hundertmark', 'Pudelmann', 'Wurstberg', 'Schnuffler', 'Pfotenmeier'],
+  family: ['Longshanks', 'Sleekcoat', 'Velvetpaw', 'Slimleg', 'Silverstreak', 'Narrowmore', 'Finewhisker', 'Silverlegs', 'Swiftcoat', 'Leanjaw', 'Quicksilver', 'Greyfeather', 'Longstride'],
+  syndicate: ['Curltail', 'Foxface', 'Stillwater', 'Quietstep', 'Redcoat', 'Nightpaw', 'Sharpear', 'Autumnleaf', 'Stoneriver', 'Softfoot', 'Ironpaw', 'Whitetail', 'Emberfur', 'Mistwalker'],
+  neutral: ['Bonewright', 'Snufflebottom', 'Barkworth', 'Tailor', 'Houndsworth', 'Muttley-Jones', 'Pawley', 'Wagner-Smith', 'Chewbury', 'Fetch', 'Waggoner', 'Lickley', 'Rumpole', 'Sniffwell', 'Chompers', 'Muddypaws', 'Furlong', 'Dogberry', 'Scamp', 'Ruffian'],
 };
 export const NICKNAMES = [
   'The Bone', 'Two-Tone', 'Knuckles', 'Snout', 'The Nose', 'Four-Paws', 'Wet Nose', 'Scruffy', 'Sniffer', 'Slippers',
@@ -266,6 +274,13 @@ export const NICKNAMES = [
   'Sparks', 'Wheels', 'Specs', 'Lucky', 'The Professor', 'Bullet-Tooth', 'The Bite', 'Squeaky', 'The Duke', 'Posh',
   'Brick-Top', 'Bacon', 'Big Chris', 'Hatchet', 'The Whisper', 'Fluffy', 'Tripod', 'Sausage', 'Pudding', 'Dog-Ear',
   'The Collar', 'Fetch', 'Scraps', 'Crumbs', 'The Butler', 'Rover', 'Kipper', 'Flea', 'Dribbles',
+  // Faces from the films: the knife men, the boxers, the wheelmen, the closers.
+  'The Blade', 'Bullet-Dodger', 'One-Punch', 'Handsome', 'Two-Bowls', 'The Head', 'Gorgeous', 'Plank', 'The Baptist', 'Breaker',
+  'Big Dave', 'Dry Eye', 'Coach', 'Fletch', 'Quid', 'One-Two', 'Nice Guy', 'Toothpick', 'Pinstripe', 'Blue Suede', 'Verbal',
+  'Basher', 'Rusty', 'The Kid', 'The Wolf', 'Lefty', 'Spats', 'Bugsy', 'Baby Face', 'The Cleaner', 'The Brain', 'Fingers',
+  'Slick', 'Snake Eyes', 'Ace', 'Sticky Paws', 'Long Shot', 'Clean Paws', 'The Closer', 'The Machine', 'Sheep-Counter',
+  'Backup Plan', 'The Tell', 'Fleabag', 'Muttley', 'Hairball', 'Slobber', 'Whiskers', 'Rawhide', 'Pedigree', 'Rollover',
+  'Walkies', 'Tennis Ball', 'Good Boy', 'Sausage Roll', 'Leash', 'Ruff', 'Drool', 'Bones', 'Gnasher', 'Nipper', 'Snapper',
 ];
 
 // Parody catchphrases, keyed loosely to archetypes.
@@ -294,7 +309,35 @@ export const ARCHETYPES = [
   { id: 'sleeping', label: 'The Pacifist', line: 'Let sleeping guards lie.' },
   { id: 'paws', label: 'The Accountant', line: 'Paws off my share, and nobody gets hurt.' },
   { id: 'bone', label: 'The Philosopher', line: 'I\'ve got a bone to pick with the world. Several, actually.' },
+  { id: 'money', label: 'The Realist', line: 'Everybody needs money. That\'s why they call it money.' },
+  { id: 'sheep', label: 'The Insomniac', line: 'I don\'t count sheep. Sheep count me.' },
+  { id: 'backup', label: 'The Careful One', line: 'I wouldn\'t clear my throat without a back-up plan.' },
+  { id: 'confidence', label: 'The Con Artist', line: 'It\'s called a confidence game. You give me yours, I give you mine.' },
+  { id: 'anybody', label: 'The Paranoid', line: 'Anybody could be anybody. Even you. Especially you.' },
+  { id: 'closer', label: 'The Closer', line: 'Always be closing. Biscuits are for closers.' },
+  { id: 'doubt', label: 'The Ronin', line: 'Whenever there is any doubt, there is no doubt. Also, I want a biscuit.' },
+  { id: 'stupidity', label: 'The Cynic', line: 'Never underestimate the predictability of stupidity.' },
+  { id: 'pedigree', label: 'The Boss\'s Boss', line: 'You\'re on thin ice, my pedigree chums.' },
+  { id: 'alpha', label: 'The Top Dog', line: 'Now starts the alpha dance.' },
+  { id: 'inorout', label: 'The Recruiter', line: 'Are you in, or are you out? I\'ve got biscuits either way.' },
+  { id: 'idea', label: 'The Ideas Man', line: 'Hang on a minute, lads. I\'ve got a great idea.' },
+  { id: 'tricks', label: 'The Mystery', line: 'Greatest trick I ever pulled? Convincing the Inspector I was a cat.' },
+  { id: 'lesson', label: 'The Teacher', line: 'Here endeth the lesson. Now, about my fee.' },
+  { id: 'tail', label: 'The Shadow', line: 'Don\'t let the tail wag you. That\'s my whole philosophy.' },
 ];
+
+// The grade card's verdict, mostly from a certain real-estate sales office.
+export const VERDICTS = {
+  S: ['First prize: a Cadillac. Well, a new collar.', 'Biscuits are for closers. Have a biscuit.', 'Nobody will ever know. That\'s the art of it.'],
+  A: ['Always be closing. You closed.', 'Like a walk round the block.', 'Smooth. Very smooth.'],
+  B: ['Second prize: a set of steak knives.', 'A decent night\'s work. Nothing to bark about.', 'Not bad. Not great. Not bad.'],
+  C: ['It went pear-shaped, but it\'s still a pear.', 'Here endeth the lesson.', 'You\'ll want to do better. The crew certainly do.'],
+  D: ['Third prize: you\'re fired.', 'Never underestimate the predictability of stupidity.', 'That was emotional.'],
+  F: ['Put that biscuit down. Biscuits are for closers.', 'You were only supposed to blow the bloody doors off.', 'Lock, stock and nothing at all.'],
+};
+
+// Reservoir colours: who's who on the night. Nobody wants to be Mr Pink.
+export const CODENAMES = ['Mr White', 'Mr Orange', 'Mr Blonde', 'Mr Brown', 'Mr Blue', 'Mr Pink'];
 
 // Kit: bonus = +difficulty relief when the approach lists it; consumable kit is
 // used up when the step runs.
@@ -665,12 +708,16 @@ export const WILD = {
     { text: '{d} does something nobody understands. It works. Everyone\'s fired up.', bonus: 0.25 },
     { text: '{d} tidies up behind the crew without being asked.', clues: -1 },
     { text: '{d} produces a smoke bomb from somewhere. "Always carry one."', smoke: 1 },
+    { text: '"Hang on a minute, lads. I\'ve got a great idea." It is, for once, a great idea.', bonus: 0.2 },
+    { text: '{d} talks the guard into a game of cards. The guard loses his keys. And his shirt.', alarm: -1 },
   ],
   bad: [
     { text: '{d} decides this is the moment for a sing-song.', alarm: 2 },
     { text: '{d} signs the visitors\' book. With their real name.', clues: 2 },
     { text: '{d} knows "a little shortcut". It isn\'t one.', bonus: -0.15 },
     { text: '{d} sets off a fire extinguisher. On purpose, apparently.', alarm: 1, clues: 1 },
+    { text: '{d} insists on everyone having code names. Then argues about being Mr Pink.', bonus: -0.1 },
+    { text: '{d} leaves a note for the Inspector. "Catch me if you can." Signed.', clues: 2 },
   ],
 };
 
@@ -911,9 +958,9 @@ export const INTEL = {
 };
 
 export const FENCES = {
-  hal: { name: 'Honest Hal\'s Pawnbrokers', blurb: 'Pays peanuts. Never grasses.', rates: { cash: 0.85, jewel: 0.5, art: 0.3, oddity: 0.5 } },
-  francesca: { name: 'Fancy Francesca', blurb: 'Pays well. New in town.', rates: { cash: 0.9, jewel: 0.8, art: 0.65, oddity: 0.75 } },
-  collector: { name: 'The Collector', blurb: 'Full value. By appointment.', rates: { cash: 1, jewel: 1, art: 1, oddity: 1 } },
+  hal: { name: 'Honest Hal\'s Pawnbrokers', blurb: 'Pays peanuts. Never grasses. Doesn\'t ask, doesn\'t want to know.', rates: { cash: 0.85, jewel: 0.5, art: 0.3, oddity: 0.5 } },
+  francesca: { name: 'Fancy Francesca', blurb: 'Pays well. New in town. Anybody could be anybody.', rates: { cash: 0.9, jewel: 0.8, art: 0.65, oddity: 0.75 } },
+  collector: { name: 'The Collector', blurb: 'Full value. By appointment. Nobody\'s ever seen his face.', rates: { cash: 1, jewel: 1, art: 1, oddity: 1 } },
 };
 
 export const CUTS = [
@@ -930,6 +977,9 @@ export const CHAOS = {
     'A power cut! Lucky timing — or fate.',
     'A fox knocks over the bins outside. Every guard runs to look.',
     'The alarm panel is still in test mode. Nobody switched it back.',
+    'The guards are glued to the big fight on the radio. Third round. Nobody\'s moving.',
+    'The night guard is on the phone to his mum. For forty minutes.',
+    'A wedding party next door. Forty pugs doing the conga. Perfect cover.',
   ],
   bad: [
     'A pizza delivery arrives. For the guards. Right now.',
@@ -937,6 +987,9 @@ export const CHAOS = {
     'Someone left a sausage roll on the counter. Concentration: gone.',
     'The cleaner is working late tonight. Humming loudly.',
     'A squirrel. On the windowsill. Staring.',
+    'Another crew turns up. Same night, same vault, same balaclavas. Awkward.',
+    'The new night guard is a cat. Nobody planned for a cat.',
+    'Someone\'s locked the getaway keys in the getaway van. With the engine running.',
   ],
 };
 
@@ -944,6 +997,7 @@ export const INTRO = [
   'Dogsbury. Rain on the cobbles, and a fortune in every vault.',
   'You\'re the Guv\'nor. You pick the job, the crew and the plan. Then you watch.',
   'Keep your cash up, your name clean, and the Inspector off your tail.',
+  'Everybody needs money. That\'s why they call it money.',
 ];
 
 // ------------------------------------------------------------------ groups
@@ -957,7 +1011,7 @@ export const GROUPS = {
     bossDog: { breed: 'bulldog', faction: 'firm', look: { coat: '#c69064', hat: 'flatcap', eyes: 'none', neck: 'chain', outfit: '#4b2e2e', brow: 'stern', seed: 31 } },
     wants: ['oddity', 'cash'],
     intro: 'Brick Bone rolls into the Dog & Duck like weather. He sits in your chair. "Heard you\'re handy. I\'ve got work for handy. Do it right, you\'re one of the family. Do it wrong, you\'re sausages."',
-    pitch: ['"In and out, no fuss, and I get my share. Simple."', '"Them posh poodles have had it too good for too long."', '"Nothing fancy. Just nick it and bring it round the back."'],
+    pitch: ['"In and out, no fuss, and I get my share. Simple."', '"Them posh poodles have had it too good for too long."', '"Nothing fancy. Just nick it and bring it round the back."', '"Have you ever been to a pig farm? Lovely places. Very hungry pigs. Now, about this job."'],
     thanks: ['"Lovely. That\'s what I like to see."', '"You\'re alright, you are."'],
     angry: ['"You\'ve made me look a mug. Nobody makes me look a mug."', '"You\'d better keep looking over your shoulder, sunshine."'],
     hostile: { effect: 'crew', text: 'Brick Bone\'s lads had a quiet word with {dog} in the car park. {dog} is not keen on working for you now.' },
@@ -968,7 +1022,7 @@ export const GROUPS = {
     bossDog: { breed: 'shepherd', faction: 'ze', look: { coat: '#b8793a', hat: 'peaked', eyes: 'sunglasses', neck: 'none', outfit: '#1d1d22', brow: 'stern', seed: 32 } },
     wants: ['jewel', 'cash'],
     intro: 'A typed contract arrives in triplicate. Clause 1: Ze job. Clause 2: Ze fee. Clause 3: Failure is not in ze contract. It is signed, stamped, and smells faintly of sausage.',
-    pitch: ['"Ze terms are precise. We expect ze same of you."', '"Efficiency. Discretion. Delivery. In zat order."', '"We have calculated your odds. Zey are acceptable."'],
+    pitch: ['"Ze terms are precise. We expect ze same of you."', '"Efficiency. Discretion. Delivery. In zat order."', '"We have calculated your odds. Zey are acceptable."', '"Heavy is good. Heavy is reliable. Ze job is heavy."'],
     thanks: ['"Ze contract is fulfilled. Sehr gut."', '"Precisely as calculated."'],
     angry: ['"You have broken ze contract. Zis is noted."', '"Unacceptable. We will be less... cooperative."'],
     hostile: { effect: 'alert', text: 'Ze Germans sold your description to every security firm in town. Your next job will be tighter.' },
@@ -979,7 +1033,7 @@ export const GROUPS = {
     bossDog: { breed: 'poodle', faction: 'poodle', look: { coat: '#f4f1ea', hat: 'none', eyes: 'monocle', neck: 'pearls', outfit: '#5a2b3a', brow: 'raised', seed: 33 } },
     wants: ['art', 'jewel'],
     intro: 'A card on thick cream paper, edged in gold: "Lady Arabella Fluffington-Smythe requests the pleasure of your discretion." On the back, in pencil: "We collect things. You acquire them. Tea on Thursday."',
-    pitch: ['"One simply must have it for the collection, darling."', '"Those vulgar Bulldogs wouldn\'t know art if it bit them."', '"Do be careful. It\'s priceless. Well, it has a price. We\'ll pay it."'],
+    pitch: ['"One simply must have it for the collection, darling."', '"Those vulgar Bulldogs wouldn\'t know art if it bit them."', '"Do be careful. It\'s priceless. Well, it has a price. We\'ll pay it."', '"If you wish to be king of the jungle, darling, it\'s not enough to act like a king. You must steal like one."'],
     thanks: ['"Exquisite. You may call me Arabella. Occasionally."', '"How frightfully competent of you."'],
     angry: ['"How terribly disappointing. You won\'t be invited again."', '"One is not amused. One is never amused, but especially not now."'],
     hostile: { effect: 'rep', text: 'The Poodle Set have been telling everyone at the Club that you\'re "trade". Your name is worth a little less.' },
@@ -990,7 +1044,7 @@ export const GROUPS = {
     bossDog: { breed: 'italiangreyhound', faction: 'family', look: { coat: '#9aa0ab', hat: 'trilby', eyes: 'none', neck: 'bowtie', outfit: '#1f2430', brow: 'stern', seed: 34 } },
     wants: ['jewel', 'art', 'cash'],
     intro: 'A long black car idles outside the Dog & Duck. The back window slides down. "The Don has been hearing your name," says a voice. "He\'d like to do you a favour. And one day, you\'ll do him one."',
-    pitch: ['"The Don is asking. Nicely. This time."', '"Those Shibas think they own this town. Remind them."', '"Consider it an opportunity. The Don doesn\'t offer twice."'],
+    pitch: ['"The Don is asking. Nicely. This time."', '"Those Shibas think they own this town. Remind them."', '"Consider it an opportunity. The Don doesn\'t offer twice."', '"I\'m gonna make you an offer you can\'t refuse. Mostly because the last one who refused is swimming with the fishes."'],
     thanks: ['"The Don is pleased. That\'s good for your health."', '"You did right by the Family. The Family remembers."'],
     angry: ['"You disrespected the Family. That\'s a debt now."', '"The Don is disappointed. You don\'t want the Don disappointed."'],
     hostile: { effect: 'heat', text: 'Somebody from the Family had a word in the Inspector\'s ear. Your file just got thicker.' },
@@ -1003,7 +1057,7 @@ export const GROUPS = {
     bossDog: { breed: 'shiba', faction: 'syndicate', look: { coat: '#d9853b', hat: 'none', eyes: 'sunglasses', neck: 'scarf', outfit: '#e9e4da', brow: 'stern', seed: 35 } },
     wants: ['jewel', 'oddity', 'art'],
     intro: 'A folded note on your table, weighted by one perfect biscuit. "Your work is tidy. We value tidy. We also value promises kept. — S.C." Nobody saw who left it.',
-    pitch: ['"A simple request. We expect a simple result."', '"The Greyhounds have grown careless. Help them learn."', '"We pay well for silence and precision."'],
+    pitch: ['"A simple request. We expect a simple result."', '"The Greyhounds have grown careless. Help them learn."', '"We pay well for silence and precision."', '"The patient hound eats twice. We have been very patient."'],
     thanks: ['"Tidy. We will remember this, favourably."', '"A promise kept. Good."'],
     angry: ['"A promise broken is a debt. Debts are paid."', '"You have embarrassed us. We do not forget."'],
     hostile: { effect: 'cash', text: 'Your safe was opened last night. Nothing was broken. Nothing was left behind, either. The Syndicate took {amount}.' },

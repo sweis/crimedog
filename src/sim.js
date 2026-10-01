@@ -1,8 +1,8 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS } from './data.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES } from './data.js';
 import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
-import { clamp } from './util.js';
+import { clamp, hashOf } from './util.js';
 import { lootItem } from './heists.js';
 import { moPenalty, SETUP_TEXT } from './inspector.js';
 import { crewFeeling } from './repute.js';
@@ -107,6 +107,11 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   if (q.includes('lonewolf')) p += crew.length <= 2 ? 0.1 : crew.length >= 4 ? -0.1 : 0;
   if (q.includes('napper') && ['exit', 'getaway'].includes(stage.kind)) p -= 0.1;
   if (q.includes('glory')) p += 0.08;
+  const sk = APPROACHES[approachId].skill;
+  if (q.includes('closer') && stage.kind === 'vault') p += 0.1;
+  if (q.includes('tell') && ['charm', 'disguise'].includes(sk)) p -= 0.1;
+  if (q.includes('heavy')) p += sk === 'muscle' ? 0.08 : sk === 'agility' ? -0.08 : 0;
+  if (q.includes('doorsoff') && APPROACHES[approachId].needKit === 'drill') p += 0.1;
   const load = Object.values(job.plan).filter((p2) => p2 && p2.dog === dog.id).length;
   if (load > 3) p -= 0.05 * (load - 3);
   p += (dog.drama?.edge || 0) * 0.08; // fired up or distracted by personal drama
@@ -150,6 +155,16 @@ const END_TEXT = {
 
 const loyaltyOf = (d) => d.loyalty + d.relation * 0.5;
 
+// Now and then the crew go by colours for the night. Somebody always ends up Mr Pink.
+function codenames(job, crew) {
+  const h = hashOf(`${job.id}|${job.venueName}|${job.hour}`);
+  if (crew.length < 2 || h % 5 >= 2) return '';
+  const names = crew.slice(0, CODENAMES.length).map((d, i) => [shortName(d), CODENAMES[(h + i) % (CODENAMES.length - 1)]]);
+  names[names.length - 1][1] = 'Mr Pink'; // the last one in draws the short straw
+  const list = names.slice(0, -1).map(([n, c]) => `${n} is ${c}`).join(', ');
+  return ` Code names tonight: ${list}. ${names.at(-1)[0]} is Mr Pink, and isn't happy about it.`;
+}
+
 function outcomeOf(ctx) {
   const hurt = ctx.captured.length || ctx.lost.length || ctx.hurt.length;
   if (ctx.aborted) return 'aborted';
@@ -167,6 +182,7 @@ export function simulate(state, job, rng) {
   const beats = [];
   const feeling = crewFeeling(state);
   const ctx = {
+    said: {},
     alarm: 0,
     alarmMax: 0,
     clues: 0,
@@ -207,7 +223,11 @@ export function simulate(state, job, rng) {
   };
   const say = (dog, kind) => {
     const lines = VOICES[dog.voice]?.[kind];
-    return lines ? rng.pick(lines) : null;
+    if (!lines) return null;
+    // Nobody says the same thing twice running: take the next line instead.
+    let line = rng.pick(lines);
+    if (line === ctx.said[dog.id]) line = lines[(lines.indexOf(line) + 1) % lines.length];
+    return (ctx.said[dog.id] = line);
   };
   const beat = (b) => {
     beats.push({ alarm: ctx.alarm, clues: ctx.clues, ...b });
@@ -256,6 +276,7 @@ export function simulate(state, job, rng) {
     ctx.nextBonus = 0;
     let p = o.p;
     if (tag === 'improv' && dog.role?.kind === 'wildcard') p = clamp(p + 0.05 * dog.role.level, 0.03, 0.97); // made for making it up
+    if (tag === 'improv' && has('backup')) { p = clamp(p + 0.15, 0.03, 0.97); learn(dog, 'quirks', 'backup'); }
     if (hasSpecial(dog, 'wild')) {
       p = clamp(p + rng.float(-0.2, 0.2), 0.03, 0.97);
       learn(dog, 'talents', 'zoomies');
@@ -289,6 +310,10 @@ export function simulate(state, job, rng) {
     // Noise & clues
     let noise = Math.max(0, (ok ? a.noise : a.failNoise) + (TWISTS[job.twist]?.noise || 0));
     if (ok && a.skill === 'muscle' && hasSpecial(dog, 'loud')) noise += 1;
+    if (a.needKit === 'drill' && has('doorsoff')) { noise += 1; learn(dog, 'quirks', 'doorsoff'); }
+    if (stage.kind === 'vault' && has('closer')) learn(dog, 'quirks', 'closer');
+    if (['charm', 'disguise'].includes(a.skill) && has('tell')) learn(dog, 'quirks', 'tell');
+    if (['muscle', 'agility'].includes(a.skill) && has('heavy')) learn(dog, 'quirks', 'heavy');
     if (ok && (hasSpecial(dog, 'hothead') || has('postmen')) && stage.kind === 'obstacle') {
       noise += 1;
       if (has('postmen')) learn(dog, 'quirks', 'postmen');
@@ -379,6 +404,8 @@ export function simulate(state, job, rng) {
     if (ctx.kitLeft.scanner > 0) p += KIT.scanner.escape;
     if (ctx.coppers) p -= 0.1;
     p = clamp(p, 0.08, 0.92);
+    // Thirty seconds flat: nothing in their life they can't walk out on.
+    if (dog.quirks.includes('thirtysec')) { p = Math.max(p, 0.9); learn(dog, 'quirks', 'thirtysec'); }
     if (rng.chance(p)) {
       beat({ kind: 'escape', stage: stageId, dog: dog.id, text: `${shortName(dog)} gives them the slip.` });
       return true;
@@ -575,7 +602,7 @@ export function simulate(state, job, rng) {
   };
 
   // ==== The job itself
-  beat({ kind: 'intro', stage: null, text: `${String(job.hour).padStart(2, '0')}:00. ${job.venueName}, ${job.district}. The crew is in position.` });
+  beat({ kind: 'intro', stage: null, text: `${String(job.hour).padStart(2, '0')}:00. ${job.venueName}, ${job.district}. The crew is in position.${codenames(job, active())}` });
 
   // Undercover coppers in the crew.
   for (const u of crew.filter((d) => d.undercover)) {

@@ -3,30 +3,30 @@
 import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MARKS, KIT } from './data.js';
 
 const JOB_WORDS = {
-  bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank'],
+  bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank', 'Bank Job', 'Heat'],
   museum: ['Gallery', 'Fossil', 'Masterpiece', 'Old Bones'],
   jeweller: ['Sparkler', 'Diamond Collar', 'Bling', 'Glitter'],
   mansion: ['Silver Spoon', 'Posh Nosh', 'Tiara', 'Country House'],
-  casino: ['Snake Eyes', 'Jackpot', 'Lucky Paw', 'High Roller'],
+  casino: ['Snake Eyes', 'Jackpot', 'Lucky Paw', 'High Roller', 'Eleven', 'Full House'],
   butcher: ['Sausage', 'Pork Pie', 'Mutton', 'Cold Cuts'],
   show: ['Rosette', 'Best in Show', 'Blue Ribbon', 'Crufty'],
   auction: ['Gavel', 'Going Going Gone', 'Lot 86', 'Bonehenge'],
-  ring: ['Knockout', 'Third Round', 'Glass Jaw', 'Southpaw'],
+  ring: ['Knockout', 'Third Round', 'Glass Jaw', 'Southpaw', 'Fourth Round', 'One Punch'],
   train: ['Night Mail', 'Mail Bag', 'Sleeper', 'Signal Box'],
 };
 
 // Names that tell you what kind of job it is.
 const TYPE_NAMES = {
-  con: (w) => [`The ${w} Sting`, 'The Long Con', 'The Big Store', 'The Duke of Nowhere'],
-  swap: (w, star) => [`The ${w} Switch`, 'The Old Switcheroo', `The Other ${star}`],
-  smash: (w, star, venue) => [`Smash & Grab at the ${venue}`, `The ${w} Smash`],
-  van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`],
+  con: (w) => [`The ${w} Sting`, 'The Long Con', 'The Big Store', 'The Duke of Nowhere', 'House of Games', 'The Poodle Prisoner', 'The Tell'],
+  swap: (w, star) => [`The ${w} Switch`, 'The Old Switcheroo', `The Other ${star}`, 'The Thomas Crown Affair', 'The Real McCoy'],
+  smash: (w, star, venue) => [`Smash & Grab at the ${venue}`, `The ${w} Smash`, 'Snatch', 'Gone in Sixty Seconds'],
+  van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`, 'Heat', 'The Wrath of the Van'],
   hack: (w) => [`The ${w} Hack`, 'The Wire Job', 'Operation Firewall', 'The Bone-Coin Caper'],
-  fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch'],
+  fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch', 'Biscuits Are for Closers', 'Always Be Closing'],
   tunnel: (w) => [`The ${w} Tunnel`, 'The Long Dig', 'The Bank Holiday Job', 'Down Under'],
-  roof: (w) => [`The ${w} Rooftop Job`, 'To Catch a Thief', 'Over the Top', 'The Cat Burglar Caper'],
-  fix: (w) => ['The Fix', `The ${w} Fix`, 'Take a Dive', 'Bent as a Nine Bob Note'],
-  train: (w) => ['The Great Mail Robbery', `The ${w} Job`, 'The Night Mail', 'Last Stop'],
+  roof: (w) => [`The ${w} Rooftop Job`, 'To Catch a Thief', 'Over the Top', 'The Cat Burglar Caper', 'Entrapment'],
+  fix: (w) => ['The Fix', `The ${w} Fix`, 'Take a Dive', 'Bent as a Nine Bob Note', 'Down in the Fourth', 'One Punch Mickey'],
+  train: (w) => ['The Great Mail Robbery', `The ${w} Job`, 'The Night Mail', 'Last Stop', 'The Bone Express'],
 };
 
 function jobName(rng, venueType, star, type) {
@@ -41,8 +41,10 @@ function jobName(rng, venueType, star, type) {
     () => `The Great ${VENUE_LABELS[venueType]} Caper`,
     () => `The ${w} Caper`,
     () => `Lock, Stock and Two Smoking ${rng.pick(['Bones', 'Sausages', 'Biscuits', 'Squeakies'])}`,
+    () => `${rng.pick(['Ocean\'s', 'Rover\'s', 'Fido\'s'])} ${rng.pick(['Eleven', 'Twelve', 'Thirteen'])}`,
+    () => `The ${rng.pick(['Biscuit Tin', 'Bone Yard', 'Lead and Collar'])} Job`,
   ];
-  const weights = [3, star.kind !== 'cash' && starName.split(' ').length <= 5 ? 3 : 0, 2, 1, 2, 0.5];
+  const weights = [3, star.kind !== 'cash' && starName.split(' ').length <= 5 ? 3 : 0, 2, 1, 2, 0.5, 0.5, 0.5];
   if (TYPE_NAMES[type] && rng.chance(0.75)) return rng.pick(TYPE_NAMES[type](w, starName, VENUE_LABELS[venueType]));
   return rng.weighted(patterns.map((p, i) => [p, weights[i]]))();
 }

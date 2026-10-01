@@ -149,9 +149,9 @@ const MOVES = {
       text = '"Not bad, Guv\'nor. Almost as good as my Tuesday. — D." It\'s the first time he hasn\'t been rude. Nearly.';
     } else if (['D', 'F'].includes(last)) {
       addRep(state, -2);
-      text = '"Saw the papers. HA! — D." He\'s been showing the note round the Dog & Duck. (-2 rep)';
+      text = '"Saw the papers. HA! You were only supposed to blow the bloody doors off. — D." He\'s been showing the note round the Dog & Duck. (-2 rep)';
     } else {
-      text = '"Steady work, Guv\'nor. Steady. Like a milkman. — D." There\'s a pint of milk on the doorstep. He\'s very pleased with himself.';
+      text = state.day % 2 ? '"Steady work, Guv\'nor. Steady. Like a milkman. — D." There\'s a pint of milk on the doorstep. He\'s very pleased with himself.' : '"You know what they call a mastermind who plays it safe? A milkman. Are you in or out, Guv\'nor? — D." There\'s a set of steak knives with it. Second prize.';
     }
     return scene(state, 'dan', 'note', { title: 'Another Note from Dan', text, choices: dealWith(state, 'dan', 300) });
   },

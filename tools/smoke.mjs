@@ -159,6 +159,10 @@ console.log('1. Cold boot, real touch play-through');
   await tap(page, (await page.locator('[data-act="pay"][data-pct="30"]').count()) ? '[data-act="pay"][data-pct="30"]' : '[data-act="pay"]');
   check(await page.locator('[data-grade]').count() === 1, 'graded');
   await shot(page, '12-grade');
+  check(await page.locator('.verdict').count() === 1, 'grade card has a verdict');
+  await page.waitForTimeout(3500); // let the toasts clear
+  await page.evaluate(() => document.querySelector('.verdict').scrollIntoView({ block: 'center' }));
+  await shot(page, '12b-verdict');
   await tap(page, '[data-act="next-job"]');
   check(await page.locator('main[data-screen="select"], main[data-screen="over"]').count() === 1, 'back to the job board (or game over)');
   // Reload: save persists

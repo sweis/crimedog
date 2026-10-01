@@ -3,7 +3,26 @@ import { esc } from './util.js';
 import { startingRecord } from './justice.js';
 import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES } from './data.js';
 
-const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence']];
+const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence'], ['nopink', 'greedy'], ['tell', 'closer']];
+
+// Every name a dog still about town answers to (farmed and gone dogs free theirs up).
+function namesInUse(state, except = null) {
+  const used = new Set();
+  for (const d of Object.values(state?.dogs || {})) {
+    if (d === except || ['farm', 'gone'].includes(d.status)) continue;
+    used.add(shortName(d));
+    if (d.nick) used.add(d.nick);
+  }
+  return used;
+}
+
+// A legend goes by their signature move. If someone already does, they're the sequel.
+function signatureNick(state, dog) {
+  const base = SIGNATURES[dog.signature].name;
+  const used = namesInUse(state, dog);
+  for (const n of [base, `${base} II`, `${base} III`, `${base} Returns`]) if (!used.has(n) && !used.has(n.replace(/^The /, ''))) return n;
+  return dog.nick || base;
+}
 
 export function genDog(state, rng, opts = {}) {
   const breedId = opts.breed || rng.pick(Object.keys(BREEDS));
@@ -11,9 +30,12 @@ export function genDog(state, rng, opts = {}) {
   const faction = breed.faction;
   let voice = FACTIONS[faction].voice;
   const nameKey = voice === 'neutral' ? rng.pick(['neutral', 'neutral', 'cockney', 'posh']) : voice;
-  const first = rng.pick(NAMES[nameKey]);
+  // No two dogs about town answer to the same name (nicknames included).
+  const used = namesInUse(state);
+  const free = (list) => { const left = list.filter((n) => !used.has(n) && !used.has(n.replace(/^The /, ''))); return left.length ? left : list; };
+  const first = rng.pick(free(NAMES[nameKey]));
   const last = rng.pick(SURNAMES[nameKey]);
-  const nick = rng.chance(0.6) ? rng.pick(NICKNAMES) : null;
+  const nick = rng.chance(0.6) ? rng.pick(free(NICKNAMES)) : null;
 
   // Skills: 0-1 baseline, breed-biased primary/secondary.
   const quality = opts.quality ?? 0; // 0..3, from rep / tier
@@ -109,7 +131,7 @@ export function genDog(state, rng, opts = {}) {
     dog.known.talents = rarity === 'legendary' ? talents.slice() : talents.slice(0, 1);
     if (opts.signature || rng.chance(RARITY[rarity].sigChance)) {
       dog.signature = Object.keys(SIGNATURES).find((id) => SIGNATURES[id].skill === primary);
-      if (rarity === 'legendary') dog.nick = SIGNATURES[dog.signature].name;
+      if (rarity === 'legendary') dog.nick = signatureNick(state, dog);
     }
   }
   dog.record = startingRecord(dog.look.seed, { undercover: opts.undercover, rarity });
@@ -192,7 +214,7 @@ const bestBase = (dog) => SKILLS.slice().sort((a, b) => dog.skills[b] - dog.skil
 // Common -> rare -> legendary, for crew who've made a name for themselves. A rare
 // gets a signature move in their best skill; a legendary goes by it. Returns the
 // new rarity, or null if they're already at the top.
-export function promote(dog) {
+export function promote(dog, state = null) {
   const next = !dog.rarity ? 'rare' : dog.rarity === 'rare' ? 'legendary' : null;
   if (!next) return null;
   const [best, second] = bestBase(dog);
@@ -201,7 +223,7 @@ export function promote(dog) {
   dog.skills[best] = 5;
   if (next === 'legendary') dog.skills[second] = Math.min(5, dog.skills[second] + 1);
   dog.signature ||= Object.keys(SIGNATURES).find((id) => SIGNATURES[id].skill === best);
-  if (next === 'legendary') dog.nick = SIGNATURES[dog.signature].name;
+  if (next === 'legendary') dog.nick = signatureNick(state, dog);
   for (const sk of SKILLS) dog.known.skills[sk] = true;
   dog.minRep = 0;
   dog.fee = feeFor(dog);
