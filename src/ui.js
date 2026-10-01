@@ -38,7 +38,8 @@ export function currentScreen(G) {
   if (state.phase === 'over') return 'over';
   if (state.phase === 'heist') return 'heist';
   if (state.phase === 'aftermath') return 'aftermath';
-  if (state.phase === 'select') return 'select';
+  // From the job board you can look round the pub and your book before picking a job.
+  if (state.phase === 'select') return ['pub', 'crew'].includes(ui.screen) ? ui.screen : 'select';
   return ['job', 'pub', 'crew', 'kit', 'fixer', 'plan'].includes(ui.screen) ? ui.screen : 'job';
 }
 
@@ -180,6 +181,10 @@ function selectScreen(G) {
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
   let h = `<div class="row spread"><h2>The Job Board</h2><button class="chip dark" data-act="pane" data-pane="day">📅 Day ${s.day}</button></div>`;
   h += nestEgg(s);
+  const book = E.bookDogs(s).filter((d) => d.status === 'free').length;
+  const inPub = s.pub.filter((id) => s.dogs[id]?.status === 'free').length;
+  const star = s.pub.some((id) => s.dogs[id]?.rarity && s.dogs[id].inTown === s.townKey);
+  h += `<div class="talent-row"><button class="btn ghost" data-act="go" data-to="pub">🍺 The pub <small>${inPub} about${star ? ' · ★ a star' : ''}</small></button><button class="btn ghost" data-act="go" data-to="crew">🐾 Your crew <small>${book} in the book</small></button></div>`;
   for (const gid of debts) {
     const d = s.groups[gid].debt;
     h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${GROUPS[gid].emblem} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `⏳ ${count(d.patience, 'job')} left` : '⏳ Out of patience'}</div></div></div>
@@ -326,7 +331,7 @@ function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
   const hired = s.crew.includes(d.id);
-  const away = isVisitor(d) && d.status === 'free' && d.inTown !== s.job?.id;
+  const away = isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
   let right = '';
   if (opts.fee && away) right = '<div class="chip">Out of town</div>';
   else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
@@ -349,9 +354,19 @@ function dogCard(G, d, opts = {}) {
     <div class="center">${right}</div></button>`;
 }
 
+// Looking round from the job board: no hiring until you've picked a job.
+const browsing = (s) => s.phase === 'select';
+const boardBack = '<button class="btn ghost small" data-act="go" data-to="select">← The job board</button>';
+
 function pubScreen(G) {
   const s = G.state;
   const pub = s.pub.map((id) => s.dogs[id]).filter((d) => d.status === 'free');
+  if (browsing(s)) {
+    return `<div class="row spread"><h2>The Dog &amp; Duck</h2>${boardBack}</div>
+    <p class="muted">Who's about tonight. Pick a job to hire them; the job may bring in a specialist too.</p>
+    ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty.</p>'}
+    <div class="btn-row mt">${boardBack}</div>`;
+  }
   const hf = hiringFor(G);
   if (hf) {
     // Best known fit for the step first; unknowns after.
@@ -378,13 +393,16 @@ function crewScreen(G) {
   const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id));
   const pound = E.bookDogs(s).filter((d) => d.status === 'pound');
   const gone = Object.values(s.dogs).filter((d) => d.met && ['gone', 'farm'].includes(d.status));
-  return `<h2>Your Crew <span class="muted">(${crew.length}/${E.MAX_CREW})</span></h2>
+  const head = browsing(s)
+    ? `<div class="row spread"><h2>Little Black Book</h2>${boardBack}</div><p class="muted">Everyone you know. Pick a job to hire them.</p>`
+    : `<h2>Your Crew <span class="muted">(${crew.length}/${E.MAX_CREW})</span></h2>
   ${crew.map((d) => dogCard(G, d)).join('') || '<p class="muted">Nobody yet. Head down the pub.</p>'}
-  <h2 class="mt">Little Black Book</h2>
+  <h2 class="mt">Little Black Book</h2>`;
+  return `${head}
   ${book.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">Empty. For now.</p>'}
   ${pound.length ? `<h2 class="mt">In the Pound</h2>${pound.map((d) => dogCard(G, d)).join('')}` : ''}
   ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}
-  ${s.history.length ? `<div class="btn-row mt"><button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button></div>` : ''}`;
+  <div class="btn-row mt">${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}${browsing(s) ? boardBack : ''}</div>`;
 }
 
 // Where a piece of special kit can be won: venues and kinds of job.
@@ -889,7 +907,8 @@ function dogModal(G, d) {
   const primary = [];
   const minor = [];
   const hf = hiringFor(G);
-  const away = isVisitor(d) && d.status === 'free' && d.inTown !== s.job?.id;
+  const away = isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
+  if (s.phase === 'select' && d.status === 'free') primary.push('<span class="chip">Pick a job to hire</span>');
   if (planning && d.status === 'free' && !inCrew && away) primary.push('<span class="chip">Out of town. Stars come and go.</span>');
   else if (planning && d.status === 'free' && !inCrew && d.drama?.away) primary.push('<span class="chip">Sitting this one out.</span>');
   else if (planning && d.status === 'free' && !inCrew) primary.push(`<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);

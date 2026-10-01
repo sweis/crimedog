@@ -4,7 +4,7 @@ import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation, book } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
-import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel } from './heists.js';
+import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
@@ -60,6 +60,7 @@ export function newGame(seed = Date.now() % 1e9, name = 'The Guv\'nor') {
   mate.fee = feeFor(mate);
   state.dogs[mate.id] = mate;
   genOffers(state, rng);
+  refreshPub(state, rng);
   timelinePoint(state, 'Start');
   news(state, `You set up shop in a back room above the Dog & Duck. Your old mate ${displayName(mate)} is propping up the bar.`);
   return state;
@@ -80,8 +81,12 @@ function pruneStrangers(state, keep) {
   for (const d of strangers.slice(0, Math.max(0, strangers.length - 12))) delete state.dogs[d.id];
 }
 
+// Who's in the pub. On the job board it's whoever's about town (so you can see
+// the talent before picking a job); once you're on a job, asking around refreshes it.
+// `townKey` marks this visit: stars in town for it can be hired.
 export function refreshPub(state, rng = rngOf(state)) {
-  const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier - 1 : 0);
+  state.townKey = state.job ? state.job.id : `board-${state.stats.jobs}-${state.day}`;
+  const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier : jobTier(state)) - 1;
   const n = Math.min(6, 5 + Math.floor(state.rep / 40));
   const pub = [];
   // Some regulars come back.
@@ -133,6 +138,13 @@ export function refreshPub(state, rng = rngOf(state)) {
     state.dogs[r.id] = r;
     pub[pub.length - 1] = r.id;
   }
+  state.pub = pub;
+  jobArrivals(state, rng, quality);
+}
+
+// Once you've picked a job, word gets round: whoever the job needs turns up too.
+function jobArrivals(state, rng, quality) {
+  const pub = state.pub;
   // A job with a specialist step always has someone in the pub who's up to it (at a price).
   const sp = state.job?.stages.find((st) => st.needs);
   if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
@@ -142,10 +154,30 @@ export function refreshPub(state, rng = rngOf(state)) {
     state.dogs[d.id] = d;
     pub.push(d.id);
   }
+  // One of the Inspector's coppers, if he's planted one since the pub was last drawn.
+  if (state.inspector?.plant) {
+    const d = genDog(state, rng, { quality, undercover: true });
+    state.dogs[d.id] = d;
+    pub.push(d.id);
+    state.inspector.plant = false;
+  }
   const star = starVisit(state, rng);
-  if (star) pub.unshift(star.id);
-  state.pub = pub;
+  if (star && !pub.includes(star.id)) pub.unshift(star.id);
   pruneStrangers(state, pub);
+}
+
+// Taking a job: the faces you saw from the job board are still there.
+function pubForJob(state, rng = rngOf(state)) {
+  const was = state.townKey;
+  state.townKey = state.job.id;
+  if (state.starRolled === was) state.starRolled = state.job.id; // one chance of a star per job
+  for (const id of state.pub) {
+    const d = state.dogs[id];
+    if (isVisitor(d) && d.inTown === was) d.inTown = state.job.id;
+  }
+  state.pub = state.pub.filter((id) => state.dogs[id]?.status === 'free' && !state.crew.includes(id));
+  if (!state.pub.length) return refreshPub(state, rng);
+  jobArrivals(state, rng, Math.floor(state.rep / 30) + state.job.tier - 1);
 }
 
 // Chance a rare or legendary dog is in town for a job, and how often that star is legendary.
@@ -156,11 +188,13 @@ const legendShare = (rep) => clamp((rep - 20) / 120, 0.05, 0.5);
 // with a signature move that fits it, as a taste of what's out there.
 function starVisit(state, rng) {
   const job = state.job;
-  if (!job) return null;
-  const here = Object.values(state.dogs).find((d) => isVisitor(d) && d.inTown === job.id && d.status === 'free');
-  if (here || job.starRolled) return here || null;
-  job.starRolled = true;
+  const key = state.townKey;
+  const here = Object.values(state.dogs).find((d) => isVisitor(d) && d.inTown === key && d.status === 'free');
+  if (here || state.starRolled === key) return here || null;
   const teaser = !state.teased;
+  // The first-job teaser waits until there's a job, so its move fits it.
+  if (teaser && !job) return null;
+  state.starRolled = key;
   if (!teaser && !rng.chance(starChance(state.rep))) return null;
   state.teased = true;
   const returning = Object.values(state.dogs).filter((d) => isVisitor(d) && d.met && d.status === 'free');
@@ -168,12 +202,12 @@ function starVisit(state, rng) {
   if (!teaser && returning.length && rng.chance(0.5)) d = rng.pick(returning);
   else {
     const rarity = !teaser && rng.chance(legendShare(state.rep)) ? 'legendary' : 'rare';
-    const fitting = Object.keys(SIGNATURES).filter((id) => visibleStages(job).some((st) => signatureFits(id, st)));
+    const fitting = job ? Object.keys(SIGNATURES).filter((id) => visibleStages(job).some((st) => signatureFits(id, st))) : [];
     const primary = teaser && fitting.length ? SIGNATURES[rng.pick(fitting)].skill : undefined;
     d = genDog(state, rng, { quality: 2, rarity, primary, signature: teaser });
     state.dogs[d.id] = d;
   }
-  d.inTown = job.id;
+  d.inTown = key;
   return d;
 }
 
@@ -272,7 +306,7 @@ export function acceptOffer(state, offerId) {
   state.phase = 'plan';
   tookRivalJob(state, state.job, false);
   gatecrash(state, state.job);
-  refreshPub(state);
+  pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
   news(state, `You took ${state.job.name} (${who}).`);
   return done(p?.front ? `${state.job.name}: you're on. ${GROUPS[p.group].short} fronted you £${p.front}.` : `${state.job.name}: you're on.`);
@@ -950,6 +984,7 @@ export function nextJob(state) {
   if (move) news(state, `🕵️ ${move.title}.`);
   const rival = rivalsBetweenJobs(state, rng, { genJob });
   if (rival) news(state, `${rival.title}.`);
+  refreshPub(state, rng);
   state.phase = 'select';
   checkGameOver(state);
   return done('Back to the job board.');

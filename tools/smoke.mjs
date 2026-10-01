@@ -538,7 +538,8 @@ console.log('1m. Top bar: tap each stat for its pane; help from the title and th
     for (let j = 0; j < 5; j++) {
       window.cd.teleport('plan');
       s.cash += 800;
-      for (const id of s.pub.slice(0, 3)) E.hire(s, id);
+      s.heat = Math.min(s.heat, 20); // keep the career alive for the charts
+      for (const id of s.pub) if (s.crew.length < 3 && !s.dogs[id].undercover) E.hire(s, id);
       E.autoPlan(s);
       E.pullJob(s);
       E.resolveHeist(s);
@@ -799,6 +800,38 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
   await shot(page, 'retired');
   await page.locator('main .epilogues').evaluate((e) => e.scrollIntoView({ block: 'start' }));
   await shot(page, 'retired-epilogues');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1p. the talent, from the job board
+console.log('1p. Look round the pub and your book from the job board, then take a job');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=63`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(63); window.cd.teleport('select'); });
+  await shot(page, 'board-talent-buttons');
+  await tap(page, 'main [data-act="go"][data-to="pub"]');
+  const seen = await page.evaluate(() => [...document.querySelectorAll('main .dog-card')].map((e) => e.dataset.id));
+  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'pub' && seen.length >= 4, `the pub from the job board (${seen.length} about)`);
+  await shot(page, 'board-pub');
+  await tap(page, 'main .dog-card');
+  check(await page.locator('.modal [data-act="hire"]').count() === 0 && (await page.locator('.modal').innerText()).includes('Pick a job to hire'), 'no hiring before a job');
+  await tap(page, '.modal [data-act="close-modal"]');
+  await tap(page, 'main [data-act="go"][data-to="select"]');
+  await tap(page, 'main [data-act="go"][data-to="crew"]');
+  check((await page.locator('main').innerText()).includes('Little Black Book') && await page.locator('main .dog-card').count() >= 1, 'your book from the job board');
+  await shot(page, 'board-crew');
+  await tap(page, 'main [data-act="go"][data-to="select"]');
+  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'select', 'back to the job board');
+  // Take a job: the faces you saw are still in the pub.
+  await tap(page, 'main [data-act="take-offer"]');
+  const pub = await page.evaluate(() => window.cd.live().pub);
+  check(seen.every((id) => pub.includes(id)), `everyone you saw is still there (${seen.filter((id) => pub.includes(id)).length}/${seen.length}, pub now ${pub.length})`);
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

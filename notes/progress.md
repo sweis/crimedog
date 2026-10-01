@@ -89,7 +89,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Rivals, the boxing-club fix, retirement (latest)
+## The talent, from the job board (latest)
+- The pub is drawn when the job board comes up (`refreshPub` at the end of `nextJob` and in `newGame`; `state.townKey` = `board-<jobs>-<day>`), after the Inspector's and rivals' moves, so his plant is in it. Taking a job keeps those faces (`pubForJob`): stars seen on the board move to the job (`inTown`), the job's star roll is the board's (rate unchanged, ~18% of jobs), and job-specific arrivals are added (a specialist the job needs, the first-job teaser star, a pending plant). Asking around during planning still redraws it.
+- Job board: "🍺 The pub" and "🐾 Your crew" buttons open the pub and the little black book read-only (`currentScreen` allows pub/crew in the select phase); profiles say "Pick a job to hire".
+- Verified: tests/pub.test.mjs (same faces after taking a job, no hiring from the board, specialist arrives, a board star is hireable on the job), smoke 1p with real taps (board-pub, board-crew captures). 114 tests.
+
+## Rivals, the boxing-club fix, retirement
 - Boxing club (`fix` at venue `ring`): the nobble step always offers `k_kibble` (spike his kibble); half the time the job is a ringer instead (`job.ringer`): Get on the Card, Training Camp, Bet on Ourselves, Into the Ring (muscle/agility/sneak/aim), Collect the Winnings.
 - `src/rivals.js`: three rivals with plotlines, scenes are `story` entries of type `rival` with data-driven `EFFECTS` (save-safe), rendered like the Inspector's.
   - Jack Russell Gang (from job 2): intro, then mischief (chance 0.25 + 0.05×grudge, max 0.5): tip-off (alert), gatecrash (`state.gatecrash` → the next job gets an `obs_rivals` step named for them), nick kit (remembered), scare crew.

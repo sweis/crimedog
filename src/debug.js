@@ -145,7 +145,7 @@ export function installDebug(G) {
         if (at === 'crew' || rarity) ensurePlan(G);
         const rng = E.rngOf(s);
         const d = genDog(s, rng, { undercover: at === 'copper', quality: 1, rarity, signature: !!rarity });
-        if (rarity) d.inTown = s.job?.id;
+        if (rarity) d.inTown = s.townKey ?? s.job?.id;
         s.dogs[d.id] = d;
         s.pub.push(d.id);
         if (at === 'crew') { s.cash += d.fee; E.hire(s, d.id); }
