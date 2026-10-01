@@ -139,7 +139,7 @@ const HELP = [
   ['🕵️ The Inspector', `He makes a move between jobs: coppers planted in the pub, stakeouts, tips that are really setups, crew pulled in for questioning, regulars turned into grasses, raids. He also keeps a file on your tricks: use the same one job after job and security will be ready for it. Surveil strangers, case tips before you trust them, and mix it up.`],
   ['🦹 Rivals', `Other crews work this town too. The Jack Russell Gang make trouble: tipping off security, nicking kit, turning up on your jobs. Dandy Dan leaves notes and bets you can't pull a job. Rat them out (it costs rep), set them up, or rob them. And someone called the Grey Ghost is watching: leave your calling card on good, quiet jobs and you might win them over.`],
   ['🗺️ Kinds of job', `Break-ins, switches (swap it for a replica), long cons, smash & grabs, van jobs, wire jobs and paper trails. Each has its own steps. Some won't take an insider; some need a real specialist.`],
-  ['🏙️ The city', `Five outfits offer work once your rep clears their bar. Do right by them and they pay; cross them and they act against you. The Family and the Syndicate lend money, and they collect.`],
+  ['🏙️ The city', `Five outfits offer work once your rep clears their bar. Do right by them and they pay; cross them and they act against you, until you make amends on the Players tab: pay up, or do them a hard job for nothing. The Family and the Syndicate lend money, and they collect.`],
   ['📊 The top bar', `Tap 💷 for the books, ⭐ for your reputation and 🕵️ for the Inspector. The 📅 day (on the job board, on a phone) opens the day book. 📜 Rap sheet keeps every job, and you can share any of them.`],
 ];
 export function helpModal() {

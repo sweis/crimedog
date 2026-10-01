@@ -93,21 +93,27 @@ function groupOffer(state, rng, gid, forced) {
     const others = (VENUE_OWNERS[venueType] || []).filter((o) => o !== gid);
     owner = others.length && rng.chance(0.35) ? rng.pick(others) : null;
   }
-  const job = genJob(state, rng, { tier, venueType, owner });
+  // Making amends takes a proper job: their hardest, for nothing.
+  const amends = deal === 'amends';
+  const job = genJob(state, rng, { tier: amends ? 3 : tier, venueType, owner, lootMult: amends ? 1.2 : 1 });
+  if (amends) {
+    job.base += 1;
+    job.name = `Making Amends: ${job.name}`;
+  }
   const patron = { group: gid, deal, cut: 0, fee: 0, want: null, front: 0, debtClear: 0, rivalHit: owner && G.rivals.includes(owner) ? owner : null };
-  if (deal === 'commission' || deal === 'marker') {
+  if (deal === 'commission' || deal === 'marker' || amends) {
     const wanted = job.loot.filter((l) => G.wants.includes(l.kind));
     const item = (wanted.length ? wanted : job.loot)[0];
     patron.want = item.id;
-    patron.fee = deal === 'marker' ? 0 : Math.round((item.value * (1.25 + Math.max(0, g.standing) / 200)) / 50) * 50;
-    if (deal === 'marker') patron.debtClear = g.debt.amount;
+    patron.fee = deal === 'marker' || amends ? 0 : Math.round((item.value * (1.25 + Math.max(0, g.standing) / 200)) / 50) * 50;
+    if (deal === 'marker' || amends) patron.debtClear = g.debt?.amount || 0;
   } else {
     patron.cut = g.standing >= 50 ? 20 : g.standing >= 20 ? 25 : 30;
     // A tip-off comes with some of their intel.
     const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
     for (const k of rng.sample(unknown, 2)) revealIntel(job, k);
   }
-  if (G.serious && deal !== 'marker' && rng.chance(0.5)) patron.front = 100 * tier + 100;
+  if (G.serious && deal !== 'marker' && !amends && rng.chance(0.5)) patron.front = 100 * tier + 100;
   job.patron = patron;
   return { id: job.id, source: gid, kind: deal, job, pitch: rng.pick(G.pitch) };
 }
@@ -128,7 +134,41 @@ export function genOffers(state, rng) {
       queueStory(state, o.source, 'intro');
     }
   }
+  // An amends job you haven't done yet stays on the board.
+  for (const gid of GROUP_IDS) if (state.groups[gid].amends && !offers.includes(state.groups[gid].amends)) offers.unshift(state.groups[gid].amends);
   state.offers = offers;
+}
+
+// ------------------------------------------------------------------ making amends
+// Once an outfit has turned on you, you can make it right: pay up (any debt plus
+// interest, and something for the trouble), or do them a hard job for nothing.
+export const AMENDS_AT = -20;
+export const canMakeAmends = (state, gid) => state.groups[gid].standing <= AMENDS_AT;
+export function amendsCost(state, gid) {
+  const g = state.groups[gid];
+  const debt = g.debt ? Math.round((g.debt.amount * 1.25) / 10) * 10 : 0;
+  return debt + Math.max(0, -g.standing) * 20;
+}
+export function makeAmends(state, rng, gid, how) {
+  const G = GROUPS[gid];
+  const g = state.groups[gid];
+  if (state.phase !== 'select') return fail('Between jobs.');
+  if (!canMakeAmends(state, gid)) return fail(`You're not on bad enough terms with ${G.name} to need to.`);
+  if (how === 'pay') {
+    const cost = amendsCost(state, gid);
+    if (state.cash < cost) return fail(`${G.boss} wants ${money(cost)}.`);
+    book(state, 'debts', -cost);
+    g.debt = null;
+    adjust(state, gid, -g.standing, 'Paid for the trouble');
+    g.amends = null;
+    state.offers = state.offers.filter((o) => !(o.job.patron?.deal === 'amends' && o.source === gid));
+    return done(`${G.boss} counts it twice. "Consider the matter closed." (${money(cost)})`);
+  }
+  if (g.amends) return fail('Their job is already on the board.');
+  const o = groupOffer(state, rng, gid, 'amends');
+  g.amends = o;
+  state.offers.unshift(o);
+  return done(`${G.boss} has a job for you. A hard one. Do it, and all is forgiven.`);
 }
 
 export function rerollOwnLeads(state, rng) {
@@ -152,7 +192,12 @@ export function settleGroups(state) {
     if (success) {
       adjust(state, p.group, ['S', 'A'].includes(a.grade?.letter) ? 18 : 12, 'Job done', log);
       log[log.length - 1].quote = G.thanks[state.stats.jobs % G.thanks.length];
-      if (p.deal === 'marker' && g.debt) {
+      if (p.deal === 'amends') {
+        g.debt = null;
+        g.amends = null;
+        const lift = Math.max(0, 15 - g.standing);
+        adjust(state, p.group, lift, 'Amends made: water under the bridge', log);
+      } else if (p.deal === 'marker' && g.debt) {
         g.debt = null;
         log.push({ gid: p.group, delta: 0, why: 'Debt cleared', now: g.standing });
         queueStory(state, p.group, 'cleared');
@@ -161,7 +206,8 @@ export function settleGroups(state) {
     } else {
       adjust(state, p.group, -15, 'Job botched', log);
       log[log.length - 1].quote = G.angry[state.stats.jobs % G.angry.length];
-      if (G.serious && !(p.deal === 'marker' && !g.debt)) {
+      if (p.deal === 'amends') g.amends = null;
+      if (G.serious && p.deal !== 'amends' && !(p.deal === 'marker' && !g.debt)) {
         const penalty = p.deal === 'marker' ? Math.round((g.debt?.amount || 0) * 0.5) : Math.round((p.fee || totalLootValue(job) * 0.15) * 0.5);
         const owed = (p.front || 0) + penalty;
         if (owed > 0) g.debt = { amount: (g.debt?.amount || 0) + owed, patience: p.deal === 'marker' ? 1 : 2 };

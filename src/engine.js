@@ -8,7 +8,7 @@ import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabe
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
-import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
+import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
@@ -308,6 +308,7 @@ export function acceptOffer(state, offerId) {
   state.phase = 'plan';
   tookRivalJob(state, state.job, false);
   tookRunnerJob(state, state.job);
+  if (p?.deal === 'amends') state.groups[p.group].amends = null;
   gatecrash(state, state.job);
   pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
@@ -332,6 +333,7 @@ export { chooseDrama } from './drama.js';
 
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
 export const retireNow = (state) => retire(state, rngOf(state));
+export const makeAmends = (state, gid, how) => amendsWith(state, rngOf(state), gid, how);
 export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), { genJob });
 export const runnerAction = (state, dogId, effect) => actOnRunner(state, dogId, effect, rngOf(state), { genJob });
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });

@@ -183,6 +183,7 @@ const A = {
   },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
   'drama'(el) { run({ inspector: E.chooseInspector, rival: E.chooseRival, runner: E.chooseRunner }[G.state.story[0]?.type] || E.chooseDrama, Number(el.dataset.i)); },
+  'amends'(el) { run(E.makeAmends, el.dataset.g, el.dataset.how); },
   'runner-act'(el) { run(E.runnerAction, el.dataset.id, el.dataset.effect); },
   'calling-card'() { run(E.toggleCallingCard); },
   'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },

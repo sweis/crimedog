@@ -480,6 +480,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .silhouette svg { filter: contrast(1.2) blur(.4px); }
 .rival .story-pic { width: 96px; height: 96px; margin: 4px 0 10px; box-shadow: 0 0 0 3px #2f5d9a, 0 8px 20px rgba(0, 0, 0, .4); }
 .rival.ghost .story-pic { background: #101a30; box-shadow: 0 0 0 3px #9aa0a8, 0 0 18px rgba(160, 175, 200, .7); }
+.amends { margin-top: 6px; gap: 6px; flex-wrap: wrap; }
 .runner-acts { margin-top: 6px; gap: 6px; flex-wrap: wrap; }
 .runner .story-pic { box-shadow: 0 0 0 3px #8a2419, 0 8px 20px rgba(0, 0, 0, .4); }
 .calling-card { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 2px dashed #c9a24a; background: #fbf1d6; color: var(--ink); font: inherit; cursor: pointer; }

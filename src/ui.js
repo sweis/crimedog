@@ -14,7 +14,7 @@ import { RETIRE } from './retire.js';
 import { runnerChoices, runnerStatus, runnersList, loose as runnerLoose, HUNT_COST } from './runners.js';
 import { RIVALS, rivalDog, rivalChoices, rivalsOf, rivalStatus } from './rivals.js';
 import { venueSVG, skylineSVG } from './art.js';
-import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
+import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN, canMakeAmends, amendsCost } from './groups.js';
 
 export const SCREENS = ['title', 'intro', 'select', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
 // The bottom bar, on every page between and during planning. Between jobs the Job
@@ -145,6 +145,7 @@ function dealTerms(G, job) {
   if (p) {
     const G2 = GROUPS[p.group];
     if (p.deal === 'marker') chips.push(`<span class="chip bad">📜 Clears £${p.debtClear.toLocaleString('en-GB')} debt</span>`);
+    if (p.deal === 'amends') chips.push(`<span class="chip bad">🕊️ Makes amends${p.debtClear ? ` · clears ${money(p.debtClear)}` : ''}</span>`);
     if (p.want) {
       const item = lootItem(job, p.want);
       chips.push(`<span class="chip warn">🎯 ${esc(item.name)}</span>`);
@@ -199,14 +200,14 @@ function selectScreen(G) {
     const runner = job.runnerHit && s.dogs[job.runnerHit];
     const pic = runner ? `<div class="boss-pic">${portraitSVG(runner, { size: 48 })}</div>` : rival ? `<div class="boss-pic">${rivalFace(s, rival, 48)}</div>` : o.source === 'own' ? `<div class="boss-pic own">${job.tip ? '✉️' : '🔎'}</div>` : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
     const whoName = runner ? `💨 Get it back from ${esc(shortName(runner))}` : job.rivalHit ? `${RIVALS[rival].emblem} Rob ${esc(RIVALS[rival].name)}` : job.wager ? `💌 Dandy Dan's wager · ${money(job.wager)}` : o.source !== 'own' ? `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}` : job.tip ? 'A stranger\'s tip' : 'Your own lead';
-    h += `<section class="card offer ${o.kind === 'marker' ? 'marker' : ''}" data-offer="${o.id}">
+    h += `<section class="card offer ${['marker', 'amends'].includes(o.kind) ? 'marker' : ''}" data-offer="${o.id}">
       ${venueSVG(job, { compact: true })}
       <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
       ${runner ? `<div class="quote">They ran with ${esc(job.loot[0].name)}. Not for long.</div>` : job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
       <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
-      <button class="btn block mt ${o.kind === 'marker' ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : 'Take the job'}</button></section>`;
+      <button class="btn block mt ${['marker', 'amends'].includes(o.kind) ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : o.kind === 'amends' ? 'Make amends' : 'Take the job'}</button></section>`;
   }
   h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button>${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}</div>`;
   if (s.cash < 200 && canBorrow(s)) h += `<div class="btn-row mt"><button class="btn red" data-act="borrow">🌹 Borrow £${LOAN.amount} from the Family · owe £${LOAN.owe}</button></div>`;
@@ -261,9 +262,15 @@ function rivalRow(G, id) {
   return `<div class="player"><div class="boss-pic">${rivalFace(s, id, 44)}</div><div class="grow"><div class="row spread"><b>${RIVALS[id].emblem} ${esc(RIVALS[id].name)}</b><span class="chip ${r.status === 'joined' ? 'good' : r.status === 'active' ? 'bad' : ''}">${esc(rivalStatus(r, id))}</span></div><div class="muted">${esc(RIVALS[id].blurb)}</div>${meter}</div></div>`;
 }
 
-// Filled in by the amends work.
-function amendsRow() {
-  return '';
+// Crossed an outfit? Make it right: pay up, or do them a hard job for nothing.
+function amendsRow(G, gid) {
+  const s = G.state;
+  if (!canMakeAmends(s, gid)) return '';
+  const g = s.groups[gid];
+  if (g.amends) return '<div class="muted">🕊️ Their amends job is on the job board.</div>';
+  if (s.phase !== 'select') return '<div class="muted">🕊️ You can make amends between jobs.</div>';
+  const cost = amendsCost(s, gid);
+  return `<div class="btn-row amends"><button class="btn small" data-act="amends" data-g="${gid}" data-how="pay" ${s.cash >= cost ? '' : 'disabled'}>🕊️ Pay up · ${money(cost)}</button><button class="btn small ghost" data-act="amends" data-g="${gid}" data-how="job">💪 Do them a hard job</button></div>`;
 }
 
 // ------------------------------------------------------------------ job
