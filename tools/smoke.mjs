@@ -85,6 +85,14 @@ console.log('1. Cold boot, real touch play-through');
   await page.goto(BASE);
   await page.waitForFunction(() => window.__crimedogBooted);
   check((await page.locator('[data-act="new-game"]').count()) === 1, 'title shows New Game on cold boot');
+  // Favicon, app icons, manifest and link preview all load from the real page.
+  const brand = await page.evaluate(async () => {
+    const urls = [...document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="manifest"]')].map((l) => l.href)
+      .concat([...document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')].map((m) => new URL(m.content, location.href).href));
+    const res = await Promise.all(urls.map(async (u) => [u.split('/').pop(), (await fetch(u)).status]));
+    return res;
+  });
+  check(brand.length >= 6 && brand.every(([, st]) => st === 200), `icons and link preview load (${brand.map(([f, st]) => `${f} ${st}`).join(', ')})`);
   check((await page.locator('#diag').isHidden()), 'no dev overlay without flag');
   await shot(page, '01-title');
   await tap(page, '[data-act="new-game"]');

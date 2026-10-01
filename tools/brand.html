@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- Brand artwork (favicon, app icons, link preview), drawn from the game's own
+     portraits, skyline and fonts. tools/brand.mjs screenshots it into assets/. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: transparent !important; }
+  #og { width: 1200px; height: 630px; position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 20%, #24477f, #16305a 55%, #101a30); }
+  #og .sky { position: absolute; left: 0; right: 0; bottom: 0; height: 450px; opacity: .9; }
+  #og .sky svg { width: 100%; height: 100%; display: block; }
+  #og h1 { position: absolute; top: 40px; left: 0; right: 0; margin: 0; text-align: center; font-family: var(--font-display); font-weight: 400;
+    font-size: 150px; letter-spacing: .06em; color: #e9c46a; text-shadow: 0 8px 0 #5c4510, 0 0 40px rgba(233, 196, 106, .45); }
+  #og .tag { position: absolute; top: 230px; left: 0; right: 0; text-align: center; font-family: var(--font-quote); font-style: italic; font-size: 44px; color: #f4ead3; }
+  #og .lineup { position: absolute; bottom: 36px; left: 0; right: 0; display: flex; justify-content: center; gap: 26px; }
+  #og .lineup div { width: 168px; height: 168px; border-radius: 22px; overflow: hidden; box-shadow: 0 0 0 5px #1b1b22, 0 0 0 9px #d6a93b, 0 18px 30px rgba(0, 0, 0, .6); }
+  #og .lineup div.boss { width: 196px; height: 196px; margin-top: -28px; }
+  #og .lineup svg { width: 100%; height: 100%; display: block; }
+</style>
+<div id="stage"></div>
+<script type="module">
+  import { portraitSVG, genDog } from '../src/dogs.js';
+  import { skylineSVG } from '../src/art.js';
+  import { GUVNOR } from '../src/ui.js';
+  import { makeRng } from '../src/rng.js';
+
+  // The app icon: the Guv'nor in a brass ring on a navy tile. `round` gives a
+  // rounded tile (favicon); without it, a full square (iOS rounds its own).
+  function iconSVG(size, round = true) {
+    const face = portraitSVG(GUVNOR, { size: 470, bg: '#e9dcc3' }).replace('<svg ', '<svg x="21" y="58" ');
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512">
+      <defs><radialGradient id="bgI" cx="50%" cy="35%" r="70%"><stop offset="0" stop-color="#2b4f8a"/><stop offset="1" stop-color="#101a30"/></radialGradient>
+      <clipPath id="ringI"><circle cx="256" cy="262" r="196"/></clipPath></defs>
+      <rect width="512" height="512" rx="${round ? 112 : 0}" fill="url(#bgI)"/>
+      <g clip-path="url(#ringI)"><rect width="512" height="512" fill="#e9dcc3"/>${face}</g>
+      <circle cx="256" cy="262" r="196" fill="none" stroke="#d6a93b" stroke-width="26"/>
+      <circle cx="256" cy="262" r="211" fill="none" stroke="#5c4510" stroke-width="5"/>
+    </svg>`;
+  }
+
+  function crew() {
+    const st = { nextId: 1 };
+    const rng = makeRng({ s: 2024 });
+    return ['shepherd', 'poodle', 'italiangreyhound', 'shiba'].map((breed) => genDog(st, rng, { breed, quality: 2 }));
+  }
+
+  const stage = document.getElementById('stage');
+  const params = new URLSearchParams(location.search);
+  if (params.has('og')) {
+    const [a, b, c, d] = crew();
+    const pic = (dog, cls = '') => `<div class="${cls}">${portraitSVG(dog, { size: 196, bg: '#e9dcc3' })}</div>`;
+    stage.innerHTML = `<div id="og"><div class="sky">${skylineSVG(11)}</div><h1>CRIMEDOG</h1><div class="tag">A heist game. For dogs.</div>
+      <div class="lineup">${pic(a)}${pic(b)}${pic(GUVNOR, 'boss')}${pic(c)}${pic(d)}</div></div>`;
+  } else {
+    stage.innerHTML = `<div id="icon">${iconSVG(Number(params.get('size') || 512), !params.has('square'))}</div>`;
+  }
+  window.iconSVG = iconSVG;
+  await document.fonts.ready;
+  window.brandReady = true;
+</script>

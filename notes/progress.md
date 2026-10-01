@@ -105,6 +105,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Probe: `node tools/drama.mjs [careers]`. Careful 12-job careers: ~0.36 arcs per job, ~0.9 home-grown rares and ~0.12 legendaries per career; the balance probe's careful player pays when it has £800 to spare, the reckless one always takes the free option.
 - Debug: `spawn('arc', kind)`, `live()` (the real state, for scripted set-ups); `getState().arcs` / `.drama`. Tests: `tests/drama.test.mjs`; smoke 1g answers a scene with a real tap and checks a promotion.
 
+## Favicon and link previews
+- `tools/brand.html` draws the brand art from the game's own portraits, skyline and fonts; `node tools/brand.mjs` screenshots it into `assets/`: `icon.svg` (favicon), `favicon-32.png`, `apple-touch-icon.png` (180, square for iOS), `icon-192.png` / `icon-512.png` (manifest), `og-image.png` (1200×630: CRIMEDOG over the skyline with the Guv'nor and a crew line-up).
+- `index.html` links the icons and `site.webmanifest`, and has Open Graph + Twitter `summary_large_image` tags. The image URLs are relative; once the game has a public address, `node tools/brand.mjs --site https://host/path/` makes them absolute and adds `og:url` (Facebook and some chat apps need that).
+- Tests: `tests/brand.test.mjs` (files exist, sizes, tags); smoke checks every icon and preview URL loads on the cold boot.
+- Not covered: the hosted claude.ai artifact; its link previews and tab icon are set by claude.ai, not by our page.
+
 ## Heist history and sharing
 - Every graded job leaves a recap in `state.history` (last 30; `src/recap.js`): kind, venue, grade, take, headline, each step with who tried it and how (✓/✗, improvised, surprise), the big moments, loot, and a snapshot of each crew member (enough to draw them) with their fate (got away / nicked / the farm / did a runner / a copper).
 - Rap sheet (modal, `data-act="history"`): from the job board, the crew page and the game-over screen. Tap a job for its recap; "Share this heist" there or on the grade screen.
