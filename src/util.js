@@ -14,3 +14,11 @@ export const done = (msg, extra) => ({ ok: true, msg, ...extra });
 export const addHeat = (state, n) => { state.heat = clamp(state.heat + n, 0, 100); };
 export const addRep = (state, n) => { state.rep = clamp(state.rep + n, 0, 100); };
 export const addRelation = (dog, n) => { dog.relation = clamp(dog.relation + n, -100, 100); };
+
+// Every change to the cash goes through here, tagged with what it was for, so the
+// books add up (see the cash pane). The open period closes when a job is graded.
+export const book = (state, cat, amount) => {
+  state.cash += amount;
+  const b = (state.books ||= { open: {}, jobs: [] });
+  b.open[cat] = (b.open[cat] || 0) + amount;
+};

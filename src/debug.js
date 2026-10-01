@@ -46,6 +46,8 @@ export function snapshot(G) {
     offers: s?.offers?.map((o) => ({ id: o.id, source: o.source, kind: o.kind, name: o.job.name, owner: o.job.owner })) ?? [],
     groups: s?.groups ? Object.fromEntries(Object.entries(s.groups).map(([k, g]) => [k, { standing: g.standing, met: g.met, debt: g.debt?.amount ?? 0 }])) : null,
     story: s?.story?.length ?? 0,
+    books: s?.books ? { open: s.books.open, jobs: s.books.jobs.map((j) => ({ label: j.label, net: j.net })) } : null,
+    timeline: s?.timeline ?? [],
     history: s?.history?.map((h) => ({ name: h.name, grade: h.grade, type: h.type, steps: h.steps?.length ?? 0, crew: h.crew?.length ?? 0 })) ?? [],
     arcs: s?.arcs?.map((a) => ({ id: a.id, kind: a.kind, dog: a.dog, node: a.node, wait: a.wait, shown: a.shown })) ?? [],
     drama: s ? Object.values(s.dogs).filter((d) => d.drama).map((d) => ({ id: d.id, ...d.drama })) : [],

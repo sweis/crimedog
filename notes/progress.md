@@ -89,6 +89,15 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
+## Art pass 2, help and the top-bar panes (latest)
+- Portraits (`src/dogs.js`): seven backdrops picked per dog (damask, brick, police line-up, wood panel, baize, blueprint, velvet) with spotlight and vignette; tweed/herringbone/pinstripe cloth on jackets; fur texture on head and ears. Cards and brand art pass a plain `bg`.
+- Venues (`src/art.js`): night/dusk/deep/day skies (sun and clouds by day), brick and stone textures, weather (fog, wet-street shimmer), and props per job type (armoured van, smashed glass, gala carpet, crate, flower van with a dish, NOW HIRING, rope and hook). The job board shows a compact venue banner on every offer.
+- The books: every cash change goes through `book(state, cat, amount)` (util.js); `closeBooks` files each job's items and net, and `timelinePoint` records cash/rep/heat after each job (`state.books`, `state.timeline`; both lazy, so old saves are fine). tests/books.test.mjs reconciles books to cash over 120 careers.
+- Top bar: 💷 ⭐ 🕵️ 📅 are buttons opening panes (`src/panes.js`): the books (P&L column chart per job, earned/spent, job-by-job breakdown), reputation (line chart, what it unlocks, star chance), the Inspector (meter, line chart with plant/sting thresholds, what the heat brings), and the day book. Charts in `src/charts.js` (tap a mark to read it in the caption). Lines end on a "Now" point when the value moved since the last job.
+- ? help button in the top bar and "How to play" on the title screen (works before a game exists).
+- Narrow phones: the full CRIMEDOG wordmark only shows above 480px; below 370px the logo goes and stats spread. Verified no sideways scroll from 320px to 520px with six-figure cash.
+- Verified: unit tests (81), smoke 1m with real taps (each pane, chart tap tooltip, help from title and top bar, 360px fit), captures `pane-*.png`, `help-*.png`, `topbar-360.png`. Not verified: on a real phone, and the live site (crimedog.live isn't reachable from the sandbox).
+
 ## Rare and legendary crew (stars)
 - `RARITY` and `SIGNATURES` in data.js; `genDog(..., { rarity, primary, signature })`. Stars have primary 5 (+a +2 talent), all skills known, higher fees (rare ×2.5, legendary ×4), legendary needs rep 30 and takes its signature as a nickname.
 - Visits: `starVisit` in engine.js puts at most one star in the pub per job (`d.inTown = job.id`); they stay through Ask Around and leave after the job. They're never regulars and can't be hired from the black book while out of town. The first job always has a rare one whose signature fits the job (the teaser). Odds per job: `0.12 + rep/250` (22% at rep 25, 44% at 80); legendary share rises from 5% to 50% with rep.
@@ -154,7 +163,6 @@ Ideas from the playthrough pass (not built yet):
 - **Trophy room**: famous loot you kept instead of fencing, shown in the den; groups sometimes ask to buy it.
 - **Heat by district**: jobs in a hot district are harder; lying low in a district cools it.
 - **Job board timing**: offers expire after a day or two, so waiting has a cost.
-- **Replay card**: share the heist log as an image (like the crew card) — "The Fossil Job, grade B".
 - Balance group jobs separately from own leads (they're full-size, so a step up in difficulty).
 - Human playtest of the first five minutes; tune copy and pacing from that.
 - More obstacle types/venues and multi-dog steps (e.g. a lookout + a cracker on the same stage).

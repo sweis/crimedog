@@ -1,7 +1,7 @@
 // The city's outfits: standing, job offers, deals, debts and grudges. Pure
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
-import { clamp, fail, done, money, addHeat, addRep, addRelation } from './util.js';
+import { clamp, fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
 import { genJob, jobTier, revealIntel, totalLootValue } from './heists.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -173,7 +173,7 @@ export function payDebt(state, gid) {
   const g = state.groups[gid];
   if (!g?.debt) return fail('You don\'t owe them anything.');
   if (state.cash < g.debt.amount) return fail(`You need ${money(g.debt.amount)}.`);
-  state.cash -= g.debt.amount;
+  book(state, 'debts', -g.debt.amount);
   g.debt = null;
   state.offers = state.offers.filter((o) => !(o.source === gid && o.kind === 'marker'));
   adjust(state, gid, 3, 'Paid in full');
@@ -191,7 +191,7 @@ export function betweenJobs(state, rng) {
       if (g.debt.patience < 0) {
         if (gid === 'syndicate') {
           const take = Math.min(state.cash, Math.round(g.debt.amount / 2));
-          state.cash -= take;
+          book(state, 'debts', -take);
           g.debt.amount -= take;
           addHeat(state, (take < g.debt.amount ? 10 : 5));
         } else {
@@ -208,7 +208,7 @@ export function betweenJobs(state, rng) {
       if (e === 'heat') addHeat(state, 10);
       else if (e === 'cash') {
         const take = Math.round(state.cash * 0.15);
-        state.cash -= take;
+        book(state, 'raids', -take);
         vars.amount = `${money(take)}`;
       } else if (e === 'alert') state.sabotage = (state.sabotage || 0) + 1;
       else if (e === 'rep') addRep(state, -5);
@@ -236,7 +236,7 @@ export function borrow(state) {
   if (state.cash >= 200) return fail('The Don only lends to the desperate.');
   if (!canBorrow(state)) return fail('The Family won\'t lend you another penny.');
   const g = state.groups.family;
-  state.cash += LOAN.amount;
+  book(state, 'loan', LOAN.amount);
   g.debt = { amount: (g.debt?.amount || 0) + LOAN.owe, patience: Math.max(g.debt?.patience ?? 0, 3) };
   return done(`The Family lends you ${money(LOAN.amount)}. You owe them ${money(LOAN.owe)}.`);
 }

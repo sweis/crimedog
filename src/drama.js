@@ -5,7 +5,7 @@
 // (away), or bringing trouble that turns up on the night (see sim.js).
 import { GROUPS, SIGNATURES, SKILL_INFO, SKILLS, RARITY } from './data.js';
 import { shortName, displayName, genDog, promote } from './dogs.js';
-import { clamp, money, fail, done, addHeat, addRelation } from './util.js';
+import { clamp, money, fail, done, addHeat, addRelation, book } from './util.js';
 import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
 
@@ -290,7 +290,7 @@ function applyFx(state, arc, fx = {}, rng) {
     d.relation = fx.leave === 'poached' ? d.relation : -100;
     if (fx.leave === 'runner') {
       const taken = Math.min(state.cash, round10(Math.max(100, state.cash * 0.15)));
-      state.cash -= taken;
+      book(state, 'drama', -taken);
       arc.vars.taken = taken;
     }
     if (fx.leave === 'grass') addHeat(state, 20);
@@ -373,7 +373,7 @@ function endArc(state, arc) {
 function resolve(state, arc, i, rng) {
   const c = ARCS[arc.kind].nodes[arc.node].choices[i];
   const d = arcDog(state, arc);
-  state.cash -= cost(arc, c.cost);
+  if (cost(arc, c.cost)) book(state, 'drama', -cost(arc, c.cost));
   const notes = applyFx(state, arc, c.fx, rng);
   const nextId = pickNext(c.next, d, rng);
   if (!nextId) endArc(state, arc);
