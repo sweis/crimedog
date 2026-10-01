@@ -6,6 +6,7 @@ import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREED
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
+import { retire } from './retire.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
@@ -293,6 +294,7 @@ export { payDebt } from './groups.js';
 export { chooseDrama } from './drama.js';
 
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
+export const retireNow = (state) => retire(state, rngOf(state));
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 export function dismissStory(state) {
@@ -974,6 +976,7 @@ export function checkGameOver(state) {
 export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
   nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls.' },
+  retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
   broke: { title: 'Skint', text: 'Not a penny to your name and not a dog to your name either. Time to get a proper job.' },
 };
 

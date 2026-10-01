@@ -274,6 +274,16 @@ p { margin: 0 0 8px; }
 .plan-step.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
 .kit.locked { opacity: .7; }
+.nest { margin-bottom: 10px; }
+.nest .v { font-family: system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nest .meter { margin: 8px 0 6px; }
+.nest.ready { box-shadow: 0 0 0 3px var(--brass), 0 0 18px rgba(233, 196, 106, .6); }
+.epilogue { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px dashed var(--paper-3); }
+.epilogue:last-child { border-bottom: 0; }
+.epilogue p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; }
+.epilogue .boss-pic { flex: none; width: 56px; height: 56px; }
+.boss-pic.faded svg { filter: sepia(.6) saturate(.6); }
+.title-screen.retired .title-hero { filter: saturate(1.2) hue-rotate(-15deg); }
 .twist-note { background: #fbf1d6; border: 1px dashed #c9a24a; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
 
 /* ---------- top bar panes & help */

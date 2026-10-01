@@ -10,6 +10,7 @@ import { canShareFiles, FATES } from './card.js';
 import { ARCS, sceneChoices } from './drama.js';
 import { helpModal, paneModal } from './panes.js';
 import { INSPECTOR, inspectorChoices, moPenalty } from './inspector.js';
+import { RETIRE } from './retire.js';
 import { RIVALS, rivalDog, rivalChoices, rivalsOf, rivalStatus } from './rivals.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
@@ -161,10 +162,21 @@ function jobTraits(job) {
   return chips.join('');
 }
 
+// The long game: enough put away to retire.
+function nestEgg(s) {
+  const pct = Math.min(100, Math.round((100 * Math.max(0, s.cash)) / RETIRE.goal));
+  const ready = s.cash >= RETIRE.goal;
+  return `<section class="card nest ${ready ? 'ready' : ''}"><div class="row spread"><b>🏝️ The Nest Egg</b><span class="v">${money(s.cash)} / ${money(RETIRE.goal)}</span></div>
+    <div class="meter ${ready ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${pct}%"></i></div>
+    <div class="muted">${ready ? `Enough to retire to ${RETIRE.place}. Or one more job...` : `Put away ${money(RETIRE.goal)} and retire to ${RETIRE.place}.`}</div>
+    ${ready ? '<button class="btn block mt" data-act="retire">🏝️ Retire for good</button>' : ''}</section>`;
+}
+
 function selectScreen(G) {
   const s = G.state;
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
   let h = `<div class="row spread"><h2>The Job Board</h2><span class="chip dark">📅 Day ${s.day}</span></div>`;
+  h += nestEgg(s);
   for (const gid of debts) {
     const d = s.groups[gid].debt;
     h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${GROUPS[gid].emblem} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `⏳ ${count(d.patience, 'job')} left` : '⏳ Out of patience'}</div></div></div>
@@ -753,15 +765,24 @@ function headlineGuess(s) {
 function overScreen(G) {
   const s = G.state;
   const t = E.GAME_OVER_TEXT[s.over.reason];
-  return `<section class="title-screen">
-    <div class="title-hero">${skylineSVG(5)}<div class="title-portrait" style="filter:grayscale(1)">${portraitSVG(GUVNOR, { size: 180 })}</div></div>
+  const retired = s.over.reason === 'retired';
+  return `<section class="title-screen ${retired ? 'retired' : ''}">
+    <div class="title-hero">${skylineSVG(5)}<div class="title-portrait" style="${retired ? '' : 'filter:grayscale(1)'}">${portraitSVG(GUVNOR, { size: 180 })}</div></div>
     <h1 class="title-logo" style="font-size:38px">${esc(t.title)}</h1>
     <p>${esc(t.text)}</p>
+    ${retired ? `<section class="card epilogues" style="width:100%;text-align:left"><h2>Where They Ended Up</h2>${(s.over.epilogues || []).map((e) => epilogueCard(s, e)).join('')}</section>` : ''}
     <section class="card" style="width:100%;text-align:left"><h2>Your Career</h2>
     <p>${s.stats.jobs} jobs · ${s.stats.perfect} perfect · ${money(s.stats.earned)} earned · ${s.day} days</p>
     <div class="rap-list">${s.history.map((h, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(h.grade)}<div class="grow"><b>${esc(h.name)}</b></div><span class="v">${money(h.take || 0)}</span></button>`).join('')}</div></section>
     <div class="title-actions"><button class="btn big block" data-act="new-game">New Game</button></div>
   </section>`;
+}
+
+// One epilogue: a face (a crew member, a rival or the Inspector) and what became of them.
+function epilogueCard(s, e) {
+  const d = e.dog && s.dogs[e.dog];
+  const face = d ? portraitSVG(d, { size: 64 }) : e.rival ? rivalFace(s, e.rival, 64) : e.kind === 'inspector' ? portraitSVG(INSPECTOR.dog, { size: 64 }) : '';
+  return `<div class="epilogue ${e.kind}"><div class="boss-pic ${e.kind === 'farm' ? 'faded' : ''}">${face}</div><div class="grow"><b>${e.icon} ${esc(e.title)}</b><p>${esc(e.text)}</p></div></div>`;
 }
 
 const SCREEN_RENDER = {

@@ -179,6 +179,7 @@ export function installDebug(G) {
         G.commit();
         return s.story.at(-1)?.move;
       }
+      if (kind === 'retire') { s.cash = Math.max(s.cash, 100000); G.commit(); return s.cash; }
       if (kind === 'cash') { s.cash += Number(at) || 1000; G.commit(); return s.cash; }
       if (kind === 'kit') { const ids = at ? [at] : Object.keys(KIT); for (const k of ids) s.kit[k] = (s.kit[k] || 0) + 1; G.commit(); return s.kit; }
       if (kind === 'rep') { s.rep = Number(at) || 60; G.commit(); return s.rep; }

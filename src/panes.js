@@ -5,6 +5,7 @@ import { inspectorLabel, starChance } from './engine.js';
 import { columnChart, lineChart, UP, DOWN } from './charts.js';
 import { APPROACHES, GROUPS, RARITY } from './data.js';
 import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
+import { RETIRE } from './retire.js';
 
 // What each kind of money was for.
 const CATS = {
@@ -38,7 +39,8 @@ function cashPane(s) {
     ? columnChart(recent.map((j) => ({ label: j.label, value: j.net, tip: `${j.label}: ${signed(j.net)}` })), { fmt: short, caption: 'Profit or loss per job. Tap a column.' })
     : '<p class="muted">Finish a job to see how it paid.</p>';
   return `<h2>💷 The Books</h2>
-    <div class="hero-fig">${money(s.cash)}</div>
+    <div class="hero-fig">${money(s.cash)}<small>of ${money(RETIRE.goal)} to retire</small></div>
+    <div class="meter ${s.cash >= RETIRE.goal ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${Math.min(100, Math.max(0, (100 * s.cash) / RETIRE.goal))}%"></i></div>
     <div class="tiles"><div class="tile"><span>Earned</span><b>${money(earned)}</b></div><div class="tile"><span>Spent</span><b>${money(-spent)}</b></div><div class="tile"><span>Jobs</span><b>${b.jobs.length}</b></div></div>
     <div class="legend"><span><i style="background:${UP}"></i>Profit</span><span><i style="background:${DOWN}"></i>Loss</span></div>
     ${chart}
@@ -106,7 +108,7 @@ export function paneModal(G, which) {
 
 // ------------------------------------------------------------------ help
 const HELP = [
-  ['🎯 The idea', `You're the mastermind. You never go on the job: you pick it, hire the crew, case the joint, buy the kit and draw up the plan, then watch it play out. Get rich, stay respected, and keep the Inspector off your back.`],
+  ['🎯 The idea', `You're the mastermind. You never go on the job: you pick it, hire the crew, case the joint, buy the kit and draw up the plan, then watch it play out. Get rich, stay respected, and keep the Inspector off your back. Put away ${money(RETIRE.goal)} and you can retire to ${RETIRE.place} for good.`],
   ['🔁 A turn', `<b>Job board</b>: pick a job (your own leads, or offers from the city's outfits once you've a name). <b>Plan</b>: hire at the pub, case the joint, buy kit, see the fixer, then choose who does each step and how. <b>The heist</b>: watch it unfold. <b>Aftermath</b>: hand over or fence the goods, pay the crew, get graded.`],
   ['🐾 Crew', `Each dog has skills (only the ones you've seen are shown), talents and quirks. Work together and you learn more; get on and they get better, even rare or legendary. 👑 Leaders steady everyone; 🃏 wildcards bring chaos, good and bad. ★ Stars drift through town with secret moves.`],
   ['📋 Planning', `Casing finds intel and hidden hazards: a good nose smells things out, a hacker finds the systems, a sneak watches the patrols. Get spotted and security goes on alert. The odds on each step are shown for skills you know. Kit and intel open new ways through.`],
