@@ -36,6 +36,8 @@ nobody will work for them.
 
 ## Gameplay
 
+This will be a browser based game that works on both desktop and mobile devices.
+
 Gameplay should be turn based in phases. The mastermind can recruit talent, then depending on what skills they have, deploy them for different tasks. Smart play would require them to 
 do several rounds of intelligence gathering, buying tools and resources, and planning. However, it should allow them to be reckless and go into a heist with no planning and high 
 likelihood of failure. For example, they can hire an unknown criminal and send them to rob something with no plan. This might actually be a strategy for intelligence gathering or as a
