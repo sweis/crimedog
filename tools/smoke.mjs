@@ -88,7 +88,8 @@ console.log('1. Cold boot, real touch play-through');
   // Favicon, app icons, manifest and link preview all load from the real page.
   const brand = await page.evaluate(async () => {
     const urls = [...document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"], link[rel="manifest"]')].map((l) => l.href)
-      .concat([...document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')].map((m) => new URL(m.content, location.href).href));
+      // The preview image may point at the public site; fetch the same file from here.
+      .concat([...document.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')].map((m) => new URL(new URL(m.content, location.href).pathname, location.href).href));
     const res = await Promise.all(urls.map(async (u) => [u.split('/').pop(), (await fetch(u)).status]));
     return res;
   });

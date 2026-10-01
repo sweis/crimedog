@@ -107,7 +107,7 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 
 ## Favicon and link previews
 - `tools/brand.html` draws the brand art from the game's own portraits, skyline and fonts; `node tools/brand.mjs` screenshots it into `assets/`: `icon.svg` (favicon), `favicon-32.png`, `apple-touch-icon.png` (180, square for iOS), `icon-192.png` / `icon-512.png` (manifest), `og-image.png` (1200×630: CRIMEDOG over the skyline with the Guv'nor and a crew line-up).
-- `index.html` links the icons and `site.webmanifest`, and has Open Graph + Twitter `summary_large_image` tags. The image URLs are relative; once the game has a public address, `node tools/brand.mjs --site https://host/path/` makes them absolute and adds `og:url` (Facebook and some chat apps need that).
+- `index.html` links the icons and `site.webmanifest`, and has Open Graph + Twitter `summary_large_image` tags pointing at https://crimedog.live/ (stamped by `node tools/brand.mjs --site https://crimedog.live/`; rerun with another address if it moves).
 - Tests: `tests/brand.test.mjs` (files exist, sizes, tags); smoke checks every icon and preview URL loads on the cold boot.
 - Not covered: the hosted claude.ai artifact; its link previews and tab icon are set by claude.ai, not by our page.
 
