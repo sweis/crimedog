@@ -70,6 +70,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Small phones: the help button joins the stats, so tighten up; the smallest drop the logo. */
 @media (max-width: 400px) { .topbar { padding: 8px 12px; } .stats { gap: 3px; } .stat { padding: 2px 5px; } .help-btn { width: 26px; } }
 @media (max-width: 370px) { .logo { display: none; } .stats { flex: 1; justify-content: space-between; } }
+.stat .short { display: none; }
+/* Narrow phones: the day lives on the job board, and big sums are shortened. */
+@media (max-width: 400px) { .stat .long, .stat[data-pane="day"] { display: none; } .stat .short { display: inline; } }
+button.chip { font-family: inherit; cursor: pointer; }
 .heatbar { height: 5px; background: #0d1529; box-shadow: inset 0 1px 2px rgba(0, 0, 0, .7); border-radius: 3px; margin-top: 6px; overflow: hidden; }
 .heatbar > i { display: block; height: 100%; background: linear-gradient(90deg, #e9c46a, #e76f51, #c23b2e); }
 
@@ -275,7 +279,8 @@ p { margin: 0 0 8px; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
 .kit.locked { opacity: .7; }
 .nest { margin-bottom: 10px; }
-.nest .v { font-family: system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nest .v { font-family: system-ui, sans-serif; font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nest .row b { white-space: nowrap; }
 .nest .meter { margin: 8px 0 6px; }
 .nest.ready { box-shadow: 0 0 0 3px var(--brass), 0 0 18px rgba(233, 196, 106, .6); }
 .epilogue { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-bottom: 1px dashed var(--paper-3); }
@@ -464,7 +469,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .story-pic.rare { box-shadow: 0 0 0 3px #6fa8dc, 0 8px 20px rgba(0, 0, 0, .4); }
 .story-pic.legendary { box-shadow: 0 0 0 3px var(--brass), 0 0 18px rgba(233, 196, 106, .9); }
 .drama .story-pic { width: 96px; height: 96px; }
-.silhouette svg { filter: brightness(0) drop-shadow(0 0 6px rgba(160, 175, 200, .7)); }
+.silhouette svg { filter: contrast(1.2) blur(.4px); }
 .rival .story-pic { width: 96px; height: 96px; margin: 4px 0 10px; box-shadow: 0 0 0 3px #2f5d9a, 0 8px 20px rgba(0, 0, 0, .4); }
 .rival.ghost .story-pic { background: #101a30; box-shadow: 0 0 0 3px #9aa0a8, 0 0 18px rgba(160, 175, 200, .7); }
 .calling-card { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 2px dashed #c9a24a; background: #fbf1d6; color: var(--ink); font: inherit; cursor: pointer; }

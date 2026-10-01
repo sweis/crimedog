@@ -62,7 +62,7 @@ export function rivalsBetweenJobs(state, rng, ctx = {}) {
   const candidates = [];
   const jobs = state.stats.jobs;
   if (!R.jacks.met && jobs >= RIVALS.jacks.fromJob) candidates.push(['jacksIntro', 10]);
-  else if (active(R.jacks) && rng.chance(0.3 + 0.1 * R.jacks.beef)) candidates.push(['jacksMischief', 1]);
+  else if (active(R.jacks) && rng.chance(Math.min(0.5, 0.25 + 0.05 * R.jacks.beef))) candidates.push(['jacksMischief', 1]);
   if (!R.dan.met && jobs >= RIVALS.dan.fromJob) candidates.push(['danIntro', 8]);
   else if (active(R.dan)) {
     if (R.dan.notes >= 3 && !R.dan.wager && rng.chance(0.6)) candidates.push(['danWager', 2]);
@@ -93,7 +93,7 @@ const MOVES = {
   jacksIntro(state) {
     rivalsOf(state).jacks.met = true;
     return scene(state, 'jacks', 'intro', {
-      title: 'The Jack Russell Gang',
+      title: 'This Is Our Manor',
       text: 'Nipper and the Jack Russell Gang turn up at the Dog & Duck, six of them, all yap. "This is our manor. You want to work round here, you ask us first." They don\'t leave until the landlord gets the hose out.',
       choices: [{ label: 'Buy them a round to keep the peace', cost: 100, effect: 'peace' }, { label: 'Tell them where to go', effect: 'snub' }],
     });
@@ -146,9 +146,11 @@ const MOVES = {
       text = `${o.job.venueName} was robbed last night. There's a spotted handkerchief on the doorstep and a note for you: "Too slow, Guv'nor. — D."`;
     } else if (['S', 'A'].includes(last)) {
       text = '"Not bad, Guv\'nor. Almost as good as my Tuesday. — D." It\'s the first time he hasn\'t been rude. Nearly.';
-    } else {
+    } else if (['D', 'F'].includes(last)) {
       addRep(state, -2);
       text = '"Saw the papers. HA! — D." He\'s been showing the note round the Dog & Duck. (-2 rep)';
+    } else {
+      text = '"Steady work, Guv\'nor. Steady. Like a milkman. — D." There\'s a pint of milk on the doorstep. He\'s very pleased with himself.';
     }
     return scene(state, 'dan', 'note', { title: 'Another Note from Dan', text, choices: dealWith(state, 'dan', 300) });
   },

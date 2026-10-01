@@ -63,7 +63,7 @@ function topbar(G) {
   const s = G.state;
   // Each stat opens a pane with the story behind the number.
   return `<header class="topbar"><div class="topbar-row"><div class="logo"><span class="full">CRIMEDOG</span><span class="short">🐕</span></div><div class="stats">
-    <button class="stat" data-act="pane" data-pane="cash" aria-label="Cash: the books">💷 <b>${money(s.cash)}</b></button>
+    <button class="stat" data-act="pane" data-pane="cash" aria-label="Cash: the books">💷 <b>${s.cash >= 100000 ? `£${Math.floor(s.cash / 1000)}k` : s.cash >= 10000 ? `<span class="long">${money(s.cash)}</span><span class="short">£${Math.floor(s.cash / 1000)}k</span>` : money(s.cash)}</b></button>
     <button class="stat" data-act="pane" data-pane="rep" aria-label="Reputation">⭐ <b>${s.rep}</b></button>
     <button class="stat ${s.heat >= 60 ? 'hot' : ''}" data-act="pane" data-pane="heat" aria-label="The Inspector's heat">🕵️ <b>${s.heat}</b></button>
     <button class="stat" data-act="pane" data-pane="day" aria-label="Day ${s.day}: the day book">📅 <b>${s.day}</b></button>
@@ -116,8 +116,11 @@ export function bossDog(gid) {
 
 // A rival's face. The Ghost stays a silhouette until they join you.
 function rivalFace(s, id, size) {
-  const hidden = id === 'ghost' && rivalsOf(s).ghost.status !== 'joined';
-  return `<div class="${hidden ? 'silhouette' : ''}">${portraitSVG(rivalDog(id), { size })}</div>`;
+  const d = rivalDog(id);
+  if (id !== 'ghost' || rivalsOf(s).ghost.status === 'joined') return portraitSVG(d, { size });
+  // A dark figure in the fog.
+  const shadow = { ...d, look: { ...d.look, coat: '#1b1e27', outfit: '#101219', neck: 'none' } };
+  return `<div class="silhouette">${portraitSVG(shadow, { size, bg: '#8d97ab' })}</div>`;
 }
 
 function standingBar(v) {
@@ -166,16 +169,16 @@ function jobTraits(job) {
 function nestEgg(s) {
   const pct = Math.min(100, Math.round((100 * Math.max(0, s.cash)) / RETIRE.goal));
   const ready = s.cash >= RETIRE.goal;
-  return `<section class="card nest ${ready ? 'ready' : ''}"><div class="row spread"><b>🏝️ The Nest Egg</b><span class="v">${money(s.cash)} / ${money(RETIRE.goal)}</span></div>
+  return `<section class="card nest ${ready ? 'ready' : ''}"><div class="row spread"><b>🏝️ The Nest Egg</b><span class="v">${pct}%</span></div>
     <div class="meter ${ready ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${pct}%"></i></div>
-    <div class="muted">${ready ? `Enough to retire to ${RETIRE.place}. Or one more job...` : `Put away ${money(RETIRE.goal)} and retire to ${RETIRE.place}.`}</div>
+    <div class="muted"><b>${money(s.cash)}</b> of ${money(RETIRE.goal)}. ${ready ? `Enough to retire to ${RETIRE.place}. Or one more job...` : `Put it away and retire to ${RETIRE.place}.`}</div>
     ${ready ? '<button class="btn block mt" data-act="retire">🏝️ Retire for good</button>' : ''}</section>`;
 }
 
 function selectScreen(G) {
   const s = G.state;
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
-  let h = `<div class="row spread"><h2>The Job Board</h2><span class="chip dark">📅 Day ${s.day}</span></div>`;
+  let h = `<div class="row spread"><h2>The Job Board</h2><button class="chip dark" data-act="pane" data-pane="day">📅 Day ${s.day}</button></div>`;
   h += nestEgg(s);
   for (const gid of debts) {
     const d = s.groups[gid].debt;

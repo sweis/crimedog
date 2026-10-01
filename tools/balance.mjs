@@ -73,6 +73,12 @@ export function answerStories(s, policy) {
   for (let guard = 0; guard < 20 && s.story.length; guard++) {
     const st = s.story[0];
     if (st.type === 'inspector') { E.chooseInspector(s, policy === 'smart' && st.choices[0].cost && s.cash - st.choices[0].cost > 800 ? 0 : st.choices.length - 1); continue; }
+    // Careful players set up troublemakers when they can afford to, and take Dan's bets.
+    if (st.type === 'rival' && policy === 'smart') {
+      const want = st.choices.findIndex((c) => (c.effect === 'setup' && s.cash - c.cost > 1500) || c.effect === 'wager');
+      E.chooseRival(s, want >= 0 ? want : st.choices.length - 1);
+      continue;
+    }
     if (st.type !== 'drama') { E.dismissStory(s); continue; }
     const ch = sceneChoices(s, st);
     E.chooseDrama(s, policy === 'smart' && ch[0].ok && s.cash - ch[0].cost > 800 ? 0 : ch.length - 1);

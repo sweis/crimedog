@@ -571,7 +571,7 @@ console.log('1m. Top bar: tap each stat for its pane; help from the title and th
   check(meter === String(st.heat) && await page.locator('.modal .chart polyline').count() === 1, `Inspector pane: meter at ${meter}, line chart`);
   await shot(page, 'pane-heat');
   await tap(page, '.modal [data-act="close-modal"]');
-  await tap(page, '.topbar [data-pane="day"]');
+  await tap(page, 'main [data-pane="day"]'); // on phones the day lives on the job board
   check(await page.locator('.modal .news li').count() > 0, 'the day book lists the news');
   await tap(page, '.modal [data-act="close-modal"]');
   await tap(page, '.topbar [data-act="help"]');
@@ -709,6 +709,96 @@ console.log('1n. The Inspector: his scene, a setup, his file; the new kinds of j
   const pane = (await page.locator('.modal').innerText()).toLowerCase();
   check(pane.includes('his file on your methods') && pane.includes('his moves'), 'the heat pane shows his file and his moves');
   await shot(page, 'pane-heat-file');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- 1o. rivals, the ringer, retirement
+console.log('1o. Rivals, the boxing-club ringer, and retiring');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=52`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(52); window.cd.teleport('select'); window.cd.spawn('cash', 3000); window.cd.spawn('rival', 'jacksIntro'); window.cd.teleport('select'); });
+  check(await page.locator('.modal.rival.jacks').count() === 1, 'the Jack Russells\' scene is up');
+  await shot(page, 'rival-jacks');
+  await tap(page, '.modal.rival [data-act="drama"]:last-of-type');
+  // Mischief, then rob their lock-up: it goes on the board.
+  await page.evaluate(() => { window.cd.spawn('rival', 'jacksMischief'); window.cd.teleport('select'); });
+  const robIdx = await page.evaluate(() => window.cd.live().story[0].choices.findIndex((c) => c.effect === 'rob'));
+  await tap(page, `.modal.rival [data-act="drama"][data-i="${robIdx}"]`);
+  let st = await page.evaluate(() => window.cd.getState());
+  check(st.rivals.jacks.board && st.offers.some((o) => o.id === st.rivals.jacks.board), 'their lock-up is on the job board');
+  // Dan's note, then the Ghost in the shadows.
+  await page.evaluate(() => { window.cd.spawn('rival', 'danNote'); window.cd.teleport('select'); });
+  check(await page.locator('.modal.rival.dan').count() === 1, 'Dandy Dan\'s note is up');
+  await shot(page, 'rival-dan');
+  await tap(page, '.modal.rival [data-act="drama"]:last-of-type');
+  await page.evaluate(() => { window.cd.spawn('rival', 'ghost'); window.cd.teleport('select'); });
+  check(await page.locator('.modal.rival.ghost .silhouette').count() === 1, 'the Ghost stays in the shadows');
+  await shot(page, 'rival-ghost');
+  await tap(page, '.modal.rival [data-act="drama"]');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  check((await page.locator('main').innerText()).includes('The Competition'), 'the job board lists the competition');
+  await page.locator('main h2', { hasText: 'The Competition' }).evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await shot(page, 'rivals-board');
+  // The ringer at the boxing club, with a calling card ticked by tap.
+  const ringer = await page.evaluate(async () => {
+    const H = await import('/src/heists.js');
+    const R = await import('/src/rng.js');
+    const s = window.cd.live();
+    let job;
+    for (let k = 1; k < 40 && !job?.ringer; k++) job = H.genJob(s, R.makeRng({ s: k }), { type: 'fix', venueType: 'ring' });
+    s.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    window.cd.teleport('select');
+    return job.id;
+  });
+  await tap(page, `[data-act="take-offer"][data-id="${ringer}"]`);
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    for (const id of s.pub.filter((x) => !s.dogs[x].undercover).slice(0, 3)) E.hire(s, id);
+    E.autoPlan(s);
+    window.cd.teleport('plan');
+  });
+  check((await page.locator('main .plan-step h3').allInnerTexts()).join('|').includes('Into the Ring'), 'the ringer: our fighter goes into the ring');
+  await tap(page, 'main [data-act="calling-card"]');
+  check(await page.evaluate(() => window.cd.live().job.callingCard === true), 'calling card ticked with a tap');
+  await page.locator('main .calling-card').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'calling-card');
+  // Retire: the nest egg fills, two taps, and the epilogues.
+  // A career's worth of history: a close mate, a runner, a star who worked with you.
+  await page.evaluate(async () => {
+    const E = await import('/src/engine.js');
+    const D = await import('/src/dogs.js');
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    const [mate, runner] = Object.values(s.dogs).filter((d) => d.met && !d.rarity && !d.undercover);
+    Object.assign(mate, { jobs: 6, relation: 70, status: 'free' });
+    if (runner) Object.assign(runner, { jobs: 2, status: 'gone', left: 'runner', ranWith: 'The Golden Bone', relation: -100 });
+    const star = D.genDog(s, E.rngOf(s), { quality: 2, rarity: 'legendary', signature: true });
+    Object.assign(star, { met: true, jobs: 1 });
+    s.dogs[star.id] = star;
+    s.story = [];
+    window.cd.spawn('retire');
+    window.cd.teleport('select');
+  });
+  check(await page.locator('main .nest.ready [data-act="retire"]').count() === 1, 'the nest egg is full: retire is on offer');
+  await page.locator('main .nest').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => window.scrollBy(0, -80));
+  await shot(page, 'nest-egg');
+  await tap(page, 'main [data-act="retire"]');
+  check(await page.evaluate(() => window.cd.getState().over === null), 'one tap only asks');
+  await tap(page, 'main [data-act="retire"]');
+  st = await page.evaluate(() => window.cd.getState());
+  check(st.over?.reason === 'retired' && st.over.epilogues.length >= 4, `retired, with ${st.over?.epilogues?.length} epilogues`);
+  check(await page.locator('main .epilogue').count() === st.over.epilogues.length, 'the ending shows every epilogue');
+  await shot(page, 'retired');
+  await page.locator('main .epilogues').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await shot(page, 'retired-epilogues');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }
