@@ -328,6 +328,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .help { border-bottom: 1px dashed var(--paper-3); }
 .help summary { font-family: var(--font-title); font-weight: 800; font-size: 16px; padding: 10px 0; cursor: pointer; }
 .help p { margin: 0 0 10px; font-size: 15px; line-height: 1.45; }
+.version { font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* ---------- heist history */
 .rap-list { display: flex; flex-direction: column; gap: 8px; }
