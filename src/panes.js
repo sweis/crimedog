@@ -6,6 +6,7 @@ import { columnChart, lineChart, UP, DOWN } from './charts.js';
 import { APPROACHES, GROUPS, RARITY } from './data.js';
 import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
 import { RETIRE } from './retire.js';
+import { VERSION } from './version.js';
 
 // What each kind of money was for.
 const CATS = {
@@ -122,5 +123,6 @@ const HELP = [
 export function helpModal() {
   return `<h2>❓ How to Play</h2>
     ${HELP.map(([title, body], i) => `<details class="help" ${i === 0 ? 'open' : ''}><summary>${title}</summary><p>${body}</p></details>`).join('')}
-    <p class="muted center mt">A heist game. For dogs.</p>`;
+    <p class="muted center mt">A heist game. For dogs.</p>
+    <p class="muted center version">Version ${VERSION}</p>`;
 }

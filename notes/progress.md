@@ -89,7 +89,10 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## The talent, from the job board (latest)
+## Version in the help panel (latest)
+- `src/version.js` exports `VERSION` (0.11.0), shown at the foot of the help panel and in `getState().version`. package.json's version matches (tests/version.test.mjs). Bump both with each release to main.
+
+## The talent, from the job board
 - The pub is drawn when the job board comes up (`refreshPub` at the end of `nextJob` and in `newGame`; `state.townKey` = `board-<jobs>-<day>`), after the Inspector's and rivals' moves, so his plant is in it. Taking a job keeps those faces (`pubForJob`): stars seen on the board move to the job (`inTown`), the job's star roll is the board's (rate unchanged, ~18% of jobs), and job-specific arrivals are added (a specialist the job needs, the first-job teaser star, a pending plant). Asking around during planning still redraws it.
 - Job board: "🍺 The pub" and "🐾 Your crew" buttons open the pub and the little black book read-only (`currentScreen` allows pub/crew in the select phase); profiles say "Pick a job to hire".
 - Verified: tests/pub.test.mjs (same faces after taking a job, no hiring from the board, specialist arrives, a board star is hireable on the job), smoke 1p with real taps (board-pub, board-crew captures). 114 tests.

@@ -8,6 +8,7 @@ import { inspectorMoves, moFile } from './inspector.js';
 import { rivalsBetweenJobs, rivalsOf, ghostScene } from './rivals.js';
 import { genJob } from './heists.js';
 import { KIT } from './data.js';
+import { VERSION } from './version.js';
 import { SCREENS, currentScreen } from './ui.js';
 
 let gpuString = null;
@@ -59,6 +60,7 @@ export function snapshot(G) {
     heist: r ? { beat: G.ui.heist.i, beats: r.beats.length, playing: G.ui.heist.playing, alarm: r.beats[Math.min(G.ui.heist.i, r.beats.length - 1)].alarm, outcome: r.outcome } : null,
     after: s?.after ? { step: s.after.step, grade: s.after.grade?.letter ?? null, received: s.after.received, relations: s.after.relations } : null,
     over: s?.over ?? null,
+    version: VERSION,
     stats: s?.stats,
     frameMs: +G.stats.frameMs.toFixed(2),
     frames: G.stats.frames,

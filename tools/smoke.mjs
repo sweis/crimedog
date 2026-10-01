@@ -577,6 +577,10 @@ console.log('1m. Top bar: tap each stat for its pane; help from the title and th
   await tap(page, '.modal [data-act="close-modal"]');
   await tap(page, '.topbar [data-act="help"]');
   check(await page.locator('.modal details.help').count() >= 6, 'help opens from the top bar');
+  const ver = await page.evaluate(() => window.cd.getState().version);
+  check((await page.locator('.modal .version').innerText()) === `Version ${ver}`, `help shows the version (${ver})`);
+  await page.locator('.modal .version').evaluate((e) => e.scrollIntoView({ block: 'end' }));
+  await shot(page, 'help-version');
   await shot(page, 'help-topbar');
   // Nothing in the top bar spills off a small phone.
   await page.setViewportSize({ width: 360, height: 700 });
