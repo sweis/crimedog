@@ -279,6 +279,9 @@ p { margin: 0 0 8px; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
 .kit.locked { opacity: .7; }
 .nest { margin-bottom: 10px; }
+.talent-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.talent-row .btn { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; }
+.talent-row small { display: block; font-size: 12px; font-weight: 500; opacity: .85; }
 .nest .v { font-family: system-ui, sans-serif; font-weight: 700; font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .nest .row b { white-space: nowrap; }
 .nest .meter { margin: 8px 0 6px; }
