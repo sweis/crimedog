@@ -16,12 +16,15 @@ import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN } from './groups.js';
 
 export const SCREENS = ['title', 'intro', 'select', 'job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'heist', 'aftermath', 'over'];
-const PLAN_TABS = [
+// The bottom bar, on every page between and during planning. Between jobs the Job
+// tab is the job board, and the fixer (who works on a job) is shut.
+const TABS = [
   ['job', '🗺️', 'Job'],
   ['pub', '🍺', 'Pub'],
   ['crew', '🐾', 'Crew'],
   ['kit', '🧰', 'Kit'],
   ['fixer', '🤝', 'Fixer'],
+  ['players', '🎩', 'Players'],
 ];
 
 
@@ -39,8 +42,8 @@ export function currentScreen(G) {
   if (state.phase === 'heist') return 'heist';
   if (state.phase === 'aftermath') return 'aftermath';
   // From the job board you can look round the pub and your book before picking a job.
-  if (state.phase === 'select') return ['pub', 'crew'].includes(ui.screen) ? ui.screen : 'select';
-  return ['job', 'pub', 'crew', 'kit', 'fixer', 'plan'].includes(ui.screen) ? ui.screen : 'job';
+  if (state.phase === 'select') return ['pub', 'crew', 'kit', 'players'].includes(ui.screen) ? ui.screen : 'select';
+  return ['job', 'pub', 'crew', 'kit', 'fixer', 'plan', 'players'].includes(ui.screen) ? ui.screen : 'job';
 }
 
 export function render(G) {
@@ -53,7 +56,7 @@ export function render(G) {
   const app = document.getElementById('app');
   const body = SCREEN_RENDER[screen](G);
   const showTop = !['title', 'intro', 'heist'].includes(screen);
-  const showNav = G.state && G.state.phase === 'plan' && !['title', 'intro'].includes(screen);
+  const showNav = G.state && ['plan', 'select'].includes(G.state.phase) && !['title', 'intro'].includes(screen);
   app.innerHTML = (showTop ? topbar(G) : '') + `<main data-screen="${screen}">${body}</main>` + (showNav ? nav(G, screen) : '');
   app.dataset.screen = screen;
   renderModal(G);
@@ -74,9 +77,14 @@ function topbar(G) {
 
 function nav(G, screen) {
   const s = G.state;
-  return `<nav class="nav"><div class="nav-inner">${PLAN_TABS.map(([id, ico, label]) => {
-    const badge = id === 'crew' && s.crew.length ? `<span class="badge">${s.crew.length}</span>` : '';
-    return `<button data-act="go" data-to="${id}" class="${screen === id || (screen === 'plan' && id === 'job') ? 'on' : ''}"><span class="ico">${ico}</span>${badge}${label}</button>`;
+  const between = s.phase === 'select';
+  // Things that want your attention on the Players page: debts, and feuds you could patch up.
+  const owed = GROUP_IDS.filter((g) => s.groups[g].debt).length;
+  return `<nav class="nav"><div class="nav-inner">${TABS.map(([id, ico, label]) => {
+    const badge = id === 'crew' && s.crew.length ? `<span class="badge">${s.crew.length}</span>` : id === 'players' && owed ? `<span class="badge">${owed}</span>` : '';
+    const on = screen === id || (['plan', 'select'].includes(screen) && id === 'job');
+    const shut = between && id === 'fixer';
+    return `<button data-act="go" data-to="${id}" class="${on ? 'on' : ''}" ${shut ? 'disabled aria-label="The fixer: pick a job first"' : ''}><span class="ico">${ico}</span>${badge}${label}</button>`;
   }).join('')}</div></nav>`;
 }
 
@@ -181,15 +189,8 @@ function selectScreen(G) {
   const debts = GROUP_IDS.filter((g) => s.groups[g].debt);
   let h = `<div class="row spread"><h2>The Job Board</h2><button class="chip dark" data-act="pane" data-pane="day">📅 Day ${s.day}</button></div>`;
   h += nestEgg(s);
-  const book = E.bookDogs(s).filter((d) => d.status === 'free').length;
-  const inPub = s.pub.filter((id) => s.dogs[id]?.status === 'free').length;
-  const star = s.pub.some((id) => s.dogs[id]?.rarity && s.dogs[id].inTown === s.townKey);
-  h += `<div class="talent-row"><button class="btn ghost" data-act="go" data-to="pub">🍺 The pub <small>${inPub} about${star ? ' · ★ a star' : ''}</small></button><button class="btn ghost" data-act="go" data-to="crew">🐾 Your crew <small>${book} in the book</small></button></div>`;
-  for (const gid of debts) {
-    const d = s.groups[gid].debt;
-    h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${GROUPS[gid].emblem} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `⏳ ${count(d.patience, 'job')} left` : '⏳ Out of patience'}</div></div></div>
-      <button class="btn small mt" data-act="pay-debt" data-g="${gid}" ${s.cash >= d.amount ? '' : 'disabled'}>Pay ${money(d.amount)}</button></section>`;
-  }
+  // Debts have deadlines: a reminder here, the details on the Players page.
+  if (debts.length) h += `<button class="debt-note" data-act="go" data-to="players">📜 You owe ${debts.map((g) => `${GROUPS[g].emblem} ${money(s.groups[g].debt.amount)}`).join(', ')} <span>→ Players</span></button>`;
   for (const o of s.offers) {
     const job = o.job;
     const stars = '★'.repeat(job.tier) + '☆'.repeat(3 - job.tier);
@@ -207,18 +208,19 @@ function selectScreen(G) {
   }
   h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= 40 ? '' : 'disabled'}>🍻 Buy a round for fresh leads · £40</button>${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}</div>`;
   if (s.cash < 200 && canBorrow(s)) h += `<div class="btn-row mt"><button class="btn red" data-act="borrow">🌹 Borrow £${LOAN.amount} from the Family · owe £${LOAN.owe}</button></div>`;
-  const R = rivalsOf(s);
-  const known = Object.keys(RIVALS).filter((id) => R[id].met);
-  if (known.length) {
-    h += `<section class="card dark mt"><h2>The Competition</h2>`;
-    for (const id of known) {
-      const r = R[id];
-      const meter = id === 'ghost' ? `<div class="muted">Interest ${'◆'.repeat(Math.min(8, r.interest))}${'◇'.repeat(Math.max(0, 8 - r.interest))}</div>` : id === 'jacks' && r.status === 'active' ? `<div class="muted">Grudge ${'●'.repeat(Math.min(4, r.beef))}${'○'.repeat(Math.max(0, 4 - r.beef))}</div>` : '';
-      h += `<div class="player"><div class="boss-pic">${rivalFace(s, id, 44)}</div><div class="grow"><div class="row spread"><b>${RIVALS[id].emblem} ${esc(RIVALS[id].name)}</b><span class="chip ${r.status === 'joined' ? 'good' : r.status === 'active' ? 'bad' : ''}">${esc(rivalStatus(r, id))}</span></div><div class="muted">${esc(RIVALS[id].blurb)}</div>${meter}</div></div>`;
-    }
-    h += '</section>';
+  return h;
+}
+
+// ------------------------------------------------------------------ players & rivals
+function playersScreen(G) {
+  const s = G.state;
+  let h = '<h2>The Players</h2>';
+  for (const gid of GROUP_IDS.filter((g) => s.groups[g].debt)) {
+    const d = s.groups[gid].debt;
+    h += `<section class="card debt-card"><div class="row"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 56 })}</div><div class="grow"><b>You owe ${GROUPS[gid].emblem} ${money(d.amount)}</b><div class="muted">${d.patience > 0 ? `⏳ ${count(d.patience, 'job')} left` : '⏳ Out of patience'}</div></div></div>
+      <button class="btn small mt" data-act="pay-debt" data-g="${gid}" ${s.cash >= d.amount ? '' : 'disabled'}>Pay ${money(d.amount)}</button></section>`;
   }
-  h += `<section class="card dark mt"><h2>The Players</h2>`;
+  h += '<section class="card dark">';
   for (const gid of GROUP_IDS) {
     const Gp = GROUPS[gid];
     const g = s.groups[gid];
@@ -226,10 +228,28 @@ function selectScreen(G) {
     const rivals = Gp.rivals.length ? `⚔️ ${Gp.rivals.map((r) => GROUPS[r].emblem).join(' ')}` : '';
     const meta = [status, rivals, g.debt ? `📜 ${money(g.debt.amount)}` : ''].filter(Boolean).join(' · ');
     h += `<div class="player"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 44 })}</div><div class="grow"><div class="row spread"><b>${Gp.emblem} ${esc(Gp.name)}</b><span class="chip ${g.standing >= 20 ? 'good' : g.standing <= -20 ? 'bad' : ''}">${standingLabel(g.standing)}</span></div>
-      ${standingBar(g.standing)}${meta ? `<div class="muted">${meta}</div>` : ''}</div></div>`;
+      ${standingBar(g.standing)}${meta ? `<div class="muted">${meta}</div>` : ''}${amendsRow(G, gid)}</div></div>`;
   }
   h += '</section>';
-  return h;
+  const R = rivalsOf(s);
+  const known = Object.keys(R).filter((id) => R[id].met);
+  h += '<h2 class="mt">The Competition</h2>';
+  if (!known.length) return h + '<p class="muted">Nobody\'s noticed you yet. They will.</p>';
+  h += '<section class="card dark">';
+  for (const id of known) h += rivalRow(G, id);
+  return h + '</section>';
+}
+
+function rivalRow(G, id) {
+  const s = G.state;
+  const r = rivalsOf(s)[id];
+  const meter = id === 'ghost' ? `<div class="muted">Interest ${'◆'.repeat(Math.min(8, r.interest))}${'◇'.repeat(Math.max(0, 8 - r.interest))}</div>` : id === 'jacks' && r.status === 'active' ? `<div class="muted">Grudge ${'●'.repeat(Math.min(4, r.beef))}${'○'.repeat(Math.max(0, 4 - r.beef))}</div>` : '';
+  return `<div class="player"><div class="boss-pic">${rivalFace(s, id, 44)}</div><div class="grow"><div class="row spread"><b>${RIVALS[id].emblem} ${esc(RIVALS[id].name)}</b><span class="chip ${r.status === 'joined' ? 'good' : r.status === 'active' ? 'bad' : ''}">${esc(rivalStatus(r, id))}</span></div><div class="muted">${esc(RIVALS[id].blurb)}</div>${meter}</div></div>`;
+}
+
+// Filled in by the amends work.
+function amendsRow() {
+  return '';
 }
 
 // ------------------------------------------------------------------ job
@@ -356,16 +376,14 @@ function dogCard(G, d, opts = {}) {
 
 // Looking round from the job board: no hiring until you've picked a job.
 const browsing = (s) => s.phase === 'select';
-const boardBack = '<button class="btn ghost small" data-act="go" data-to="select">← The job board</button>';
 
 function pubScreen(G) {
   const s = G.state;
   const pub = s.pub.map((id) => s.dogs[id]).filter((d) => d.status === 'free');
   if (browsing(s)) {
-    return `<div class="row spread"><h2>The Dog &amp; Duck</h2>${boardBack}</div>
+    return `<h2>The Dog &amp; Duck</h2>
     <p class="muted">Who's about tonight. Pick a job to hire them; the job may bring in a specialist too.</p>
-    ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty.</p>'}
-    <div class="btn-row mt">${boardBack}</div>`;
+    ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty.</p>'}`;
   }
   const hf = hiringFor(G);
   if (hf) {
@@ -394,7 +412,7 @@ function crewScreen(G) {
   const pound = E.bookDogs(s).filter((d) => d.status === 'pound');
   const gone = Object.values(s.dogs).filter((d) => d.met && ['gone', 'farm'].includes(d.status));
   const head = browsing(s)
-    ? `<div class="row spread"><h2>Little Black Book</h2>${boardBack}</div><p class="muted">Everyone you know. Pick a job to hire them.</p>`
+    ? '<h2>Little Black Book</h2><p class="muted">Everyone you know. Pick a job to hire them.</p>'
     : `<h2>Your Crew <span class="muted">(${crew.length}/${E.MAX_CREW})</span></h2>
   ${crew.map((d) => dogCard(G, d)).join('') || '<p class="muted">Nobody yet. Head down the pub.</p>'}
   <h2 class="mt">Little Black Book</h2>`;
@@ -402,7 +420,7 @@ function crewScreen(G) {
   ${book.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">Empty. For now.</p>'}
   ${pound.length ? `<h2 class="mt">In the Pound</h2>${pound.map((d) => dogCard(G, d)).join('')}` : ''}
   ${gone.length ? `<h2 class="mt">Gone</h2>${gone.map((d) => dogCard(G, d)).join('')}` : ''}
-  <div class="btn-row mt">${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}${browsing(s) ? boardBack : ''}</div>`;
+  ${s.history.length ? `<div class="btn-row mt"><button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button></div>` : ''}`;
 }
 
 // Where a piece of special kit can be won: venues and kinds of job.
@@ -814,6 +832,7 @@ const SCREEN_RENDER = {
   pub: pubScreen,
   crew: crewScreen,
   kit: kitScreen,
+  players: playersScreen,
   fixer: fixerScreen,
   plan: planScreen,
   heist: heistScreen,

@@ -747,7 +747,8 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
   await shot(page, 'rival-ghost');
   await tap(page, '.modal.rival [data-act="drama"]');
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  check((await page.locator('main').innerText()).includes('The Competition'), 'the job board lists the competition');
+  await tap(page, '.nav [data-to="players"]');
+  check((await page.locator('main').innerText()).includes('The Competition'), 'the Players tab lists the competition');
   await page.locator('main h2', { hasText: 'The Competition' }).evaluate((e) => e.scrollIntoView({ block: 'start' }));
   await shot(page, 'rivals-board');
   // The ringer at the boxing club, with a calling card ticked by tap.
@@ -809,7 +810,7 @@ console.log('1o. Rivals, the boxing-club ringer, and retiring');
 }
 
 // ---------------------------------------------------------------- 1p. the talent, from the job board
-console.log('1p. Look round the pub and your book from the job board, then take a job');
+console.log('1p. The bottom bar between jobs: pub, crew, players, back to the board, then take a job');
 {
   const ctx = await browser.newContext(phone);
   const page = await ctx.newPage();
@@ -818,20 +819,24 @@ console.log('1p. Look round the pub and your book from the job board, then take 
   await page.goto(`${BASE}?hooks=1&seed=63`);
   await page.waitForFunction(() => window.cd);
   await page.evaluate(() => { window.cd.setSeed(63); window.cd.teleport('select'); });
-  await shot(page, 'board-talent-buttons');
-  await tap(page, 'main [data-act="go"][data-to="pub"]');
+  check(await page.locator('.nav button').count() === 6 && await page.locator('.nav [data-to="job"].on').count() === 1, 'the bottom bar is on the job board, on the Job tab');
+  check(await page.locator('.nav [data-to="fixer"]:disabled').count() === 1, 'the fixer is shut until you pick a job');
+  await shot(page, 'board-nav');
+  await tap(page, '.nav [data-to="pub"]');
   const seen = await page.evaluate(() => [...document.querySelectorAll('main .dog-card')].map((e) => e.dataset.id));
   check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'pub' && seen.length >= 4, `the pub from the job board (${seen.length} about)`);
   await shot(page, 'board-pub');
   await tap(page, 'main .dog-card');
   check(await page.locator('.modal [data-act="hire"]').count() === 0 && (await page.locator('.modal').innerText()).includes('Pick a job to hire'), 'no hiring before a job');
   await tap(page, '.modal [data-act="close-modal"]');
-  await tap(page, 'main [data-act="go"][data-to="select"]');
-  await tap(page, 'main [data-act="go"][data-to="crew"]');
+  await tap(page, '.nav [data-to="crew"]');
   check((await page.locator('main').innerText()).includes('Little Black Book') && await page.locator('main .dog-card').count() >= 1, 'your book from the job board');
   await shot(page, 'board-crew');
-  await tap(page, 'main [data-act="go"][data-to="select"]');
-  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'select', 'back to the job board');
+  await tap(page, '.nav [data-to="players"]');
+  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'players' && (await page.locator('main').innerText()).includes('The Bulldog Firm'), 'the Players tab lists the outfits');
+  await shot(page, 'players-tab');
+  await tap(page, '.nav [data-to="job"]');
+  check(await page.evaluate(() => document.querySelector('main').dataset.screen) === 'select', 'the Job tab is the job board');
   // Take a job: the faces you saw are still in the pub.
   await tap(page, 'main [data-act="take-offer"]');
   const pub = await page.evaluate(() => window.cd.live().pub);
