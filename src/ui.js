@@ -159,6 +159,7 @@ function selectScreen(G) {
     const pic = o.source === 'own' ? '<div class="boss-pic own">🔎</div>' : `<div class="boss-pic">${portraitSVG(bossDog(o.source), { size: 48 })}</div>`;
     const whoName = o.source === 'own' ? 'Your own lead' : `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}`;
     h += `<section class="card offer ${o.kind === 'marker' ? 'marker' : ''}" data-offer="${o.id}">
+      ${venueSVG(job, { compact: true })}
       <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
