@@ -23,7 +23,8 @@
 | `src/main.js` | Boot, save/load (localStorage, try/catch), input routing, fixed-step frame loop |
 | `src/debug.js` | `window.cd` hooks + overlay |
 | `src/art.js` | Seeded SVG scenery: night-time facades per venue type (job board) and the title skyline |
-| `src/card.js` | Shareable character card (SVG → PNG, Web Share API or download) |
+| `src/career.js` | Career summary (`careerOf`): nest egg, rep, heat, the record (with arrest/runner/lost/hospital counters, seeded from the rap sheet for old saves), best/worst job, closest mate, biggest enemy |
+| `src/card.js` | Share cards: the crew profile card captured from the game's own HTML (html2canvas, vendored in `src/vendor/`, loaded on first share), and the heist recap card (SVG → PNG); Web Share API or save |
 
 All randomness goes through a seeded RNG stored in the save, so a seed + inputs replays identically.
 
@@ -88,6 +89,17 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Chrome: self-hosted fonts in `assets/fonts/` (Alfa Slab One display, Roboto Slab headings, Libre Baskerville italic quotes, UnifrakturMaguntia masthead; OFL/Apache licences alongside), paper grain + rain textures as inline SVG, bevelled brass/red buttons, deeper card shadows, lit nav tab.
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
+
+## Career card (latest, 0.15.0)
+- 📇 **Your career card** (rap sheet, bottom of the Players tab; and in place of the old summary on the game-over screen): the Guv'nor, status (still at large / retired / banged up / washed up / skint), nest egg toward £100,000, reputation (with generosity and soft/hard), the Inspector's heat, the record (pulled off, flops, perfect, arrests, runners, hospital, lost on jobs, farmed, earned), best and worst job, closest mate, biggest enemy. 📸 shares the same card as a PNG (`careerPNG`, same html2canvas path as the profile card).
+- New counters in `state.stats`: `arrests`, `runners`, `lost`, `hospital` (`career.bump` in `engine.resolveHeist`); farming a found runner now counts in `farmed`.
+- Biggest enemy: the worst of hostile outfits (standing ≤ −20, worse with a debt), loose runners, and the Jack Russells / Dandy Dan by grudge. The Grey Ghost never counts.
+- Verified: `tests/career.test.mjs` (fresh game, 40 careers' records add up and match the rap sheet, old-save fallback, enemy choice); smoke opens it from the rap sheet with real taps and checks the 780px PNG; captures `career-card.png`, `career-card-share.png`, `career-card-png.png`; game-over screen checked by eye on a washed-up career. Not checked on a real phone's share sheet.
+
+## Share card is the profile card (0.14.2)
+- 📸 Share on a crew member now captures the in-game profile card itself (`profileHTML` in ui.js, shared by the profile sheet and the card) instead of a separate poster layout. It's rendered off-screen at 390px with the game's CSS and captured at 2x (780px PNG) by html2canvas 1.4.1 (MIT, `src/vendor/`, loaded on first share). A one-line CRIMEDOG footer is added under it.
+- html2canvas draws inset box-shadows as hard bands and drops spread rings, so `.share-card` swaps those for borders (pips, chips, the rare/legendary portrait ring).
+- Verified: smoke checks the PNG is 780px wide; capture `share-card-png.png` compared by eye against the live profile sheet. Not verified on a real iPhone/Android share sheet.
 
 ## Grey Ghost audition fix (0.14.1)
 - The audition ("an A or better, and not a single alarm") failed whenever the alarm meter moved at all (peak ≥ 1/10), even if the alarm never went off: players saw S grades with no alarm fail. Now it fails only if the alarm actually rang (an `alarm` beat: the bell, a silent alarm, sirens or a setup) or the grade is below A. The failure note says which, and the Players tab spells out the audition terms.

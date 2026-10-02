@@ -72,9 +72,10 @@ function reputeBlock(s) {
 }
 
 const REP_WORDS = [[80, 'A legend'], [60, 'Feared'], [45, 'Respected'], [30, 'Known'], [15, 'Small-time'], [0, 'Nobody']];
+export const repWord = (rep) => REP_WORDS.find(([min]) => rep >= min)[1];
 function repPane(s) {
   const t = s.timeline || [];
-  const word = REP_WORDS.find(([min]) => s.rep >= min)[1];
+  const word = repWord(s.rep);
   const unlocks = [
     ...Object.values(GROUPS).map((g) => [g.minRep, `${g.emblem} ${g.name} offer work`]),
     [RARITY.legendary.minRep, '★★ Legendary crew will work for you'],

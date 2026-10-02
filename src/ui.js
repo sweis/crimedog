@@ -8,7 +8,9 @@ import { visibleStages, lootItem, intelLabel } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
 import { canShareFiles, FATES } from './card.js';
 import { ARCS, sceneChoices } from './drama.js';
-import { helpModal, paneModal } from './panes.js';
+import { helpModal, paneModal, repWord } from './panes.js';
+import { careerOf } from './career.js';
+import { generosityOf, hardnessOf, generosityLabel, hardnessLabel } from './repute.js';
 import { INSPECTOR, inspectorChoices, moPenalty } from './inspector.js';
 import { RETIRE } from './retire.js';
 import { recordOf, recordLabel, minSentence, briefCost, INJURIES } from './justice.js';
@@ -231,12 +233,13 @@ function playersScreen(G) {
   const known = Object.keys(R).filter((id) => R[id].met);
   const runners = runnersList(s).filter((r) => s.dogs[r.dog]);
   h += '<h2 class="mt">The Competition</h2>';
-  if (!known.length && !runners.length) return h + '<p class="muted">Nobody\'s noticed you yet. They will.</p>';
+  const card = '<div class="btn-row mt"><button class="btn ghost" data-act="career">📇 Your career card</button></div>';
+  if (!known.length && !runners.length) return `${h}<p class="muted">Nobody's noticed you yet. They will.</p>${card}`;
   h += '<section class="card dark">';
   for (const id of known) h += rivalRow(G, id);
   // Crew who did a runner: rivals now, and yours to deal with.
   for (const r of runners.sort((a, b) => runnerLoose(b) - runnerLoose(a))) h += runnerRow(G, r);
-  return h + '</section>';
+  return `${h}</section>${card}`;
 }
 
 function runnerRow(G, r) {
@@ -836,8 +839,9 @@ function overScreen(G) {
     <h1 class="title-logo" style="font-size:38px">${esc(t.title)}</h1>
     <p>${esc(t.text)}</p>
     ${retired ? `<section class="card epilogues" style="width:100%;text-align:left"><h2>Where They Ended Up</h2>${(s.over.epilogues || []).map((e) => epilogueCard(s, e)).join('')}</section>` : ''}
-    <section class="card" style="width:100%;text-align:left"><h2>Your Career</h2>
-    <p>${s.stats.jobs} jobs · ${s.stats.perfect} perfect · ${money(s.stats.earned)} earned · ${s.day} days</p>
+    <section class="card" style="width:100%;text-align:left">${careerHTML(G)}
+    <div class="btn-row mt"><button class="btn" data-act="share-career">📸 Share your career</button></div></section>
+    <section class="card" style="width:100%;text-align:left"><h2>Rap Sheet</h2>
     <div class="rap-list">${s.history.map((h, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(h.grade)}<div class="grow"><b>${esc(h.name)}</b></div><span class="v">${money(h.take || 0)}</span></button>`).join('')}</div></section>
     <div class="title-actions"><button class="btn big block" data-act="new-game">New Game</button></div>
   </section>`;
@@ -917,20 +921,18 @@ function renderModal(G) {
   else if (m.type === 'pick') inner = pickModal(G, m.purpose);
   else if (m.type === 'card') inner = cardModal(G);
   else if (m.type === 'history') inner = historyModal(G);
+  else if (m.type === 'career') inner = careerModal(G);
   else if (m.type === 'help') inner = helpModal();
   else if (m.type === 'pane') inner = paneModal(G, m.pane);
   else if (m.type === 'recap') inner = recapModal(G, m.i);
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
 
-// Compact profile: sized to fit a phone screen, with actions pinned to the
-// bottom of the sheet so they're always reachable.
-function dogModal(G, d) {
+// The profile card: what you know about a crew member. The same card is the
+// profile sheet in the game and the picture you share (card.js).
+export function profileHTML(G, d) {
   const s = G.state;
-  if (!d) return '';
   const b = BREEDS[d.breed];
-  const inCrew = s.crew.includes(d.id);
-  const planning = s.phase === 'plan';
   const skills = SKILLS.map((sk) => `<div class="skill"><span class="lbl">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}</span>${pips(skillOf(d, sk), d.known.skills[sk])}</div>`).join('');
   const knownT = d.talents.filter((t) => d.known.talents.includes(t));
   const unknownT = d.talents.length - knownT.length;
@@ -949,6 +951,23 @@ function dogModal(G, d) {
     + (arc ? `<span class="chip info">📖 ${esc(ARCS[arc.kind].title)}</span>` : '') + dramaChips(d).join('');
   const where = d.status === 'pound' ? `in the pound (${d.sentence})` : d.status === 'hospital' ? `in hospital (${d.hospital.jobs})` : d.status === 'crew' ? 'on your crew' : d.status;
   const record = (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
+  return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
+    <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
+    <div class="dm-sub">${[b.label, relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map(esc).join(' · ')}</div></div></div>
+    <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
+    <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
+    <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
+    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}<div class="dm-trait" title="${esc(recordLabel(d))}"><span>Record</span><b class="${recordOf(d) >= 3 ? 'bad' : ''}">${recordOf(d) ? `${recordOf(d)} prev.` : 'Clean'}</b></div></div>
+    <div class="dm-chips">${undercover}${record}${quirks}</div>`;
+}
+
+// Compact profile: sized to fit a phone screen, with actions pinned to the
+// bottom of the sheet so they're always reachable.
+function dogModal(G, d) {
+  const s = G.state;
+  if (!d) return '';
+  const inCrew = s.crew.includes(d.id);
+  const planning = s.phase === 'plan';
 
   // Actions: one primary, then compact secondaries.
   const primary = [];
@@ -975,14 +994,7 @@ function dogModal(G, d) {
     actions = `${primary.length ? `<div class="dm-row">${primary.join('')}</div>` : ''}<div class="dm-row minor">${minor.join('')}</div>`;
   }
 
-  return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitSVG(d, { size: 84 })}</div>
-    <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-    <div class="dm-sub">${[b.label, relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map(esc).join(' · ')}</div></div></div>
-    <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
-    <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
-    <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
-    <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}<div class="dm-trait" title="${esc(recordLabel(d))}"><span>Record</span><b class="${recordOf(d) >= 3 ? 'bad' : ''}">${recordOf(d) ? `${recordOf(d)} prev.` : 'Clean'}</b></div></div>
-    <div class="dm-chips">${undercover}${record}${quirks}</div>
+  return `${profileHTML(G, d)}
     <div class="dm-actions">${actions}</div>`;
 }
 
@@ -995,6 +1007,46 @@ function cardModal(G) {
     <div class="btn-row">${canShareFiles() ? '<button class="btn" data-act="share-native">📤 Share</button>' : ''}<a class="btn ghost" href="${c.url}" download="${esc(c.file)}">💾 Save</a></div>`;
 }
 
+// ------------------------------------------------------------------ the career card
+// The mastermind's career at a glance. Like the profile card, the card you see
+// is the card you share (card.careerPNG captures this same HTML).
+export function careerHTML(G) {
+  const s = G.state;
+  const c = careerOf(s);
+  const R = c.record;
+  const meter = (v, max, cls) => `<div class="meter ${cls}" role="meter" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${v}"><i style="width:${Math.max(0, Math.min(100, (100 * v) / max))}%"></i></div>`;
+  const stat = (label, v, cls = '') => `<div class="tile"><span>${label}</span><b class="${v && cls ? cls : ''}">${v}</b></div>`;
+  const job = (label, h) => (h ? `<div class="cr-row"><span class="cr-label">${label}</span>${gradeBadge(h.grade)}<div class="grow"><b>${esc(h.name)}</b><div class="muted">${JOB_TYPES[h.type]?.icon || '🔓'} ${esc(h.venue)} · Day ${h.day}</div></div><span class="v">${money(h.take || 0)}</span></div>` : '');
+  const who = (label, face, name, sub) => `<div class="cr-row"><span class="cr-label">${label}</span><div class="boss-pic sm">${face}</div><div class="grow"><b>${esc(name)}</b><div class="muted">${esc(sub)}</div></div></div>`;
+  const e = c.enemy;
+  const enemyFace = !e ? '' : e.kind === 'group' ? portraitSVG(bossDog(e.id), { size: 40 }) : e.kind === 'runner' ? portraitSVG(s.dogs[e.id], { size: 40 }) : rivalFace(s, e.id, 40);
+  const heatCls = c.heat >= 60 ? 'serious' : c.heat >= 25 ? 'warning' : 'good';
+  return `<div class="career">
+    <div class="dm-head"><div class="portrait-big">${portraitSVG(GUVNOR, { size: 84 })}</div>
+      <div class="grow"><h2 class="dm-name">The Guv'nor</h2><div class="faction">${esc(c.status)}</div>
+      <div class="dm-sub">Day ${c.day} · ${count(R.jobs, 'job')} pulled</div></div></div>
+    <h3 class="dm-h">🏝️ The nest egg · ${c.nest.pct}%</h3>
+    <div class="cr-fig"><b>${money(c.nest.cash)}</b> <span class="muted">of ${money(c.nest.goal)} to retire</span></div>
+    ${meter(Math.max(0, c.nest.cash), c.nest.goal, c.nest.pct >= 100 ? 'good' : 'warning')}
+    <div class="tiles two cr-gauges">
+      <div class="tile"><span>⭐ Reputation</span><b>${c.rep} · ${esc(repWord(c.rep))}</b>${meter(c.rep, 100, c.rep >= 45 ? 'good' : c.rep >= 15 ? 'warning' : 'serious')}<small>${esc(generosityLabel(generosityOf(s)))} · ${esc(hardnessLabel(hardnessOf(s)))}</small></div>
+      <div class="tile"><span>🕵️ ${esc(INSPECTOR.name)}</span><b>${c.heat}/100</b>${meter(c.heat, 100, heatCls)}<small>${esc(E.inspectorLabel(c.heat))}</small></div>
+    </div>
+    <h3 class="dm-h">The record</h3>
+    <div class="tiles cr-stats">${stat('✅ Pulled off', R.success)}${stat('❌ Flops', R.failed, 'bad')}${stat('🌟 Perfect', R.perfect)}
+      ${stat('🚓 Arrests', R.arrests, 'bad')}${stat('💨 Runners', R.runners, 'bad')}${stat('🏥 Hospital', R.hospital, 'bad')}
+      ${stat('🌾 Lost on jobs', R.lost, 'bad')}${stat('🚜 Farmed', R.farmed, 'bad')}${stat('💷 Earned', R.earned >= 10000 ? `£${Math.round(R.earned / 1000)}k` : money(R.earned))}</div>
+    ${c.best ? `<h3 class="dm-h">Best and worst</h3>${job('🏆', c.best)}${job('🤦', c.worst)}` : ''}
+    <h3 class="dm-h">Friends and enemies</h3>
+    ${c.closest ? who('🤝', portraitSVG(s.dogs[c.closest.dog], { size: 40 }), c.closest.name, `${c.closest.relation} · ${count(c.closest.jobs, 'job')} together`) : '<p class="muted">No close mates yet.</p>'}
+    ${e ? who('⚔️', enemyFace, `${e.emblem} ${e.name}`, e.why) : '<p class="muted">No enemies yet. Give it time.</p>'}
+  </div>`;
+}
+
+function careerModal(G) {
+  return `${careerHTML(G)}<div class="btn-row mt"><button class="btn" data-act="share-career">📸 Share your career</button></div>`;
+}
+
 // ------------------------------------------------------------------ heist history
 const FATE_ICON = { away: '🏃', nicked: '🚓', farm: '🚜', ran: '💨', copper: '👮' };
 const gradeBadge = (g) => `<span class="gbadge g${g}">${g}</span>`;
@@ -1002,7 +1054,7 @@ const gradeBadge = (g) => `<span class="gbadge g${g}">${g}</span>`;
 function historyModal(G) {
   const h = G.state.history;
   if (!h.length) return '<h2>Rap Sheet</h2><p class="muted">No jobs yet. Go and make some history.</p>';
-  return `<h2>Rap Sheet</h2><p class="muted">${count(h.length, 'job')} · tap one for the story</p><div class="rap-list">${h.map((r, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(r.grade)}<div class="grow"><b>${esc(r.name)}</b><div class="muted">${JOB_TYPES[r.type]?.icon || '🔓'} ${esc(r.venue)} · Day ${r.day}</div></div><span class="v">${money(r.take || 0)}</span></button>`).join('')}</div>`;
+  return `<h2>Rap Sheet</h2><button class="btn ghost block" data-act="career">📇 Your career card</button><p class="muted">${count(h.length, 'job')} · tap one for the story</p><div class="rap-list">${h.map((r, i) => `<button class="rap" data-act="recap" data-i="${i}">${gradeBadge(r.grade)}<div class="grow"><b>${esc(r.name)}</b><div class="muted">${JOB_TYPES[r.type]?.icon || '🔓'} ${esc(r.venue)} · Day ${r.day}</div></div><span class="v">${money(r.take || 0)}</span></button>`).join('')}</div>`;
 }
 
 function recapModal(G, i) {

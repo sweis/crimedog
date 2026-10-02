@@ -139,6 +139,7 @@ const EFFECTS = {
     r.ended = 'farm';
     d.status = 'farm';
     d.farmedBy = 'you';
+    state.stats.farmed = (state.stats.farmed || 0) + 1;
     addHardness(state, 12);
     addRep(state, 2);
     const back = Math.round((r.value * 0.5) / 10) * 10;

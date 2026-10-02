@@ -1,8 +1,8 @@
 // Boot, save/load, input routing and the frame loop.
 import * as E from './engine.js';
-import { render, currentScreen, hiringFor } from './ui.js';
+import { render, currentScreen, hiringFor, profileHTML, careerHTML } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
-import { cardPNG, recapPNG, shareBlob } from './card.js';
+import { cardPNG, careerPNG, recapPNG, shareBlob } from './card.js';
 
 const SAVE_KEY = 'crimedog.save.v2';
 const params = new URLSearchParams(location.search);
@@ -245,7 +245,12 @@ const A = {
     run(E.farm, id);
   },
   async 'share'(el) {
-    await showCard(() => cardPNG(G.state.dogs[el.dataset.id]));
+    const d = G.state.dogs[el.dataset.id];
+    await showCard(() => cardPNG(d, profileHTML(G, d)));
+  },
+  'career'() { G.ui.modal = { type: 'career' }; G.render(); },
+  async 'share-career'() {
+    await showCard(() => careerPNG(G.state, careerHTML(G)));
   },
   async 'share-recap'(el) {
     await showCard(() => recapPNG(G.state.history[Number(el.dataset.i)]));

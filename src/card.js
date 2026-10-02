@@ -1,7 +1,8 @@
-// Shareable "wanted poster" snapshot of a crew member, rendered as SVG then
-// rasterised to PNG for the Web Share API (or a download fallback).
-import { BREEDS, FACTIONS, SKILL_INFO, TALENTS, QUIRKS, RARITY, SIGNATURES, JOB_TYPES } from './data.js';
-import { portraitSVG, displayName, relationLabel, topSkills } from './dogs.js';
+// Shareable snapshots: a crew member's profile card (captured from the game's
+// own HTML) and a heist recap (drawn as SVG), as PNGs for the Web Share API
+// (or a save fallback).
+import { JOB_TYPES } from './data.js';
+import { portraitSVG, displayName } from './dogs.js';
 import { esc, money } from './util.js';
 
 
@@ -14,47 +15,6 @@ function wrap(text, max) {
   }
   if (cur) lines.push(cur);
   return lines;
-}
-
-function cardSVG(dog) {
-  const W = 600, H = 860;
-  const b = BREEDS[dog.breed];
-  const known = topSkills(dog, 10).filter(([s]) => dog.known.skills[s]);
-  const specialty = known.length ? `${SKILL_INFO[known[0][0]].label} ${known[0][1]}` : 'Unknown';
-  const portrait = portraitSVG(dog, { size: 300, bg: '#e9dcc3' }).replace('<svg ', '<svg x="150" y="118" ');
-  const nameLines = wrap(displayName(dog), 26);
-  let y = 470;
-  let t = '';
-  for (const l of nameLines) { t += `<text x="300" y="${y}" text-anchor="middle" font-size="34" font-weight="900" font-family="Georgia,serif" fill="#1d1b22">${esc(l)}</text>`; y += 40; }
-  t += `<text x="300" y="${y}" text-anchor="middle" font-size="20" fill="#5a5347" font-family="system-ui,sans-serif">${esc(b.label)} · ${esc(FACTIONS[dog.faction].label)}</text>`;
-  y += 44;
-  const row = (label, value) => {
-    const s = `<text x="60" y="${y}" font-size="19" font-family="system-ui,sans-serif" fill="#5a5347">${esc(label)}</text><text x="540" y="${y}" text-anchor="end" font-size="19" font-weight="700" font-family="system-ui,sans-serif" fill="#1d1b22">${esc(value)}</text><line x1="60" x2="540" y1="${y + 12}" y2="${y + 12}" stroke="#cdbb95" stroke-dasharray="4 4"/>`;
-    y += 40;
-    return s;
-  };
-  t += row('Specialty', specialty);
-  t += row('Relationship', relationLabel(dog));
-  t += row('Jobs together', String(dog.jobs));
-  const talents = dog.known.talents.map((x) => TALENTS[x]?.name).filter(Boolean);
-  const quirks = dog.known.quirks.map((x) => QUIRKS[x]?.name).filter(Boolean);
-  t += row('Known for', talents.slice(0, 2).join(', ') || quirks[0] || '???');
-  y += 6;
-  // Stars get a ribbon across the foot of the portrait and a matching frame.
-  const frame = dog.rarity === 'legendary' ? '#d6a93b' : dog.rarity === 'rare' ? '#6fa8dc' : '#d6a93b';
-  const ribbon = dog.rarity ? `<rect x="70" y="388" width="460" height="40" rx="8" fill="${frame}" stroke="#1d1b22" stroke-width="2"/><text x="300" y="414" text-anchor="middle" font-size="17" font-weight="900" letter-spacing="1" font-family="system-ui,sans-serif" fill="#1d1b22">${esc(`${RARITY[dog.rarity].icon} ${RARITY[dog.rarity].label.toUpperCase()}${dog.signature ? ` · ${SIGNATURES[dog.signature].name.toUpperCase()}` : ''}`)}</text>` : '';
-  for (const l of wrap(`"${dog.catchphrase}"`, 40)) { t += `<text x="300" y="${y}" text-anchor="middle" font-size="21" font-style="italic" font-family="Georgia,serif" fill="#1d1b22">${esc(l)}</text>`; y += 28; }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <rect width="${W}" height="${H}" fill="#101a30"/>
-  <rect x="20" y="20" width="${W - 40}" height="${H - 40}" rx="22" fill="#f4ead3"/>
-  <rect x="34" y="34" width="${W - 68}" height="${H - 68}" rx="16" fill="none" stroke="${frame}" stroke-width="${dog.rarity ? 8 : 4}"/>
-  <text x="300" y="92" text-anchor="middle" font-size="44" font-weight="900" letter-spacing="6" font-family="Georgia,serif" fill="#a57e1f">CRIMEDOG</text>
-  ${portrait}
-  <rect x="150" y="118" width="300" height="300" fill="none" stroke="#1d1b22" stroke-width="3" rx="14"/>
-  ${ribbon}
-  ${t}
-  <text x="300" y="${H - 50}" text-anchor="middle" font-size="16" fill="#5a5347" font-family="system-ui,sans-serif">A heist game. For dogs.</text>
-  </svg>`;
 }
 
 // How each crew member's night ended, for the recap card.
@@ -146,13 +106,55 @@ async function svgPNG(svg) {
   }
 }
 
+// html2canvas draws the page's own HTML and CSS onto a canvas. Loaded the first
+// time someone shares a card, not on boot.
+let h2c = null;
+function loadHtml2canvas() {
+  if (window.html2canvas) return Promise.resolve(window.html2canvas);
+  return (h2c ||= new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = new URL('./vendor/html2canvas.min.js', import.meta.url).href;
+    el.onload = () => res(window.html2canvas);
+    el.onerror = () => { h2c = null; rej(new Error('html2canvas failed to load')); };
+    document.head.appendChild(el);
+  }));
+}
+
+export const CARD_WIDTH = 390;
+
+// Picture the profile card exactly as it looks in the game: render the same
+// HTML off-screen at phone width, then capture it at 2x.
+async function htmlPNG(html) {
+  const el = document.createElement('div');
+  el.className = 'modal share-card';
+  el.innerHTML = `${html}<div class="share-mark"><b>CRIMEDOG</b> · A heist game. For dogs.</div>`;
+  document.body.appendChild(el);
+  try {
+    const [render] = await Promise.all([loadHtml2canvas(), document.fonts?.ready]);
+    const canvas = await render(el, { scale: 2, backgroundColor: null, logging: false, useCORS: true });
+    return await new Promise((res) => canvas.toBlob(res, 'image/png'));
+  } finally {
+    el.remove();
+  }
+}
+
 // A crew member's card: the image plus what to call it when shared.
-export async function cardPNG(dog) {
+export async function cardPNG(dog, html) {
   return {
-    blob: await svgPNG(cardSVG(dog)),
+    blob: await htmlPNG(html),
     file: `crimedog-${dog.first.toLowerCase()}.png`,
     title: displayName(dog),
     text: `${displayName(dog)}: "${dog.catchphrase}" #Crimedog`,
+  };
+}
+
+// The mastermind's career card: the same HTML as the one in the game.
+export async function careerPNG(state, html) {
+  return {
+    blob: await htmlPNG(html),
+    file: `crimedog-career-day-${state.day}.png`,
+    title: 'Your career',
+    text: `${state.stats.jobs} jobs, £${Math.round(state.cash).toLocaleString('en-GB')} put away, and the Inspector still hasn't caught me. #Crimedog`,
   };
 }
 

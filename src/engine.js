@@ -7,6 +7,7 @@ import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor,
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
+import { bump } from './career.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs } from './drama.js';
@@ -38,7 +39,7 @@ export function newGame(seed = Date.now() % 1e9, name = 'The Guv\'nor') {
     pub: [],
     crew: [],
     kit: { squeaky: 1 },
-    stats: { jobs: 0, perfect: 0, earned: 0, busts: 0, farmed: 0 },
+    stats: { jobs: 0, perfect: 0, earned: 0, busts: 0, farmed: 0, arrests: 0, runners: 0, lost: 0, hospital: 0 },
     history: [],
     news: [],
     nextId: 1,
@@ -666,6 +667,10 @@ export function resolveHeist(state) {
       improved.push({ id, role: d.role.kind });
     }
   }
+  bump(state, 'arrests', r.captured.length);
+  bump(state, 'runners', r.runners.length);
+  bump(state, 'lost', (r.lost || []).length);
+  bump(state, 'hospital', (r.hurt || []).length);
   for (const c of r.captured) {
     const d = state.dogs[c.id];
     sendDown(d, c.sentence);
