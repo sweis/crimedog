@@ -65,7 +65,7 @@ function reputeBlock(s) {
   return `<div class="tiles two"><div class="tile"><span>Track record</span><b>${s.rep - bonus}</b></div><div class="tile"><span>Generosity</span><b>${sign(bonus)}</b></div></div>
     <h3 class="dm-h">Generosity · ${generosityLabel(g)}</h3>
     <div class="meter ${g >= 45 ? 'good' : g >= 25 ? 'warning' : 'serious'}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${g}"><i style="width:${g}%"></i></div>
-    <p class="muted">How much of the take you share. It counts towards your reputation.</p>
+    <p class="muted">How much of the take you share.</p>
     <h3 class="dm-h">Soft or hard · ${hardnessLabel(h)}</h3>
     <div class="dial" role="meter" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="${h}"><span>Soft</span><div class="dial-track"><i style="left:${(h + 100) / 2}%"></i></div><span>Hard</span></div>
     <p class="muted">Doesn't count towards the score. ${effect}</p>`;
@@ -81,7 +81,6 @@ function repPane(s) {
     [RARITY.legendary.minRep, '★★ Legendary crew will work for you'],
     [60, '★★★ Bigger jobs'],
   ].sort((a, b) => a[0] - b[0]);
-  const changes = t.slice(1).map((p, i) => ({ label: p.label, d: p.rep - t[i].rep })).reverse().slice(0, 6);
   return `<h2>⭐ Reputation</h2>
     <div class="hero-fig">${s.rep}<small>/100 · ${word}</small></div>
     ${reputeBlock(s)}
@@ -89,7 +88,6 @@ function repPane(s) {
     <h3 class="dm-h">What it opens up</h3>
     <ul class="ledger">${unlocks.map(([min, what]) => `<li><span>${s.rep >= min ? '✅' : '🔒'} ${esc(what)}</span><b>${min}+</b></li>`).join('')}
       <li><span>🌟 Chance a star's in the pub</span><b>${Math.round(starChance(s.rep) * 100)}%</b></li></ul>
-    ${changes.length ? `<h3 class="dm-h">Lately</h3><ul class="ledger">${changes.map((c) => `<li><span>${esc(c.label)}</span><b class="${c.d < 0 ? 'out' : 'in'}">${c.d >= 0 ? '+' : '−'}${Math.abs(c.d)}</b></li>`).join('')}</ul>` : ''}
     <p class="muted">Good grades and a fair cut raise it; flops, walking away, stiffing the crew and farming real crooks lower it. At 0, nobody will work for you.</p>`;
 }
 
@@ -104,7 +102,6 @@ const HEAT_LEVELS = [
 function heatPane(s) {
   const t = s.timeline || [];
   const sev = s.heat >= 60 ? 'serious' : s.heat >= 25 ? 'warning' : 'good';
-  const changes = t.slice(1).map((p, i) => ({ label: p.label, d: p.heat - t[i].heat })).reverse().slice(0, 6);
   const file = moFile(s);
   const moves = (s.inspector?.moves || []).filter((m) => MOVE_LABELS[m.move]).slice(0, 6);
   return `<h2>🕵️ ${esc(INSPECTOR.name)}</h2>
@@ -117,8 +114,7 @@ function heatPane(s) {
     ${file.length ? `<ul class="ledger">${file.map((f) => `<li><span>📁 ${esc(APPROACHES[f.ap].label)}</span><b class="out">+${f.pen}</b></li>`).join('')}</ul><p class="muted">Security has been briefed on these. Mix it up and the file goes stale.</p>` : '<p class="muted">Nothing on your methods yet. Vary your tricks and keep it that way.</p>'}
     ${moves.length ? `<h3 class="dm-h">His moves</h3><ul class="news">${moves.map((m) => `<li><b>Day ${m.day}</b> ${esc(MOVE_LABELS[m.move])}</li>`).join('')}</ul>` : ''}
     <h3 class="dm-h">Cooling off</h3>
-    <p class="muted">Clues, alarms, the Old Bill turning up and crew who talk all add heat. It cools a little after every job; lying low (the fixer), a safehouse and fake IDs help.</p>
-    ${changes.length ? `<h3 class="dm-h">Lately</h3><ul class="ledger">${changes.map((c) => `<li><span>${esc(c.label)}</span><b class="${c.d > 0 ? 'out' : 'in'}">${c.d >= 0 ? '+' : '−'}${Math.abs(c.d)}</b></li>`).join('')}</ul>` : ''}`;
+    <p class="muted">Clues, alarms, the Old Bill turning up and crew who talk all add heat. It cools a little after every job; lying low (the fixer), a safehouse and fake IDs help.</p>`;
 }
 
 function dayPane(s) {

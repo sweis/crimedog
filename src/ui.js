@@ -162,18 +162,19 @@ function dealTerms(G, job) {
   return chips.join('');
 }
 
-// What kind of job it is, and what it'll take.
-function jobTraits(job) {
+// What kind of job it is, and what it'll take. The job screen spells out the
+// twist and the prize elsewhere, so it leaves those chips off.
+function jobTraits(job, { twist = true, prize = true } = {}) {
   const T = JOB_TYPES[job.type || 'breakin'];
   const chips = [`<span class="chip dark">${T.icon} ${esc(T.label)}</span>`];
   const sp = job.stages.find((st) => st.needs);
   if (sp) chips.push(`<span class="chip warn">${SKILL_INFO[sp.needs.skill].icon} ${SKILL_INFO[sp.needs.skill].label} ${sp.needs.min}+</span>`);
   if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
   if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
-  if (job.prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
+  if (job.prize && prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
   if (job.rivalCrew) chips.push(`<span class="chip bad">${RIVALS[job.rivalCrew].emblem} ${esc(RIVALS[job.rivalCrew].name)} on the job</span>`);
   if (job.ringer) chips.push('<span class="chip info">🥊 Our own fighter</span>');
-  if (job.twist) chips.push(`<span class="chip warn">${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}</span>`);
+  if (job.twist && twist) chips.push(`<span class="chip warn">${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}</span>`);
   if (job.watched) chips.push('<span class="chip bad">🚓 Watched</span>');
   if (job.tip && job.intel.tipster) chips.push(job.sting ? '<span class="chip bad">🚨 It\'s a setup!</span>' : '<span class="chip good">✅ The tip\'s good</span>');
   return chips.join('');
@@ -224,7 +225,7 @@ function playersScreen(G) {
     const g = s.groups[gid];
     const status = s.rep < Gp.minRep ? `🔒 Rep ${Gp.minRep}+` : g.standing <= -50 ? '🚫 Won\'t deal' : '';
     const rivals = Gp.rivals.length ? `⚔️ ${Gp.rivals.map((r) => GROUPS[r].emblem).join(' ')}` : '';
-    const meta = [status, rivals, g.debt ? `📜 ${money(g.debt.amount)}` : ''].filter(Boolean).join(' · ');
+    const meta = [status, rivals].filter(Boolean).join(' · ');
     h += `<div class="player"><div class="boss-pic">${portraitSVG(bossDog(gid), { size: 44 })}</div><div class="grow"><div class="row spread"><b>${Gp.emblem} ${esc(Gp.name)}</b><span class="chip ${g.standing >= 20 ? 'good' : g.standing <= -20 ? 'bad' : ''}">${standingLabel(g.standing)}</span></div>
       ${standingBar(g.standing)}${meta ? `<div class="muted">${meta}</div>` : ''}${amendsRow(G, gid)}</div></div>`;
   }
@@ -291,7 +292,7 @@ function jobScreen(G) {
     <div class="row spread"><span class="stamp">${esc(VENUE_LABELS[job.venueType])}</span><span title="Difficulty">${stars}</span></div>
     <div class="job-name mt">${esc(job.name)}</div>
     <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
-    <div class="dm-chips">${jobTraits(job)}</div>
+    <div class="dm-chips">${jobTraits(job, { twist: false, prize: false })}</div>
     ${JOB_TYPES[job.type]?.blurb ? `<p class="muted mt">${esc(JOB_TYPES[job.type].blurb)}</p>` : ''}
     ${job.twist ? `<p class="twist-note mt"><b>${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}.</b> ${esc(TWISTS[job.twist].blurb)}</p>` : ''}
     <h3 class="mt">The Goods</h3>
@@ -402,7 +403,7 @@ function pubScreen(G) {
   const pub = s.pub.map((id) => s.dogs[id]).filter((d) => d.status === 'free');
   if (browsing(s)) {
     return `<h2>The Dog &amp; Duck</h2>
-    <p class="muted">Who's about tonight. Pick a job to hire them; the job may bring in a specialist too.</p>
+    <p class="muted">Who's about tonight. Pick a job to hire them.</p>
     ${pub.map((d) => dogCard(G, d, { fee: true })).join('') || '<p class="muted">The pub is empty.</p>'}`;
   }
   const hf = hiringFor(G);
@@ -482,9 +483,7 @@ function fixerScreen(G) {
     ${svc('buyer', '🎩', 'Line up The Collector', 'Pays full value.', '£150 · 1 day', job.buyer ? 'Waiting' : '', job.buyer || !job.daysLeft)}
     ${svc('vet', '🔍', 'Check out Francesca', 'Is the new fence a sting?', '£60', job.fenceVetted ? (job.stingFence ? 'STING!' : 'Legit') : '', job.fenceVetted)}
     ${svc('laylow', '🛋️', 'Lie low', 'Less heat.', '£100 · 1 day', '', !job.daysLeft)}
-  </section>
-  <section class="card dark"><h2>🕵️ The Inspector</h2><p><b>${esc(E.inspectorLabel(s.heat))}</b> · ${s.heat}/100</p>
-  <div class="dm-chips"><span class="chip dark">25+ 👮 plants</span><span class="chip dark">40+ 🪤 stings</span><span class="chip dark">100 🚔 nicked</span></div></section>`;
+  </section>`;
 }
 
 // ------------------------------------------------------------------ plan
@@ -762,7 +761,7 @@ function aftermathScreen(G) {
   }
   if (r.setup) lines.push('🚨 <b>It was a setup.</b> The tip came from the Inspector.');
   for (const t of a.rivals || []) lines.push(esc(t));
-  if (a.noted?.length) lines.push(`📁 The Inspector's file now has your favourite tricks: ${a.noted.map((ap) => esc(APPROACHES[ap].label.toLowerCase())).join('; ')}. Security will be ready for them.`);
+  if (a.noted?.length) lines.push(`📁 Into the Inspector's file: ${a.noted.map((ap) => esc(APPROACHES[ap].label.toLowerCase())).join('; ')}. Security will be ready.`);
   lines.push(`🕵️ Heat +${r.heatGain} (alarm peaked at ${r.alarmMax}/10, ${count(r.clues, 'clue')} left behind).`);
   h += `<div class="events mt">${lines.map((l) => `<p class="event">${l}</p>`).join('')}</div></section>`;
 

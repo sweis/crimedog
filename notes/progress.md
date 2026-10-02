@@ -90,7 +90,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Career card (latest, 0.15.0)
+## Small-text edit (latest, 0.15.1)
+- Went through every screen's small text (full-page captures plus a DOM dump of everything ≤15px) and cut only what repeats something already on screen. Flavour (catchphrases, nicknames, quotes, kit jokes, Francesca's "Anybody could be anybody") stays.
+- Cut: the "Lately" lists in the ⭐ and 🕵️ panes (the chart above shows the same per job); "It counts towards your reputation" (the tiles above show it); the pub hint's specialist clause; the Fixer's Inspector box (repeated the top bar's 🕵️, and its 25+/40+ thresholds were out of date: plants start at 12, stings at 25); the twist and prize chips on the job screen (its twist note and "Yours to keep" row say it); the debt amount on the Players row (the debt card above has it); Honest Hal's third sentence. Tightened the aftermath's Inspector-file line.
+- Verified: unit tests, smoke; before/after captures compared by eye; DOM text diff confirms only those strings changed.
+
+## Career card (0.15.0)
 - 📇 **Your career card** (rap sheet, bottom of the Players tab; and in place of the old summary on the game-over screen): the Guv'nor, status (still at large / retired / banged up / washed up / skint), nest egg toward £100,000, reputation (with generosity and soft/hard), the Inspector's heat, the record (pulled off, flops, perfect, arrests, runners, hospital, lost on jobs, farmed, earned), best and worst job, closest mate, biggest enemy. 📸 shares the same card as a PNG (`careerPNG`, same html2canvas path as the profile card).
 - New counters in `state.stats`: `arrests`, `runners`, `lost`, `hospital` (`career.bump` in `engine.resolveHeist`); farming a found runner now counts in `farmed`.
 - Biggest enemy: the worst of hostile outfits (standing ≤ −20, worse with a debt), loose runners, and the Jack Russells / Dandy Dan by grudge. The Grey Ghost never counts.
