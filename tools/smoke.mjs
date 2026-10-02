@@ -510,6 +510,18 @@ console.log('1l. Heist history: share a heist from the aftermath, read it back o
   const shown = await page.locator('.modal .rc-steps > li').count();
   check(shown === st.steps && st.crew === 3, `the recap retells every step (${shown}/${st.steps}) and the crew (${st.crew})`);
   await shot(page, 'history-recap');
+  // The career card: from the rap sheet, the same card as a picture.
+  await tap(page, '.modal [data-act="history"]');
+  await tap(page, '.modal [data-act="career"]');
+  const tiles = await page.locator('.modal .career .cr-stats .tile').count();
+  const best = await page.locator('.modal .career .cr-row .gbadge').count();
+  check(tiles === 9 && best >= 1, `career card: the record (${tiles} tiles) and the best job (${best})`);
+  await shot(page, 'career-card');
+  await tap(page, '.modal [data-act="share-career"]');
+  await page.waitForSelector('[data-card-preview]');
+  const cw = await page.$eval('[data-card-preview]', (img) => img.decode().then(() => img.naturalWidth));
+  check(cw === 780, `career card renders a 780px PNG (${cw})`);
+  await shot(page, 'career-card-share');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

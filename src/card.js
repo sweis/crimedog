@@ -148,6 +148,16 @@ export async function cardPNG(dog, html) {
   };
 }
 
+// The mastermind's career card: the same HTML as the one in the game.
+export async function careerPNG(state, html) {
+  return {
+    blob: await htmlPNG(html),
+    file: `crimedog-career-day-${state.day}.png`,
+    title: 'Your career',
+    text: `${state.stats.jobs} jobs, £${Math.round(state.cash).toLocaleString('en-GB')} put away, and the Inspector still hasn't caught me. #Crimedog`,
+  };
+}
+
 // A heist's recap card.
 export async function recapPNG(r) {
   return {

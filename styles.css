@@ -520,3 +520,26 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .share-card .portrait-big { box-shadow: none; border: 3px solid var(--ink); }
 .share-card .dm-head.rare .portrait-big { border-color: #6fa8dc; }
 .share-card .dm-head.legendary .portrait-big { border-color: var(--brass); }
+
+/* The career card (in a modal, at game over, and captured for sharing). */
+.career .cr-fig { font-size: 15px; margin-bottom: 4px; }
+.career .cr-fig b { font-family: system-ui, sans-serif; font-size: 24px; font-variant-numeric: tabular-nums; }
+.career .cr-gauges { margin-top: 10px; }
+.career .cr-gauges .tile b { display: block; margin-bottom: 4px; font-size: 15px; }
+.career .cr-gauges .tile .meter { height: 8px; margin-bottom: 3px; }
+.career .cr-gauges .tile small { font-size: 11px; color: var(--ink-soft); line-height: 1.2; display: block; }
+.career .cr-stats { gap: 6px; }
+.career .cr-stats .tile { padding: 4px 8px; }
+.career .cr-stats .tile b { font-size: 18px; }
+.career .cr-stats .tile b.bad { color: #8a2419; }
+.career .cr-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--paper-3); }
+.career .cr-row:last-child { border-bottom: 0; }
+.career .cr-label { font-size: 18px; width: 24px; text-align: center; flex: none; }
+.career .cr-row .gbadge { width: 32px; height: 32px; font-size: 17px; }
+.career .cr-row .boss-pic.sm { width: 40px; height: 40px; flex: none; }
+.career .cr-row b { font-size: 14px; }
+.career .cr-row .muted { font-size: 12px; }
+.career .cr-row .v { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.share-card .career .gbadge { box-shadow: none; }
+.modal-bar + .career { padding-right: 0; }
+.modal-bar + .career .dm-head { padding-right: 52px; }
