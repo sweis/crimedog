@@ -1,13 +1,14 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy, inSentence } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { bump } from './career.js';
+import { settleBonds } from './bonds.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs, chooseDrama, sceneChoices as dramaChoices } from './drama.js';
@@ -253,20 +254,27 @@ export function inspectorLabel(heat) {
 }
 
 // ------------------------------------------------------------------ recruiting
+// Why this dog can't be hired right now (anything but the money), or null if they can.
+export function hireProblem(state, d) {
+  if (!d) return 'No such dog.';
+  if (state.phase !== 'plan') return 'Not now.';
+  if (state.crew.includes(d.id)) return 'Already on the crew.';
+  if (d.status === 'hospital') return `${shortName(d)} is in hospital for ${d.hospital.jobs} more job${d.hospital.jobs > 1 ? 's' : ''}.`;
+  if (d.status !== 'free') return `${shortName(d)} isn't available.`;
+  if (state.crew.length >= MAX_CREW) return 'Crew\'s full. Six is plenty.';
+  if (state.rep < d.minRep && d.relation < 30) return `"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`;
+  if (d.relation <= -30) return `${shortName(d)} won't work for you. Not after last time.`;
+  if (hireBlocked(state, d)) return `"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`;
+  if (d.drama?.away) return `${shortName(d)} is sitting this one out.`;
+  if (isVisitor(d) && d.inTown !== state.job.id) return `${shortName(d)} is out of town. Stars come and go.`;
+  if (d.undercover && d.known.undercover) return `${shortName(d)} works for the Inspector. Not a chance.`;
+  return null;
+}
+
 export function hire(state, id) {
   const d = state.dogs[id];
-  if (!d) return fail('No such dog.');
-  if (state.phase !== 'plan') return fail('Not now.');
-  if (state.crew.includes(id)) return fail('Already on the crew.');
-  if (d.status === 'hospital') return fail(`${shortName(d)} is in hospital for ${d.hospital.jobs} more job${d.hospital.jobs > 1 ? 's' : ''}.`);
-  if (d.status !== 'free') return fail(`${shortName(d)} isn't available.`);
-  if (state.crew.length >= MAX_CREW) return fail('Crew\'s full. Six is plenty.');
-  if (state.rep < d.minRep && d.relation < 30) return fail(`"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`);
-  if (d.relation <= -30) return fail(`${shortName(d)} won't work for you. Not after last time.`);
-  if (hireBlocked(state, d)) return fail(`"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`);
-  if (d.drama?.away) return fail(`${shortName(d)} is sitting this one out.`);
-  if (isVisitor(d) && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
-  if (d.undercover && d.known.undercover) return fail(`${shortName(d)} works for the Inspector. Not a chance.`);
+  const problem = hireProblem(state, d);
+  if (problem) return fail(problem);
   const cost = hireCost(state, d);
   if (!spend(state, cost, 'crew')) return fail('You can\'t afford the retainer.');
   d.status = 'crew';
@@ -657,6 +665,7 @@ export function resolveHeist(state) {
       for (const t of L.talents) if (t && !d.known.talents.includes(t)) d.known.talents.push(t);
       for (const q of L.quirks) if (!d.known.quirks.includes(q)) d.known.quirks.push(q);
       if (L.loyalty) d.known.loyalty = true;
+      if (L.nerve) d.known.nerve = true;
       if (L.undercover) d.known.undercover = true;
     }
   }
@@ -714,7 +723,7 @@ export function resolveHeist(state) {
     leaveCrew(state, run.id);
     // They don't just vanish: they become someone to hunt down.
     newRunner(state, d, d.ranWith, lootItem(job, run.lootId).value, rng);
-    news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
+    news(state, `${displayName(d)} did a runner with ${inSentence(lootItem(job, run.lootId).name)}.`);
   }
   for (const id of [...r.exposed, ...r.tipped]) {
     const d = state.dogs[id];
@@ -738,12 +747,15 @@ export function resolveHeist(state) {
     news(state, `You kept the ${KIT[prize].name} from ${job.name}.`);
   }
   addHeat(state, r.heatGain);
+  // Who the crew are to each other now: closer after a job done right, strained after a botch.
+  const bondNews = settleBonds(state, r);
   const noted = recordMO(state, r);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
   state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [] };
   state.after.headline = headline(state);
+  state.after.bonds = bondNews;
   state.after.improved = improved;
   state.after.promoted = promoted;
   state.after.prize = prize;
@@ -771,7 +783,7 @@ export function deliver(state) {
   state.stats.earned += pay;
   a.step = toFence(state).length ? 'fence' : 'pay';
   const G = GROUPS[p.group];
-  const item = lootItem(state.job, p.want).name;
+  const item = inSentence(lootItem(state.job, p.want).name);
   if (p.deal === 'marker') return done(`${G.boss} takes ${item}. Your debt is squared.`);
   return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the £${p.front} advance)` : ''}.`);
 }
@@ -1052,7 +1064,7 @@ export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
   nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Coffee\'s for closers, and you\'re not getting any.' },
   retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
-  broke: { title: 'Skint', text: 'Not a penny to your name and not a dog to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
+  broke: { title: 'Skint', text: 'Not a penny to your name and not a soul to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
 };
 
 // Make sure crew/status bookkeeping is consistent (used by tests).

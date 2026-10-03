@@ -2,8 +2,8 @@
 // ends the game with a few epilogues: who came with you, who you visited on the
 // farm, who you tracked down after they did a runner, and the stars who drop in.
 import { SIGNATURES, SKILLS } from './data.js';
-import { fail, done, money } from './util.js';
-import { displayName, shortName } from './dogs.js';
+import { fail, done, money, inSentence } from './util.js';
+import { displayName, shortName, closestMates } from './dogs.js';
 import { rivalsOf, RIVALS } from './rivals.js';
 import { INSPECTOR } from './inspector.js';
 import { GRADE_ORDER } from './recap.js';
@@ -58,7 +58,7 @@ function farmLine(state, d) {
 }
 
 function runnerLine(state, d, rng) {
-  const took = d.ranWith ? `${d.ranWith}` : 'your biscuit tin';
+  const took = d.ranWith ? inSentence(d.ranWith) : 'your biscuit tin';
   const endings = [
     `You buy a pint of whelks and say nothing. They know. You know. You're retired.`,
     `"Guv'nor! I was going to pay you back!" You take the stall's takings and call it even.`,
@@ -91,14 +91,19 @@ export function epilogues(state, rng) {
   const dogs = Object.values(state.dogs).filter((d) => d.met && !d.ghost);
   const out = [];
   const used = new Set();
-  const add = (d, fn) => { if (d && !used.has(d.id)) { used.add(d.id); out.push(fn(state, d, rng)); } };
-  const close = dogs.filter((d) => ['free', 'crew'].includes(d.status) && !d.undercover && d.relation >= 25 && d.jobs >= 2).sort((a, b) => b.relation - a.relation);
+  const add = (d, fn) => { if (d && fn && !used.has(d.id)) { used.add(d.id); out.push(fn(state, d, rng)); } };
+  // Ranked as on the career card (it's drawn once the game is over, so hidden coppers are out of both).
+  const mates = closestMates(state).filter((d) => !d.undercover);
+  const close = mates.filter((d) => !d.ghost && d.status !== 'pound' && d.relation >= 25);
   const runners = dogs.filter((d) => d.status === 'gone' && d.left === 'runner');
   const farmed = dogs.filter((d) => d.status === 'farm' && !d.undercover && d.jobs >= 1);
   const grasses = dogs.filter((d) => d.status === 'gone' && d.left === 'grass');
-  const stars = dogs.filter((d) => d.rarity && d.jobs >= 1 && !close.slice(0, 1).includes(d)).sort((a, b) => (b.rarity === 'legendary') - (a.rarity === 'legendary') || b.jobs - a.jobs);
+  const stars = dogs.filter((d) => d.rarity && d.jobs >= 1 && d !== mates[0]).sort((a, b) => (b.rarity === 'legendary') - (a.rarity === 'legendary') || b.jobs - a.jobs);
   const pound = dogs.filter((d) => d.status === 'pound');
-  add(close[0], closeLine);
+  // The closest mate gets the first word: they came too, or they're still inside.
+  // (The Grey Ghost's goodbye comes with the rivals.)
+  const top = mates[0];
+  if (top && !top.ghost) add(top, top.status === 'pound' ? poundLine : close.includes(top) ? closeLine : null);
   add(runners[0] || farmed[0] || grasses[0], runners[0] ? runnerLine : farmed[0] ? farmLine : grassLine);
   add(stars[0], starLine);
   // Fill up to three from whoever's left.

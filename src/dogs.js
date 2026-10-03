@@ -239,6 +239,16 @@ export function earnedPromotion(dog) {
   return false;
 }
 
+// Your closest mates, closest first: crew you've worked with who like you, by how
+// much, then by jobs together. The career card and the retirement epilogues both
+// use this, so they agree on who's closest. Once the game's over the truth comes
+// out, and coppers you never caught drop off the list.
+export function closestMates(state) {
+  return Object.values(state.dogs)
+    .filter((d) => d.met && d.jobs >= 1 && d.relation > 0 && !['gone', 'farm'].includes(d.status) && !(d.undercover && (d.known.undercover || state.over)))
+    .sort((a, b) => b.relation - a.relation || b.jobs - a.jobs);
+}
+
 export function displayName(dog) {
   return dog.nick ? `${dog.first} "${dog.nick}" ${dog.last}` : `${dog.first} ${dog.last}`;
 }

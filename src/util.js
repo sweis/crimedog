@@ -2,6 +2,9 @@
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+// A name as it reads mid-sentence: loot is named like a list item ("A solid gold
+// roulette ball"), so the first word drops its capital. Quoted titles keep theirs.
+export const inSentence = (name) => (/^[A-Z](?:[a-z-]|\s)/.test(name) ? name[0].toLowerCase() + name.slice(1) : name);
 export const money = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
 // £950, £1.2k, £16k. Rounded down, so £99,600 never reads as £100k.
 export const moneyShort = (n) => {

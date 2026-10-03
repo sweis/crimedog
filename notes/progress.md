@@ -23,6 +23,7 @@
 | `src/main.js` | Boot, save/load (localStorage, try/catch), input routing, fixed-step frame loop |
 | `src/debug.js` | `window.cd` hooks + overlay |
 | `src/art.js` | Seeded SVG scenery: night-time facades per venue type (job board) and the title skyline |
+| `src/bonds.js` | How the crew get on: a bond per pair (-100..100, starting from their outfits), settled after each job, chemistry for the odds, cohesion for the plan |
 | `src/story.js` | The story queue's shared machinery: `pushScene`, `affordable`, `answerScene` (the Inspector, rivals and runners use it; `engine.chooseStory`/`storyChoices` dispatch by scene type, drama included) |
 | `src/career.js` | Career summary (`careerOf`): nest egg, rep, heat, the record (with arrest/runner/lost/hospital counters, seeded from the rap sheet for old saves), best/worst job, closest mate, biggest enemy |
 | `src/card.js` | Share cards: the crew profile card captured from the game's own HTML (html2canvas, vendored in `src/vendor/`, loaded on first share), and the heist recap card (SVG → PNG); Web Share API or save |
@@ -91,7 +92,27 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Performance and code-quality pass (latest, 0.15.2)
+## Toasts up top (latest, 0.16.1)
+
+- Toasts were centred with `left: 50%`, which capped their width at half the screen (195px on a phone, four lines for a hire), and sat at the bottom unless a sheet was open. Now they span the page column (max 516px) and always drop in just under the top bar, so they never cover the bottom buttons or a sheet's actions.
+- Smoke 1c checks the toast is page-wide and in the top half. Verified at 390x844, 375x667 and 1024x768 (hire from a profile, hire for a step, recruit to case). Not verified on a real notched phone (safe-area inset is in the offset).
+
+## Crew chemistry, rescues, out of town, recruit to case (0.16.0)
+- **Bonds** (`src/bonds.js`, `state.bonds`, keyed by sorted dog-id pair): start where outfits put them (same outfit +15, rival outfits -30, else 0); after each job every pair on it moves by the outcome (clean +8 … bust -6) plus 2 per step pulled off and -3 per step bungled (capped ±15); grassing or doing a runner on your mates sets -35; going back for a mate +25 (+30 if it worked). Aftermath lines for pairs crossing into "get on well" (25+) or "aren't speaking" (-20 or less) and for rescues.
+- **Chemistry on a job** (`bonds.chemistry` in `sim.odds`): average bond with the rest of the crew → up to +8% odds among friends, down to -10% among enemies; a leader cuts the bad side by 15% a level. The step odds on the plan include it.
+- **Visible**: a 🤝 Crew chemistry panel on the plan (💢/💚 pairs, "The leader keeps a lid on it"); 💢/💚 chips naming crewmates on dog cards while planning (pub, book, crew); "Gets on with" on the profile; a help entry.
+- **Rescues** (`sim.rescue`, called when someone's collared): the most willing active crewmate (nerve, bond, quirks: nervous −, steel/goodboy +, lone wolf −) may go back (≤70%); success 45% + 6%/best of muscle/agility/sneak − alarm, frees them (and they can't be re-caught in that same step); failure leaves the rescuer to make their own escape. Rescuers reveal their nerve. Beats styled gold; rescues count as moments on the rap sheet.
+- **Out of Town** section on the Crew screen (stars not in town this job).
+- **Recruit to case the joint**: the casing picker has "＋ Recruit someone to case it": everyone hireable right now (`engine.hireProblem`, now shared with `hire`), best-suited first by known casing skills; tapping one hires them and returns to the casing list.
+- Balance (`tools/balance.mjs 150`): careful player's grades within a point of before, Inspector game-overs 19 (was 18). Rescue tuning: a first cut (failure = automatic arrest) pushed them to 25, so failed rescuers now get their own escape check. `justice.test` hospital/farm ratio now samples 1,200 jobs (400 swung ±0.4 on the ratio).
+- Verified: tests/bonds.test.mjs (starting bonds, settling, snitches, rescues binding, chemistry and leader, odds, rescues on real jobs with no double capture, the recruit list's hiring rules); smoke 1s with real taps (hire three, chemistry panel, crew marks, recruit flow); captures bonds-plan/crew/recruit; a heist with a successful and a failed rescue checked by eye. Not verified: how it feels over a long human-played career.
+
+## Endings fixes (0.15.3)
+- Skint ending no longer says "not a dog to your name" (now "not a soul"); a runner's hideout is "behind the racetrack", not the dog track. Kept on purpose: dog puns on human idioms ("inside dog", "Every dog for himself!", "Bad dog— bad luck"), the scanner's "a dog" gag, the Dog & Duck, the tagline. Test: no game-over text uses "dog" (pub name aside).
+- Loot names mid-sentence lose their leading capital (`util.inSentence`: "did a runner with a solid gold roulette ball"; quoted titles keep theirs): runner scenes, hunts, the Players row, aftermath and news, the career card's enemy line, the runner epilogue, a betrayal beat, and handing goods to a patron. Lists and labels keep the capital.
+- One closest-mate ranking (`dogs.closestMates`: likes you most, then most jobs together; coppers you never caught drop off once the game's over) shared by the career card and the retirement epilogues. The closest mate always gets the first epilogue ("came too", or "still inside" if they're in the pound; the Ghost's goodbye stays with the rivals). Test: over 40 careers the first epilogue and the card name the same dog; a tie goes to more jobs together.
+
+## Performance and code-quality pass (0.15.2)
 - **Portraits as cached images** (`dogs.portraitHTML`): each face is drawn once as an SVG blob URL and reused as an `<img>` (inline SVG was ~60 DOM nodes a face). The blueprint's nested portraits and the recap card's SVG still use `portraitSVG`. Measured on a 40-job career in desktop Chromium (render + save per tap): crew 17.4 → 2.8 ms (2,999 → 411 nodes), a profile 12.9 → 2.9, reputation pane 12.0 → 1.9, players 6.1 → 1.1, job board 10.1 → 6.1. Venue art stays inline: its signs use the Alfa Slab web font, which an `<img>` can't load.
 - **Saving off the tap**: `G.commit` renders now and saves 250 ms later (coalesced), flushing on `pagehide` and when the tab is hidden; `clearSave` cancels a pending save.
 - **Story scenes consolidated** (`src/story.js`): one `pushScene`/`affordable`/`answerScene` for the Inspector, rivals and runners (was four copies); `engine.chooseStory` and `storyChoices` replace per-type dispatch in main.js, engine.dismissStory and the balance tool; one `storyModal` renders every kind of scene (was three branches).

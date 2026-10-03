@@ -243,6 +243,13 @@ const A = {
     toast(`${r.msg} On step ${hf.n}: ${hf.stage.label}.`);
     returnToPlan(hf.stage.id);
   },
+  // Hired to case the joint: back to the casing list, with them on it.
+  'recruit-case'(el) {
+    const r = E.hire(G.state, el.dataset.id);
+    toast(r.msg, !r.ok);
+    if (r.ok) G.ui.modal = { type: 'pick', purpose: 'case' };
+    G.commit();
+  },
   'hire-for'(el) {
     G.clearToasts();
     show('pub');
@@ -304,7 +311,7 @@ const A = {
 };
 for (const [act, [fn, key]] of Object.entries(SIMPLE)) A[act] = (el) => run(fn, key && el.dataset[key]);
 // Buttons that open a modal sheet, and the data-* value it needs (if any).
-const OPENS = { pick: 'purpose', career: null, history: null, help: null, pane: 'pane', recap: 'i' };
+const OPENS = { pick: 'purpose', recruit: null, career: null, history: null, help: null, pane: 'pane', recap: 'i' };
 for (const [type, key] of Object.entries(OPENS)) {
   A[type] = (el) => {
     G.ui.modal = key ? { type, [key]: el.dataset[key] } : { type };

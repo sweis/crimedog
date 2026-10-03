@@ -2,7 +2,8 @@
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
 import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES } from './data.js';
 import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
-import { clamp, hashOf } from './util.js';
+import { clamp, hashOf, inSentence } from './util.js';
+import { bondOf, chemistry } from './bonds.js';
 import { lootItem } from './heists.js';
 import { moPenalty, SETUP_TEXT } from './inspector.js';
 import { crewFeeling } from './repute.js';
@@ -116,6 +117,7 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   if (load > 3) p -= 0.05 * (load - 3);
   p += (dog.drama?.edge || 0) * 0.08; // fired up or distracted by personal drama
   p += 0.02 * roleLevel(crew, 'leader'); // a leader steadies everyone
+  p += chemistry(state, dog, crew); // mates lift you; people you can't stand drag you down
   p += ctx.bonus || 0;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
@@ -195,6 +197,8 @@ export function simulate(state, job, rng) {
     tipped: [],
     exposed: [],
     captured: [],
+    rescues: [],
+    freed: {},
     lost: [],
     hurt: [],
     runners: [],
@@ -217,8 +221,8 @@ export function simulate(state, job, rng) {
   const gone = (id) => ctx.exposed.includes(id) || [ctx.captured, ctx.runners, ctx.lost, ctx.hurt].some((xs) => xs.some((x) => x.id === id));
   const active = () => crew.filter((d) => !gone(d.id));
   const learn = (dog, kind, v) => {
-    const L = (ctx.learned[dog.id] ||= { skills: [], talents: [], quirks: [], loyalty: false, undercover: false });
-    if (kind === 'loyalty' || kind === 'undercover') L[kind] = true;
+    const L = (ctx.learned[dog.id] ||= { skills: [], talents: [], quirks: [], loyalty: false, undercover: false, nerve: false });
+    if (kind === 'loyalty' || kind === 'undercover' || kind === 'nerve') L[kind] = true;
     else if (!L[kind].includes(v)) L[kind].push(v);
   };
   const say = (dog, kind) => {
@@ -394,6 +398,8 @@ export function simulate(state, job, rng) {
   };
 
   const escapeCheck = (dog, stageId) => {
+    if (gone(dog.id)) return false; // already caught (going back for someone, say) or away
+    if (ctx.freed[dog.id] === stageId) return true; // just dragged out of the van: still running
     let p = 0.5 + 0.06 * Math.max(skillOf(dog, 'agility'), skillOf(dog, 'sneak'), skillOf(dog, 'wheels')) - 0.035 * ctx.alarm;
     if (hasSpecial(dog, 'escape')) { p += 0.2; learn(dog, 'talents', dog.talents.find((t) => ['getaway', 'parkour'].includes(t))); }
     if (ctx.kitLeft.smoke > 0) {
@@ -413,6 +419,39 @@ export function simulate(state, job, rng) {
     ctx.captured.push({ id: dog.id, stage: stageId });
     beat({ kind: 'caught', stage: stageId, dog: dog.id, text: `${shortName(dog)} is collared by the Old Bill!`, line: say(dog, 'caught') });
     dropLoot(stageId, 'goes with them into the police van');
+    return rescue(dog, stageId);
+  };
+
+  // Someone's been collared: a crew-mate may double back for them, at their own
+  // risk. The braver they are and the closer the two of them, the likelier.
+  // Nobody goes back for a rescuer who's been caught in turn.
+  const rescue = (caught, stageId) => {
+    if (ctx.rescuing) return false;
+    const willing = (d) => {
+      let w = 0.4 * (d.nerve / 100) + 0.5 * (bondOf(state, d.id, caught.id) / 100) - 0.15;
+      if (d.quirks.includes('nervous')) w -= 0.15;
+      if (d.quirks.includes('steel') || d.quirks.includes('goodboy')) w += 0.1;
+      if (d.quirks.includes('lonewolf')) w -= 0.1;
+      return clamp(w, 0, 0.7);
+    };
+    const hero = active().filter((d) => d.id !== caught.id && !d.undercover).map((d) => ({ d, w: willing(d) })).filter((x) => x.w > 0).sort((a, b) => b.w - a.w)[0];
+    if (!hero || !rng.chance(hero.w)) return false;
+    const d = hero.d;
+    learn(d, 'nerve');
+    const p = clamp(0.45 + 0.06 * Math.max(skillOf(d, 'muscle'), skillOf(d, 'agility'), skillOf(d, 'sneak')) - 0.025 * ctx.alarm - (ctx.coppers ? 0.1 : 0), 0.15, 0.85);
+    const ok = rng.chance(p);
+    ctx.rescues.push({ by: d.id, of: caught.id, ok });
+    if (ok) {
+      ctx.captured = ctx.captured.filter((c) => c.id !== caught.id);
+      ctx.freed[caught.id] = stageId;
+      beat({ kind: 'rescue', stage: stageId, dog: d.id, text: `${shortName(d)} doubles back for ${shortName(caught)}, yanks the van door open and drags them out. Run!` });
+      return true;
+    }
+    // It didn't work, and now the rescuer has to get away too.
+    beat({ kind: 'rescue', stage: stageId, dog: d.id, text: `${shortName(d)} goes back for ${shortName(caught)}, but the van door won't budge. Brave. Daft, but brave.` });
+    ctx.rescuing = true;
+    escapeCheck(d, stageId);
+    ctx.rescuing = false;
     return false;
   };
 
@@ -442,7 +481,7 @@ export function simulate(state, job, rng) {
         const lootId = ctx.secured.shift();
         ctx.runners.push({ id: d.id, lootId });
         learn(d, 'loyalty');
-        beat({ kind: 'betray', stage: 'vault', dog: d.id, text: `${shortName(d)} grabs ${lootName(lootId)} and legs it out a side door! Didn't even say goodbye.` });
+        beat({ kind: 'betray', stage: 'vault', dog: d.id, text: `${shortName(d)} grabs ${inSentence(lootName(lootId))} and legs it out a side door! Didn't even say goodbye.` });
       }
     }
   };
@@ -743,6 +782,7 @@ export function simulate(state, job, rng) {
     exposed: ctx.exposed,
     tipped: ctx.tipped,
     escaped: escaped.map((d) => d.id),
+    rescues: ctx.rescues,
     crew: crewIds,
     kitUsed: ctx.kitUsed,
     learned: ctx.learned,
@@ -760,7 +800,7 @@ function skillTalent(t, skill) {
 export function blankResult(crew, extra = {}) {
   return {
     beats: [], outcome: 'clean', secured: [], dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
-    captured: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0,
+    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0,
     ...extra,
   };
 }

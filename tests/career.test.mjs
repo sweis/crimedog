@@ -70,3 +70,40 @@ test('the biggest enemy: a crossed outfit beats a rival with a grudge; a runner 
   R.ghost.beef = 9;
   assert.notEqual(careerOf(s).enemy.id, 'ghost');
 });
+
+test('retiring: the epilogues and the career card agree on who your closest mate is', async () => {
+  const { RETIRE } = await import('../src/retire.js');
+  let checked = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const { s } = career(seed, 'smart', 20);
+    if (s.over) continue;
+    while (s.story.length) E.dismissStory(s);
+    s.cash = RETIRE.goal;
+    E.retireNow(s);
+    const closest = careerOf(s).closest;
+    const first = s.over.epilogues[0];
+    if (!closest || !['close', 'pound'].includes(first.kind)) continue;
+    assert.equal(first.dog, closest.dog, `seed ${seed}: the epilogue names ${s.dogs[first.dog].first}, the card ${closest.name}`);
+    for (const e of s.over.epilogues.slice(1)) assert.ok(e.kind !== 'close' || e.dog !== closest.dog, `seed ${seed}: ${closest.name} twice`);
+    checked++;
+  }
+  assert.ok(checked >= 15, `${checked} careers checked`);
+});
+
+test('a tie on how much they like you goes to whoever has done more jobs with you', async () => {
+  const { RETIRE } = await import('../src/retire.js');
+  const s = E.newGame(3);
+  const rng = E.rngOf(s);
+  const a = genDog(s, rng, {});
+  const b = genDog(s, rng, {});
+  for (const d of Object.values(s.dogs)) d.relation = 0;
+  Object.assign(a, { met: true, relation: 100, jobs: 3 });
+  Object.assign(b, { met: true, relation: 100, jobs: 9 });
+  s.dogs[a.id] = a;
+  s.dogs[b.id] = b;
+  s.cash = RETIRE.goal;
+  E.retireNow(s);
+  assert.equal(careerOf(s).closest.dog, b.id);
+  assert.equal(s.over.epilogues[0].dog, b.id);
+  assert.equal(s.over.epilogues[0].kind, 'close');
+});

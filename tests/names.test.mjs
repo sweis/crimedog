@@ -143,3 +143,22 @@ test('some nights the crew go by colours, and somebody is always Mr Pink', async
   }
   assert.ok(named >= 3 && named <= 15, `${named}/20`);
 });
+
+test('loot reads properly mid-sentence: "did a runner with a solid gold roulette ball"', async () => {
+  const { inSentence } = await import('../src/util.js');
+  const { newRunner } = await import('../src/runners.js');
+  assert.equal(inSentence('A solid gold roulette ball'), 'a solid gold roulette ball');
+  assert.equal(inSentence('The Duchess\'s Diamond Collar'), 'the Duchess\'s Diamond Collar');
+  assert.equal(inSentence('"Water Lilies with Stick"'), '"Water Lilies with Stick"');
+  assert.equal(inSentence('£300 of yours'), '£300 of yours');
+  const s = E.newGame(4);
+  const rng = E.rngOf(s);
+  const d = genDog(s, rng, {});
+  s.dogs[d.id] = d;
+  const st = newRunner(s, d, 'A solid gold roulette ball', 900, rng);
+  assert.match(st.text, /did a runner with a solid gold roulette ball\./);
+});
+
+test('the endings never have anyone admit to being a dog', () => {
+  for (const [k, t] of Object.entries(E.GAME_OVER_TEXT)) assert.doesNotMatch(`${t.title} ${t.text}`.replace(/Dog & Duck/g, 'the pub'), /\bdogs?\b/i, k); // the pub's name is fine
+});
