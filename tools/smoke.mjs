@@ -375,9 +375,9 @@ console.log('1i. Casing: the picker says what to look for; being spotted is expl
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.goto(`${BASE}?hooks=1&seed=31`);
+  await page.goto(`${BASE}?hooks=1&seed=32`);
   await page.waitForFunction(() => window.cd);
-  await page.evaluate(() => { window.cd.setSeed(31); window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew'); window.cd.teleport('job'); });
+  await page.evaluate(() => { window.cd.setSeed(32); window.cd.spawn('dog', 'crew'); window.cd.spawn('dog', 'crew'); window.cd.teleport('job'); });
   await tap(page, 'main [data-act="pick"][data-purpose="case"]');
   const note = await page.locator('.modal p.muted').first().textContent();
   check(/Finds/.test(note) && /unseen/.test(note), `case picker lists what to look for (${note})`);
@@ -1002,6 +1002,76 @@ console.log('1s. How the crew get on: chemistry on the plan, marks on the crew, 
     const after = await page.evaluate(() => window.cd.live().crew.length);
     check(after === 4 && (await page.locator('.modal h2').innerText()) === 'Who cases the joint?', `recruited, and back to the casing list (${after} crew)`);
   }
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+console.log('1t. A four-star job: on the board, its master in the pub, asking around for the rest, the master steps on the plan');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=32`);
+  await page.waitForFunction(() => window.cd);
+  const jobId = await page.evaluate(async () => {
+    const H = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.setSeed(32);
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    Object.assign(s, { rep: 60, cash: 20000 });
+    s.stats.jobs = 10;
+    const job = H.genJob(s, makeRng({ s: 32 }), { tier: H.GRAND_TIER, owner: null });
+    s.offers.push(H.ownOffer(job));
+    window.cd.teleport('select');
+    document.getElementById('toast').innerHTML = '';
+    return job.id;
+  });
+  const card = `main .offer[data-offer="${jobId}"]`;
+  check(await page.locator(`${card}.grand`).count() === 1, 'the four-star job stands out on the board');
+  const cardText = await page.locator(card).innerText();
+  check(cardText.includes('★★★★') && cardText.includes('Three masters') && (cardText.match(/ 8\+/g) || []).length === 3, `it says what it takes (${cardText.replace(/\s+/g, ' ').slice(0, 160)})`);
+  await page.locator(card).evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => scrollBy(0, -70));
+  await shot(page, 'grand-board');
+  await tap(page, `${card} [data-act="take-offer"]`);
+  const st = await page.evaluate(() => { const s = window.cd.live(); return { phase: s.phase, star: s.job.masterStar, pub: s.pub, masters: s.job.stages.filter((x) => x.master).map((x) => x.needs.skill) }; });
+  check(st.phase === 'plan' && st.star && st.pub.includes(st.star), 'taking it brings its master to the pub');
+  // The pub, with real taps: the master, then ask around.
+  await tap(page, '.nav [data-to="pub"]');
+  await page.waitForTimeout(3000);
+  check(await page.locator(`main .dog-card[data-id="${st.star}"]`).count() === 1, 'the master is in the pub');
+  check((await page.locator(`main .dog-card[data-id="${st.star}"] .chip.good`).allInnerTexts()).some((t) => t.startsWith('👑')), 'and marked as one of the masters the job needs');
+  await shot(page, 'grand-pub');
+  await tap(page, `main .dog-card[data-id="${st.star}"]`);
+  await tap(page, '.modal [data-act="hire"]');
+  await tap(page, '.modal .close');
+  let heard = 0;
+  for (let k = 0; k < 3; k++) {
+    await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+    await tap(page, 'main [data-act="ask-around"]');
+    const t = await page.locator('#toast .t').last().innerText().catch(() => '');
+    if (/turns up/.test(t)) {
+      heard++;
+      const fresh = await page.evaluate(() => window.cd.live().pub[0]);
+      check((await page.locator(`main .dog-card[data-id="${fresh}"] .chip.good`).allInnerTexts()).some((x) => x.startsWith('👑')), 'the master who turned up is marked as one');
+      await page.locator(`main .dog-card[data-id="${fresh}"]`).evaluate((e) => e.scrollIntoView({ block: 'center' }));
+      await shot(page, 'grand-ask-around');
+      await page.waitForTimeout(3000); // the toast fades: the master's card underneath
+      await shot(page, 'grand-ask-around-card');
+      break;
+    }
+  }
+  console.log(`  (asked around: ${heard ? 'a master turned up' : 'nobody this time'})`);
+  // The plan: each master step says who's up to it.
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  const chips = await page.evaluate(() => [...document.querySelectorAll('.plan-step[data-stage^="master_"] .stage-head .chip')].map((c) => ({ t: c.textContent.trim(), good: c.classList.contains('good') })));
+  check(chips.length === 3 && chips.every((c) => /8\+ only/.test(c.t)) && chips.some((c) => c.good) && chips.some((c) => !c.good), `master steps say 8+ only, ticked where the crew has it (${JSON.stringify(chips)})`);
+  await page.locator('.plan-step[data-stage^="master_"]').first().evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => scrollBy(0, -70));
+  await shot(page, 'grand-plan');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

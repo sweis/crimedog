@@ -545,6 +545,27 @@ export const APPROACHES = {
   x_skirting: { label: 'Crawl along the skirting', skill: 'sneak', mod: 2, noise: 0, failNoise: 2, clues: 0, ok: 'Flat along the skirting board, silent as dust.', fail: 'The skirting board comes off the wall.' },
   x_drift: { label: 'Handbrake turn through the barrier', skill: 'wheels', mod: 1, noise: 2, failNoise: 3, clues: 1, ok: '{d} slides the motor through a gap barely wider than the motor.', fail: 'The gap was narrower than the motor.' },
   x_ramp: { label: 'Jump the gap on the car ramp', skill: 'wheels', mod: 2, noise: 2, failNoise: 3, clues: 1, ok: 'Airborne. For a moment it\'s beautiful. Then they land it.', fail: 'Airborne. Then less airborne.' },
+  // ---- Master steps, on four-star jobs only: one skill, and nobody short of 8 gets anywhere
+  m_wheels: { label: 'Listen to all twelve wheels', skill: 'locks', mod: 1, noise: 0, failNoise: 3, clues: 0, kitBonus: 'stethoscope', ok: 'Twelve wheels, one ear, forty minutes. The door swings open and {d} doesn\'t even look pleased.', fail: 'Wheel nine won\'t talk. {d} starts again, and the clock ticks on.' },
+  m_timelock: { label: 'Pick the time lock from the inside out', skill: 'locks', mod: 2, noise: 0, failNoise: 3, clues: 0, kitBonus: 'lockpicks', ok: 'Nobody has ever picked a time lock. {d} has now.', fail: 'The time lock wins. The time lock always wins.' },
+  m_backdoor: { label: 'Find the back door its makers left in', skill: 'tech', mod: 1, noise: 0, failNoise: 3, clues: 0, kitBonus: 'laptop', ok: '{d} types for six minutes and the whole system says "Welcome home."', fail: 'The system locks {d} out and phones a friend.' },
+  m_loop: { label: 'Loop every camera in the building', skill: 'tech', mod: 2, noise: 0, failNoise: 3, clues: 1, ok: 'Every guard watches the same empty corridor, over and over. Lovely.', fail: 'Every screen shows the loop. One shows {d}, waving.' },
+  m_contort: { label: 'Contort through the beams', skill: 'agility', mod: 1, noise: 0, failNoise: 3, clues: 0, ok: 'Over, under, the splits, a backflip. Not one beam broken.', fail: 'A tail breaks a beam. That\'s the whole building awake.' },
+  m_pipes: { label: 'Cross on the ceiling pipes', skill: 'agility', mod: 2, noise: 0, failNoise: 3, clues: 0, kitBonus: 'grapple', ok: 'Paw over paw along the pipes, a foot above the beams.', fail: 'The pipe was hot. {d} lets go.' },
+  m_feather: { label: 'Cross it a feather at a time', skill: 'sneak', mod: 1, noise: 0, failNoise: 3, clues: 0, ok: 'Forty feet of pressure plates, and {d} weighs nothing at all.', fail: 'One plate clicks. Then all of them.' },
+  m_footprints: { label: 'Step in the guard\'s own footprints', skill: 'sneak', mod: 2, noise: 0, failNoise: 3, clues: 0, ok: 'The guard walks the same route every night. So does {d}, a step behind.', fail: 'The guard took a different route tonight.' },
+  m_hinges: { label: 'Lift it off its hinges', skill: 'muscle', mod: 1, noise: 1, failNoise: 4, clues: 0, ok: 'Three tons. {d} sets it down against the wall like a garden gate.', fail: 'The door moves an inch. Then back again. The floor shakes.' },
+  m_jack: { label: 'Jack it up an inch at a time', skill: 'muscle', mod: 2, noise: 1, failNoise: 3, clues: 1, kitBonus: 'drill', ok: 'An inch, then another. By two o\'clock there\'s a gap you could drive a pram through.', fail: 'The jack gives first.' },
+  m_keyhole: { label: 'One shot through the keyhole', skill: 'aim', mod: 1, noise: 0, failNoise: 3, clues: 0, kitBonus: 'slingshot', ok: 'Forty yards, through the keyhole, onto the release switch. Click.', fail: 'Forty yards, off the keyhole, onto the alarm button.' },
+  m_ricochet: { label: 'Bank a shot off the chandelier', skill: 'aim', mod: 2, noise: 1, failNoise: 3, clues: 1, ok: 'Off the chandelier, off the clock, onto the switch. Nobody saw that. Shame.', fail: 'Off the chandelier, off the clock, off the guard\'s helmet.' },
+  m_realone: { label: 'Sniff out the real one', skill: 'nose', mod: 1, noise: 0, failNoise: 3, clues: 0, ok: 'A hundred perfect copies, and only one smells two hundred years old. {d} picks it first time.', fail: '{d} picks a beauty. It\'s a copy, wired to the alarm.' },
+  m_dust: { label: 'Follow the dust nobody\'s disturbed', skill: 'nose', mod: 2, noise: 0, failNoise: 3, clues: 0, ok: 'The copies get dusted daily. The real one hasn\'t been touched in years.', fail: 'The cleaner was thorough. Everything smells of polish.' },
+  m_oldpal: { label: 'Become his oldest friend in one evening', skill: 'charm', mod: 1, noise: 0, failNoise: 3, clues: 1, ok: 'By midnight he\'s calling {d} "old pal" and showing them round.', fail: 'He has a very good memory for faces. Especially that one.' },
+  m_cards: { label: 'Win his keys at cards', skill: 'charm', mod: 2, noise: 0, failNoise: 2, clues: 1, ok: 'Three hands of brag and the keys are on {d}\'s side of the table.', fail: 'He wins the keys back. And {d}\'s watch.' },
+  m_chairman: { label: 'Walk in as the Chairman', skill: 'disguise', mod: 1, noise: 0, failNoise: 3, clues: 0, kitBonus: 'uniforms', ok: 'Nobody questions the Chairman. Not even the Chairman\'s secretary.', fail: 'The real Chairman walks in. Awkward.' },
+  m_twoplaces: { label: 'Be two people at once', skill: 'disguise', mod: 2, noise: 0, failNoise: 3, clues: 0, ok: 'The auditor and the tea lady are never in the same room. Funny, that.', fail: 'The auditor and the tea lady walk into the same room.' },
+  m_ratrun: { label: 'Rat-run every back street', skill: 'wheels', mod: 1, noise: 0, failNoise: 3, clues: 0, kitBonus: 'van', ok: 'Nine minutes, fifty seconds. Every back street, wrong way up two of them.', fail: 'A milk float. Of all things, a milk float.' },
+  m_lightsout: { label: 'Drive it with the lights off', skill: 'wheels', mod: 2, noise: 0, failNoise: 3, clues: 0, ok: 'Lights off, engine ticking over, straight through between the patrols.', fail: 'Lights off is fine until the bollards.' },
   // ---- Signature moves: secret options only a rare or legendary specialist can open (see SIGNATURES)
   s_phantom: { label: 'Just... appear inside', skill: 'sneak', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'phantom', ok: 'Nobody saw {d} come in. Nobody ever does.', fail: '{d} appears inside. Right in front of a guard.' },
   s_blackout: { label: 'Black out the whole street', skill: 'tech', mod: -3, noise: 0, failNoise: 3, clues: 1, signature: 'blackout', ok: '{d} flips one switch. Every light on the street dies. "Power cut, innit."', fail: 'The whole street goes dark. Except, somehow, the alarm.' },
@@ -802,6 +823,22 @@ export const SPECIALISTS = {
   creaky: { label: 'The Creaky Corridor', icon: '🪵', skill: 'sneak', min: 4, options: ['x_creak', 'x_skirting'] },
   carpark: { label: 'The Car Park Barrier', icon: '🚧', skill: 'wheels', min: 4, options: ['x_drift', 'x_ramp'] },
 };
+
+// Master steps: four-star jobs have three, each in a different skill. Only a real
+// master (8+) gets anywhere, and the pub won't supply more than one of them.
+export const MASTERS = {
+  locks: { label: 'The Crown Vault Door', icon: '👑', types: ['breakin', 'swap', 'tunnel', 'train'], options: ['m_wheels', 'm_timelock'] },
+  tech: { label: 'The Black Box', icon: '🖥️', types: ['breakin', 'swap', 'hack', 'roof'], options: ['m_backdoor', 'm_loop'] },
+  agility: { label: 'The Laser Hall', icon: '🔴', types: ['breakin', 'swap', 'roof', 'train'], options: ['m_contort', 'm_pipes'] },
+  sneak: { label: 'The Pressure Floor', icon: '⬛', types: ['breakin', 'swap', 'roof', 'tunnel', 'hack'], options: ['m_feather', 'm_footprints'] },
+  muscle: { label: 'The Three-Ton Door', icon: '🏗️', types: ['breakin', 'tunnel', 'train'], options: ['m_hinges', 'm_jack'] },
+  aim: { label: 'The Release Switch', icon: '🎯', types: ['breakin', 'swap', 'roof'], options: ['m_keyhole', 'm_ricochet'] },
+  nose: { label: 'The Room of Fakes', icon: '🖼️', types: ['breakin', 'swap', 'con', 'tunnel', 'train'], options: ['m_realone', 'm_dust'] },
+  charm: { label: 'The Head of Security', icon: '🎖️', types: ['con', 'hack', 'swap'], options: ['m_oldpal', 'm_cards'] },
+  disguise: { label: 'The Board Meeting', icon: '🎩', types: ['con', 'hack', 'swap'], options: ['m_chairman', 'm_twoplaces'] },
+  wheels: { label: 'The Ten-Minute Window', icon: '⏱️', types: ['train', 'tunnel', 'roof'], options: ['m_ratrun', 'm_lightsout'] },
+};
+export const MASTER_MIN = 8;
 
 export const VAULTS = {
   safe: { label: 'The Safe', icon: '🗄️', options: ['v_crack', 'v_drill', 'v_keypad', 'v_sniff', 'v_combo'] },

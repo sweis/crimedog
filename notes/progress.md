@@ -92,7 +92,17 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Out-of-town stars off the hire-for-step list (latest, 0.16.3)
+## Four-star jobs (latest, 0.17.0)
+
+- **What:** `tier: 4` (`GRAND_TIER` in heists.js). On the board once `grandReady` (`stats.jobs >= 8 && rep >= 50`), 30% of boards, as an own lead ("Word in the pub", gold card, ★★★★). Kinds: those with 3+ master steps (`GRAND_TYPES`: break-in, switch, con, wire, tunnel, rooftop, night mail). Loot ×2.2 on top of the tier curve (median ≈ £40–45k vs ≈ £16k for three-star); +6 rep on top of the grade when anything's secured; own headlines.
+- **Master steps:** `MASTERS` in data.js, one per skill, two approaches each (`m_*`). Three per job, distinct skills, before the goods, `needs.min = MASTER_MIN (8)`, `master: true`, no signature moves. Ordinary steps stay at three-star difficulty (`base = 2 + min(3, tier)`), so the masters are the hard part.
+- **No master, no job:** short of 8, odds are pinned at 3% (in `odds` and again in `attempt`, after wildcard/backup/zoomies bonuses). Botching a master step calls the job off (`aborted`), never "barge through"; escape checks only at alarm 4+ (as for a failed entry).
+- **Finding masters:** taking the job brings one star (`masterArrives`, rare/legendary, known 8+ in a master skill you don't already know of, `job.masterStar`, kept in the pub). Each ask-around has a 25% chance of a regular master for a step nobody in the crew or pub covers (`mastersMissing`), known for it, at 3× fee. Dog cards show 👑 + skill for known masters of the job's steps; the plan's step chip says `8+ only`, green when the crew has one.
+- **How hard (probes in scratch, 100 careers):** four-star jobs show up in ~half of 30-job careers, first around job 12. Own people cover 0/1/2/3 masters on 73/23/4/1% of sightings. A determined player (takes it, asks around, hires the best) assembles all three 8%/20%/29% of the time with 0/2/4 days asking. With all three: 71–84% secured, £29–44k average take. A crew of good regulars with masters at 9 vs a three-star job: ≈4× the take per attempt at similar arrest rates. The careful balance bot only takes one when it already knows a master (6 in 100 thirty-job careers); 10-job balance unchanged.
+- **Tests:** tests/grand.test.mjs (7). Smoke 1t (real taps: board card, take it, master in the pub, ask around, plan chips).
+- **Not verified:** a human playing one through from a natural career; whether 25% per ask feels right in play.
+
+## Out-of-town stars off the hire-for-step list (0.16.3)
 
 - Hiring for a plan step listed every free dog in your book, including stars who had left town (they showed "Out of town" and couldn't be hired). That list now drops them, as the Crew screen's book already did. Smoke 1d spawns an out-of-town star and checks the step's list leaves them out (it failed before the fix).
 

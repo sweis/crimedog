@@ -170,16 +170,16 @@ function dealTerms(G, job) {
   return chips.join('');
 }
 
-// Difficulty, out of three.
-const tierStars = (tier) => '★'.repeat(tier) + '☆'.repeat(3 - tier);
+// Difficulty, out of three. A four-star job is off the scale.
+const tierStars = (tier) => '★'.repeat(tier) + '☆'.repeat(Math.max(0, 3 - tier));
 
 // What kind of job it is, and what it'll take. The job screen spells out the
 // twist and the prize elsewhere, so it leaves those chips off.
 function jobTraits(job, { twist = true, prize = true } = {}) {
   const T = JOB_TYPES[job.type || 'breakin'];
   const chips = [`<span class="chip dark">${T.icon} ${esc(T.label)}</span>`];
-  const sp = job.stages.find((st) => st.needs);
-  if (sp) chips.push(`<span class="chip warn">${SKILL_INFO[sp.needs.skill].icon} ${SKILL_INFO[sp.needs.skill].label} ${sp.needs.min}+</span>`);
+  if (job.stages.some((st) => st.master)) chips.push('<span class="chip bad">👑 Three masters</span>');
+  for (const st of job.stages.filter((x) => x.needs)) chips.push(`<span class="chip warn">${SKILL_INFO[st.needs.skill].icon} ${SKILL_INFO[st.needs.skill].label} ${st.needs.min}+</span>`);
   if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
   if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
   if (job.prize && prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
@@ -205,14 +205,15 @@ function selectScreen(G) {
     const stars = tierStars(job.tier);
     const rival = job.rivalHit || (job.wager ? 'dan' : null);
     const runner = job.runnerHit && s.dogs[job.runnerHit];
-    const pic = runner ? `<div class="boss-pic">${portraitHTML(runner, { size: 48 })}</div>` : rival ? `<div class="boss-pic">${rivalFace(s, rival, 48)}</div>` : o.source === 'own' ? `<div class="boss-pic own">${job.tip ? '✉️' : '🔎'}</div>` : `<div class="boss-pic">${bossFace(o.source, 48)}</div>`;
-    const whoName = runner ? `💨 Get it back from ${esc(shortName(runner))}` : job.rivalHit ? `${RIVALS[rival].emblem} Rob ${esc(RIVALS[rival].name)}` : job.wager ? `💌 Dandy Dan's wager · ${money(job.wager)}` : o.source !== 'own' ? `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}` : job.tip ? 'A stranger\'s tip' : 'Your own lead';
-    h += `<section class="card offer ${['marker', 'amends'].includes(o.kind) ? 'marker' : ''}" data-offer="${o.id}">
+    const grand = job.tier >= 4;
+    const pic = runner ? `<div class="boss-pic">${portraitHTML(runner, { size: 48 })}</div>` : rival ? `<div class="boss-pic">${rivalFace(s, rival, 48)}</div>` : o.source === 'own' ? `<div class="boss-pic own">${grand ? '👑' : job.tip ? '✉️' : '🔎'}</div>` : `<div class="boss-pic">${bossFace(o.source, 48)}</div>`;
+    const whoName = runner ? `💨 Get it back from ${esc(shortName(runner))}` : job.rivalHit ? `${RIVALS[rival].emblem} Rob ${esc(RIVALS[rival].name)}` : job.wager ? `💌 Dandy Dan's wager · ${money(job.wager)}` : o.source !== 'own' ? `${GROUPS[o.source].emblem} ${esc(GROUPS[o.source].boss)}` : grand ? 'Word in the pub' : job.tip ? 'A stranger\'s tip' : 'Your own lead';
+    h += `<section class="card offer ${['marker', 'amends'].includes(o.kind) ? 'marker' : ''} ${grand ? 'grand' : ''}" data-offer="${o.id}">
       ${venueSVG(job, { compact: true })}
       <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
-      ${runner ? `<div class="quote">They ran with ${esc(inSentence(job.loot[0].name))}. Not for long.</div>` : job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
+      ${runner ? `<div class="quote">They ran with ${esc(inSentence(job.loot[0].name))}. Not for long.</div>` : job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : grand ? '<div class="quote">The job of a lifetime. Nobody\'s ever pulled it off. It takes three masters, and the pub\'s only ever got one of them.</div>' : ''}
       <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
       <button class="btn block mt ${['marker', 'amends'].includes(o.kind) ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : o.kind === 'amends' ? 'Make amends' : 'Take the job'}</button></section>`;
   }
@@ -414,6 +415,10 @@ function dogCard(G, d, opts = {}) {
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
   if (d.role) flags.push(roleChip(d));
+  // On a four-star job: a master of one of its master steps, as far as you know.
+  for (const st of s.phase === 'plan' ? s.job.stages.filter((x) => x.master) : []) {
+    if (d.known.skills[st.needs.skill] && skillOf(d, st.needs.skill) >= st.needs.min) flags.push(`<span class="chip good">👑 ${SKILL_INFO[st.needs.skill].icon} ${skillOf(d, st.needs.skill)}</span>`);
+  }
   if (recordOf(d) >= 3 && d.met) flags.push(`<span class="chip">📁 ${recordOf(d)} previous</span>`);
   for (const inj of d.injuries || []) flags.push(`<span class="chip warn">🩹 ${esc(inj.text)}</span>`);
   if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
@@ -451,7 +456,7 @@ function pubScreen(G) {
     const fit = (d) => (hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1); // unknowns sort last
     const sort = (list) => list.slice().sort((a, b) => fit(b) - fit(a));
     const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id) && !outOfTown(s, d));
-    const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}</b>` : 'Anyone will do';
+    const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}${hf.stage.needs ? ` ${hf.stage.needs.min}+` : ''}</b>` : 'Anyone will do';
     const opts = { fee: true, skill: hf.skill };
     return `<section class="card dark hire-banner"><div class="muted">Hiring for step ${hf.n}</div><h2>${hf.stage.icon} ${esc(hf.stage.label)}</h2>
       <p>${need}</p>
