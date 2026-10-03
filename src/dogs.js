@@ -294,7 +294,7 @@ const BACKDROPS = {
   velvet: { base: '#5e2233', dark: true, tile: [14, 100], draw: () => '<rect width="7" height="100" fill="#fff" opacity=".05"/><rect x="7" width="7" height="100" fill="#000" opacity=".1"/>', ink: '#2e0f18' },
 };
 const BACKDROP_IDS = Object.keys(BACKDROPS);
-export const backdropOf = (dog) => BACKDROP_IDS[(dog.look?.seed ?? 0) % BACKDROP_IDS.length];
+const backdropOf = (dog) => BACKDROP_IDS[(dog.look?.seed ?? 0) % BACKDROP_IDS.length];
 
 // Jacket cloth, seeded per dog.
 const CLOTH = [
@@ -306,7 +306,7 @@ const CLOTH = [
 export function portraitSVG(dog, opts = {}) {
   const b = BREEDS[dog.breed];
   const L = dog.look;
-  const u = `pt${++portraitUid}`;
+  const u = opts.uid || `pt${++portraitUid}`; // ids must be unique when inlined in a page
   const coat = L.coat;
   const dark = shade(coat, -0.18);
   const line = shade(coat, lum(coat) > 0.55 ? -0.42 : -0.28);
@@ -487,5 +487,24 @@ export function portraitSVG(dog, opts = {}) {
   if (opts.bg !== false) s += `<rect x=".5" y=".5" width="99" height="99" rx="${opts.round ? 49.5 : 13.5}" fill="none" stroke="#000" stroke-opacity=".18"/>`;
   const size = opts.size || 96;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}" role="img" aria-label="${esc(dog.first)} the ${esc(b.label)}">${s}</svg>`;
+}
+
+// A portrait for the page: drawn once as an image and reused. Inline SVG costs
+// ~60 DOM nodes a face, so a long crew list was mostly portrait; an <img> of a
+// cached blob URL is one node, and the browser decodes each face only once.
+// Each image is its own document, so the ids can be fixed, which makes the SVG
+// for a given face and size the same string every time (the cache key).
+// Without a DOM (tests, tools) it falls back to inline SVG.
+const portraitURLs = new Map();
+export function portraitHTML(dog, opts = {}) {
+  if (typeof document === 'undefined') return portraitSVG(dog, opts);
+  const svg = portraitSVG(dog, { ...opts, uid: 'p' });
+  let url = portraitURLs.get(svg);
+  if (!url) {
+    url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    portraitURLs.set(svg, url);
+  }
+  const size = opts.size || 96;
+  return `<img class="portrait" src="${url}" width="${size}" height="${size}" alt="${esc(dog.first)} the ${esc(BREEDS[dog.breed].label)}" draggable="false">`;
 }
 

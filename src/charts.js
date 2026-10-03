@@ -12,12 +12,24 @@ const SURFACE = '#f4ead3';
 export const UP = '#2f5d9a';
 export const DOWN = '#b8372e';
 
+// A bar from 0 to max (the nest egg, generosity, heat), coloured by how it's going.
+export const meter = (v, max, level) => `<div class="meter ${level}" role="meter" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${v}"><i style="width:${Math.max(0, Math.min(100, (100 * v) / max))}%"></i></div>`;
+// A labelled figure in a row of tiles.
+export const tile = (label, value, cls = '') => `<div class="tile"><span>${label}</span><b${cls ? ` class="${cls}"` : ''}>${value}</b></div>`;
+// How worried to be about the Inspector's heat.
+export const heatLevel = (heat) => (heat >= 60 ? 'serious' : heat >= 25 ? 'warning' : 'good');
+
 const W = 320;
 const pad = { l: 42, r: 12, t: 12, b: 20 };
 
 function frame(h, inner, caption) {
   return `<figure class="chart"><svg viewBox="0 0 ${W} ${h}" width="100%" role="img" aria-label="${esc(caption)}">${inner}</svg><figcaption class="chart-tip">${esc(caption)}</figcaption></figure>`;
 }
+
+// Map a value to a y position, top of the plot = max.
+const yScale = (h, min, max) => (v) => pad.t + ((max - v) / (max - min)) * (h - pad.t - pad.b);
+// A full-width horizontal rule at y (gridline or reference).
+const rule = (y, stroke = GRID, extra = '') => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="${stroke}" stroke-width="1"${extra}/>`;
 
 const tick = (x, y, text, anchor = 'end') => `<text x="${x}" y="${y}" font-size="10" fill="${MUTED}" text-anchor="${anchor}" font-family="system-ui,sans-serif">${esc(text)}</text>`;
 
@@ -30,13 +42,13 @@ export function columnChart(values, { h = 150, fmt = String, caption = '' } = {}
   const min = Math.min(0, ...values.map((v) => v.value));
   if (max === min) max = 1;
   const plotH = h - pad.t - pad.b;
-  const y = (v) => pad.t + ((max - v) / (max - min)) * plotH;
+  const y = yScale(h, min, max);
   const zero = y(0);
   const band = (W - pad.l - pad.r) / Math.max(n, 1);
   const bw = Math.min(24, band - 4);
   let s = '';
   // Axis ticks: top, zero, bottom.
-  for (const v of [...new Set([max, 0, min])]) if (v === 0 || values.some((x) => Math.sign(x.value) === Math.sign(v))) s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="${GRID}" stroke-width="1"/>${tick(pad.l - 4, y(v) + 3, fmt(v))}`;
+  for (const v of [...new Set([max, 0, min])]) if (v === 0 || values.some((x) => Math.sign(x.value) === Math.sign(v))) s += rule(y(v)) + tick(pad.l - 4, y(v) + 3, fmt(v));
   values.forEach((v, i) => {
     const x = pad.l + i * band + (band - bw) / 2;
     const top = Math.min(y(v.value), zero);
@@ -62,13 +74,12 @@ export function columnChart(values, { h = 150, fmt = String, caption = '' } = {}
 // latest value labelled. points: [{ label, value, tip }] oldest first.
 export function lineChart(points, { h = 150, min = 0, max = 100, color = UP, refs = [], caption = '' } = {}) {
   const n = points.length;
-  const plotH = h - pad.t - pad.b;
   const plotW = W - pad.l - pad.r;
   const x = (i) => pad.l + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
-  const y = (v) => pad.t + ((max - v) / (max - min)) * plotH;
+  const y = yScale(h, min, max);
   let s = '';
-  for (const v of [min, (min + max) / 2, max]) s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}" stroke="${GRID}" stroke-width="1"/>${tick(pad.l - 4, y(v) + 3, String(v))}`;
-  for (const r of refs) s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(r.y)}" y2="${y(r.y)}" stroke="${MUTED}" stroke-width="1" opacity=".6"/>${tick(W - pad.r, y(r.y) - 3, r.label)}`;
+  for (const v of [min, (min + max) / 2, max]) s += rule(y(v)) + tick(pad.l - 4, y(v) + 3, String(v));
+  for (const r of refs) s += rule(y(r.y), MUTED, ' opacity=".6"') + tick(W - pad.r, y(r.y) - 3, r.label);
   if (n) {
     const pts = points.map((p, i) => `${x(i).toFixed(1)},${y(p.value).toFixed(1)}`);
     s += `<path d="M${x(0)} ${y(min)} L${pts.join(' L')} L${x(n - 1)} ${y(min)} Z" fill="${color}" opacity=".1"/>`;

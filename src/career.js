@@ -2,13 +2,13 @@
 // its shareable picture: the nest egg, reputation, the Inspector, the record,
 // best and worst jobs, the closest mate and the biggest enemy.
 import { GROUPS } from './data.js';
-import { RETIRE } from './retire.js';
+import { RETIRE, nestEggPct } from './retire.js';
 import { RIVALS, rivalsOf } from './rivals.js';
 import { runnersList, loose } from './runners.js';
 import { displayName, relationLabel } from './dogs.js';
 import { standingLabel } from './groups.js';
+import { GRADE_ORDER } from './recap.js';
 
-const ORDER = 'SABCDF';
 
 // Counted as they happen (engine.resolveHeist); older saves fall back to the
 // rap sheet, which only remembers the last few dozen jobs.
@@ -26,7 +26,7 @@ export function bump(state, key, n) {
 // Best: highest grade, then the bigger take. Worst: the other way round.
 function bestAndWorst(history) {
   if (!history.length) return { best: null, worst: null };
-  const rank = (h) => ORDER.indexOf(h.grade) * 1e7 - (h.take || 0);
+  const rank = (h) => GRADE_ORDER.indexOf(h.grade) * 1e7 - (h.take || 0);
   const sorted = history.slice().sort((a, b) => rank(a) - rank(b));
   const best = sorted[0];
   const worst = sorted.at(-1);
@@ -72,7 +72,7 @@ export function careerOf(state) {
   return {
     day: s.day,
     status: s.over ? { retired: 'Retired', inspector: 'Banged up', nobody: 'Washed up', broke: 'Skint' }[s.over.reason] || 'Out' : 'Still at large',
-    nest: { cash: s.cash, goal: RETIRE.goal, pct: Math.max(0, Math.min(100, Math.floor((100 * Math.max(0, s.cash)) / RETIRE.goal))) },
+    nest: { cash: s.cash, goal: RETIRE.goal, pct: nestEggPct(s.cash) },
     rep: s.rep,
     heat: s.heat,
     record: {

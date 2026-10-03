@@ -5,6 +5,8 @@ import { shortName } from './dogs.js';
 import { lootItem } from './heists.js';
 
 export const HISTORY_MAX = 30;
+// Best grade first.
+export const GRADE_ORDER = 'SABCDF';
 
 // How each crew member's night ended.
 function fateOf(r, id) {

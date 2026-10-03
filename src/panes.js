@@ -1,11 +1,11 @@
 // The top bar's panes (cash, reputation, the Inspector, the day book) and the
 // help page. Each is modal content; renderModal in ui.js wraps it.
-import { esc, money } from './util.js';
+import { esc, money, moneyShort } from './util.js';
 import { inspectorLabel, starChance } from './engine.js';
-import { columnChart, lineChart, UP, DOWN } from './charts.js';
+import { columnChart, lineChart, meter, tile, heatLevel, UP, DOWN } from './charts.js';
 import { APPROACHES, GROUPS, RARITY } from './data.js';
 import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
-import { RETIRE } from './retire.js';
+import { RETIRE, canRetire, nestEggPct } from './retire.js';
 import { VERSION } from './version.js';
 import { generosityOf, hardnessOf, generosityBonus, generosityLabel, hardnessLabel, crewFeeling } from './repute.js';
 
@@ -23,7 +23,6 @@ function series(s, key) {
   return pts;
 }
 const signed = (n) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n))}`;
-const short = (n) => (Math.abs(n) >= 1000 ? `${n < 0 ? '−' : ''}£${(Math.abs(n) / 1000).toFixed(Math.abs(n) >= 10000 ? 0 : 1)}k` : `${n < 0 ? '−' : ''}£${Math.abs(n)}`);
 
 function items(obj) {
   const rows = Object.entries(obj || {}).filter(([, v]) => v).sort((a, b) => b[1] - a[1]);
@@ -38,14 +37,14 @@ function cashPane(s) {
   const spent = all.filter((v) => v < 0).reduce((a, v) => a + v, 0);
   const recent = b.jobs.slice(0, 12).reverse();
   const chart = recent.length
-    ? columnChart(recent.map((j) => ({ label: j.label, value: j.net, tip: `${j.label}: ${signed(j.net)}` })), { fmt: short, caption: 'Profit or loss per job. Tap a column.' })
+    ? columnChart(recent.map((j) => ({ label: j.label, value: j.net, tip: `${j.label}: ${signed(j.net)}` })), { fmt: moneyShort, caption: 'Profit or loss per job. Tap a column.' })
     : '<p class="muted">Finish a job to see how it paid.</p>';
   return `<h2>💷 The Books</h2>
     <div class="hero-fig">${money(s.cash)}</div>
-    <div class="meter ${s.cash >= RETIRE.goal ? 'good' : 'warning'}" role="meter" aria-valuemin="0" aria-valuemax="${RETIRE.goal}" aria-valuenow="${s.cash}"><i style="width:${Math.min(100, Math.max(0, (100 * s.cash) / RETIRE.goal))}%"></i></div>
-    <p class="muted">🏝️ The nest egg: ${Math.min(100, Math.floor((100 * Math.max(0, s.cash)) / RETIRE.goal))}% of ${money(RETIRE.goal)}. ${s.cash < RETIRE.goal ? `Put it away and retire to ${RETIRE.place}.` : s.phase === 'select' ? `Enough to retire to ${RETIRE.place}. Or one more job...` : 'Enough to retire. Finish this job first.'}</p>
-    ${s.cash >= RETIRE.goal && s.phase === 'select' ? '<button class="btn block retire-btn" data-act="retire">🏝️ Retire for good</button>' : ''}
-    <div class="tiles"><div class="tile"><span>Earned</span><b>${money(earned)}</b></div><div class="tile"><span>Spent</span><b>${money(-spent)}</b></div><div class="tile"><span>Jobs</span><b>${b.jobs.length}</b></div></div>
+    ${meter(s.cash, RETIRE.goal, s.cash >= RETIRE.goal ? 'good' : 'warning')}
+    <p class="muted">🏝️ The nest egg: ${nestEggPct(s.cash)}% of ${money(RETIRE.goal)}. ${s.cash < RETIRE.goal ? `Put it away and retire to ${RETIRE.place}.` : s.phase === 'select' ? `Enough to retire to ${RETIRE.place}. Or one more job...` : 'Enough to retire. Finish this job first.'}</p>
+    ${canRetire(s) ? '<button class="btn block retire-btn" data-act="retire">🏝️ Retire for good</button>' : ''}
+    <div class="tiles">${tile('Earned', money(earned))}${tile('Spent', money(-spent))}${tile('Jobs', b.jobs.length)}</div>
     <div class="legend"><span><i style="background:${UP}"></i>Profit</span><span><i style="background:${DOWN}"></i>Loss</span></div>
     ${chart}
     <h3 class="dm-h">Since the last job</h3>${items(b.open)}
@@ -62,9 +61,9 @@ function reputeBlock(s) {
   const effect = h >= 15 ? `Crew fear you: ${Math.round(f.fear * 100)}% fewer runners and talkers, but they warm to you ${Math.abs(Math.round(f.warmth))} a job slower.`
     : h <= -15 ? `Crew like you: they warm to you ${Math.round(f.warmth)} a job faster, but a soft touch is easier to cross.`
       : 'Crew know where they stand with you.';
-  return `<div class="tiles two"><div class="tile"><span>Track record</span><b>${s.rep - bonus}</b></div><div class="tile"><span>Generosity</span><b>${sign(bonus)}</b></div></div>
+  return `<div class="tiles two">${tile('Track record', s.rep - bonus)}${tile('Generosity', sign(bonus))}</div>
     <h3 class="dm-h">Generosity · ${generosityLabel(g)}</h3>
-    <div class="meter ${g >= 45 ? 'good' : g >= 25 ? 'warning' : 'serious'}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${g}"><i style="width:${g}%"></i></div>
+    ${meter(g, 100, g >= 45 ? 'good' : g >= 25 ? 'warning' : 'serious')}
     <p class="muted">How much of the take you share.</p>
     <h3 class="dm-h">Soft or hard · ${hardnessLabel(h)}</h3>
     <div class="dial" role="meter" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="${h}"><span>Soft</span><div class="dial-track"><i style="left:${(h + 100) / 2}%"></i></div><span>Hard</span></div>
@@ -101,12 +100,11 @@ const HEAT_LEVELS = [
 ];
 function heatPane(s) {
   const t = s.timeline || [];
-  const sev = s.heat >= 60 ? 'serious' : s.heat >= 25 ? 'warning' : 'good';
   const file = moFile(s);
   const moves = (s.inspector?.moves || []).filter((m) => MOVE_LABELS[m.move]).slice(0, 6);
   return `<h2>🕵️ ${esc(INSPECTOR.name)}</h2>
     <div class="hero-fig">${s.heat}<small>/100 · ${esc(inspectorLabel(s.heat))}</small></div>
-    <div class="meter ${sev}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${s.heat}"><i style="width:${s.heat}%"></i></div>
+    ${meter(s.heat, 100, heatLevel(s.heat))}
     ${t.length > 1 ? lineChart(series(s, 'heat'), { color: DOWN, refs: [{ y: 12, label: 'coppers' }, { y: 25, label: 'stings' }, { y: 45, label: 'raids' }], caption: 'Heat after each job. Tap a point.' }) : ''}
     <h3 class="dm-h">What the heat brings</h3>
     <ul class="ledger">${HEAT_LEVELS.map(([at, icon, what]) => `<li><span>${s.heat >= at ? '⚠️' : icon} ${esc(what)}</span><b>${at}+</b></li>`).join('')}</ul>

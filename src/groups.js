@@ -2,7 +2,7 @@
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
 import { clamp, fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
-import { genJob, jobTier, revealIntel, totalLootValue } from './heists.js';
+import { genJob, jobTier, revealIntel, totalLootValue, ownOffer } from './heists.js';
 import { makeTip } from './inspector.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -67,13 +67,10 @@ function queueStory(state, gid, kind, vars = {}) {
 function ownLead(state, rng) {
   const tier = Math.max(1, jobTier(state) - 1);
   // Now and then a stranger slips you a juicy tip. Once the Inspector's about, some are his.
-  if (state.stats.jobs >= 2 && rng.chance(0.15)) {
-    const job = genJob(state, rng, { tier, lootMult: 1.4 });
-    makeTip(job, false);
-    return { id: job.id, source: 'own', kind: 'own', job, pitch: rng.pick(OWN_PITCHES) };
-  }
-  const job = genJob(state, rng, { tier, lootMult: 0.75 });
-  return { id: job.id, source: 'own', kind: 'own', job, pitch: rng.pick(OWN_PITCHES) };
+  const tip = state.stats.jobs >= 2 && rng.chance(0.15);
+  const job = genJob(state, rng, { tier, lootMult: tip ? 1.4 : 0.75 });
+  if (tip) makeTip(job, false);
+  return ownOffer(job, { pitch: rng.pick(OWN_PITCHES) });
 }
 
 function groupOffer(state, rng, gid, forced) {
@@ -142,7 +139,7 @@ export function genOffers(state, rng) {
 // ------------------------------------------------------------------ making amends
 // Once an outfit has turned on you, you can make it right: pay up (any debt plus
 // interest, and something for the trouble), or do them a hard job for nothing.
-export const AMENDS_AT = -20;
+const AMENDS_AT = -20;
 export const canMakeAmends = (state, gid) => state.groups[gid].standing <= AMENDS_AT;
 export function amendsCost(state, gid) {
   const g = state.groups[gid];

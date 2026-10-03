@@ -3,8 +3,10 @@
 // scene on the job board. He also keeps a file on how you work: tricks you
 // lean on get harder, because security has been briefed on them.
 import { APPROACHES, KIT } from './data.js';
-import { fail, done, money, clamp, addHeat, addRelation, book } from './util.js';
+import { money, clamp, addHeat, addRelation, book } from './util.js';
+import { pushScene, answerScene } from './story.js';
 import { displayName, shortName } from './dogs.js';
+import { ownOffer } from './heists.js';
 
 export const INSPECTOR = {
   name: 'Inspector Hound',
@@ -128,7 +130,7 @@ const MOVES = {
       if (i < 0 || !ctx.genJob) return null;
       const job = ctx.genJob(state, rng, { lootMult: 1.4 });
       makeTip(job, true);
-      state.offers[i] = { id: job.id, source: 'own', kind: 'own', job };
+      state.offers[i] = ownOffer(job);
       return null;
     },
   },
@@ -242,26 +244,11 @@ export function inspectorMoves(state, rng, ctx = {}) {
     scene.title = 'The Inspector';
     scene.text = `${INSPECTOR.name} has opened a file on you. Thin, for now. ${scene.text}`;
   }
-  const st = { type: 'inspector', move: id, ...scene, choices: scene.choices.map((c) => ({ label: c.label, cost: c.cost || 0, effect: c.effect || null })) };
-  state.story.push(st);
-  return st;
-}
-
-export function inspectorChoices(state, st) {
-  return st.choices.map((c) => ({ ...c, ok: c.cost <= state.cash }));
+  return pushScene(state, 'inspector', { move: id, ...scene });
 }
 
 // Answer the scene on top of the board.
-export function chooseInspector(state, i, rng) {
-  const st = state.story[0];
-  if (!st || st.type !== 'inspector') return fail('Nothing to answer.');
-  const c = st.choices[i];
-  if (!c) return fail('No such choice.');
-  if (c.cost > state.cash) return fail('You can\'t afford that.');
-  if (c.cost) book(state, 'fixer', -c.cost);
-  state.story.shift();
-  return done(c.effect ? EFFECTS[c.effect](state, st, rng) : '');
-}
+export const chooseInspector = (state, i, rng) => answerScene(state, 'inspector', i, (st, effect) => EFFECTS[effect](state, st, rng), 'fixer');
 
 // The setup springs at the vault: nothing there but floodlights.
 export const SETUP_TEXT = 'The vault\'s empty. Floodlights snap on. A loudhailer: "Evening, all." It was never a tip. It was a SETUP!';

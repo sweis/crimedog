@@ -7,6 +7,8 @@
 import { fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
 import { displayName, shortName, skillOf } from './dogs.js';
 import { addHardness } from './repute.js';
+import { pushScene, answerScene } from './story.js';
+import { pinJob, keepPinned } from './heists.js';
 
 export const HUNT_COST = 150;
 const LEADS_NEEDED = 2;
@@ -26,11 +28,7 @@ export function newRunner(state, d, took, value, rng) {
   });
 }
 
-function scene(state, dog, move, s) {
-  const st = { type: 'runner', dog, move, title: s.title, text: s.text, choices: s.choices.map((c) => ({ label: c.label, cost: c.cost || 0, effect: c.effect || null })) };
-  state.story.push(st);
-  return st;
-}
+const scene = (state, dog, move, s) => pushScene(state, 'runner', { dog, move, title: s.title, text: s.text, choices: s.choices });
 
 // Anyone in your book who's good at finding people: a nose or a sneak of 4+.
 const tracker = (state) => Object.values(state.dogs).find((d) => d.met && d.status === 'free' && !d.undercover && (skillOf(d, 'nose') >= 4 || skillOf(d, 'sneak') >= 4));
@@ -42,7 +40,7 @@ export function runnersBetweenJobs(state, rng) {
   for (const r of Object.values(R)) {
     const d = state.dogs[r.dog];
     if (!d) continue;
-    if (r.board && !state.offers.some((o) => o.id === r.board.id)) state.offers.unshift({ id: r.board.id, source: 'own', kind: 'own', job: r.board });
+    keepPinned(state, r);
     if (r.stage === 'hunting') {
       const t = tracker(state);
       r.leads += 1 + (t ? 1 : 0);
@@ -78,19 +76,8 @@ function foundChoices(state, r) {
   ];
 }
 
-export function runnerChoices(state, st) {
-  return st.choices.map((c) => ({ ...c, ok: c.cost <= state.cash }));
-}
-
-export function chooseRunner(state, i, rng, ctx = {}) {
-  const st = state.story[0];
-  if (!st || st.type !== 'runner') return fail('Nothing to answer.');
-  const c = st.choices[i];
-  if (!c) return fail('No such choice.');
-  if (c.cost > state.cash) return fail('You can\'t afford that.');
-  state.story.shift();
-  return act(state, st.dog, c.effect, rng, ctx);
-}
+// Putting the word out books its own cost (as intel), so nothing is booked here.
+export const chooseRunner = (state, i, rng, ctx = {}) => answerScene(state, 'runner', i, (st, effect) => act(state, st.dog, effect, rng, ctx));
 
 // The same actions, from the Players tab.
 export function runnerAction(state, dogId, effect, rng, ctx = {}) {
@@ -100,15 +87,10 @@ export function runnerAction(state, dogId, effect, rng, ctx = {}) {
   if (!allowed.includes(effect)) return fail('Not yet.');
   if (state.phase !== 'select') return fail('Between jobs.');
   state.story = state.story.filter((x) => !(x.type === 'runner' && x.dog === dogId));
-  return act(state, dogId, effect, rng, ctx);
+  return done(act(state, dogId, effect, rng, ctx));
 }
 
-function act(state, dogId, effect, rng, ctx) {
-  const r = runnersOf(state)[dogId];
-  const d = state.dogs[dogId];
-  if (!effect) return done('');
-  return done(EFFECTS[effect](state, r, d, rng, ctx));
-}
+const act = (state, dogId, effect, rng, ctx) => EFFECTS[effect](state, runnersOf(state)[dogId], state.dogs[dogId], rng, ctx);
 
 const EFFECTS = {
   hunt(state, r, d) {
@@ -130,8 +112,7 @@ const EFFECTS = {
     job.runnerHit = d.id;
     job.loot[0].name = r.took;
     job.loot[0].value = Math.max(job.loot[0].value, r.value);
-    r.board = job;
-    state.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    pinJob(state, r, job);
     return `${shortName(d)}'s hideout is on the job board. Time to take back what's yours.`;
   },
   farm(state, r, d) {
