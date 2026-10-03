@@ -92,7 +92,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Toasts up top (latest, 0.16.1)
+## Brief message (latest, 0.16.2)
+
+- Every game message (hire, brief, hospital bill, kit, errors) goes through the one `#toast`, so 0.16.1 already widened them all; the narrow brief message seen after that was most likely a cached stylesheet (`styles.css` carries no version query).
+- The brief message said "That's as far as the law will bend for now" after every brief; it now only says it on the brief that hits the half-sentence floor. Unit test in justice.test.
+
+## Toasts up top (0.16.1)
 
 - Toasts were centred with `left: 50%`, which capped their width at half the screen (195px on a phone, four lines for a hire), and sat at the bottom unless a sheet was open. Now they span the page column (max 516px) and always drop in just under the top bar, so they never cover the bottom buttons or a sheet's actions.
 - Smoke 1c checks the toast is page-wide and in the top half. Verified at 390x844, 375x667 and 1024x768 (hire from a profile, hire for a step, recruit to case). Not verified on a real notched phone (safe-area inset is in the offset).
