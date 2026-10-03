@@ -50,7 +50,7 @@ export function hireBrief(state, d) {
   addRelation(d, 8);
   addGenerosity(state, 2);
   addHardness(state, -2);
-  return done(`${shortName(d)}'s sentence is cut to ${d.sentence} job${d.sentence > 1 ? 's' : ''}. That's as far as the law will bend${d.sentence > minSentence(d) ? ' for now' : ''}. They won't forget it.`);
+  return done(`${shortName(d)}'s sentence is cut to ${d.sentence} job${d.sentence > 1 ? 's' : ''}.${d.sentence > minSentence(d) ? '' : ' That\'s as far as the law will bend.'} They won't forget it.`);
 }
 
 // ------------------------------------------------------------------ hospital

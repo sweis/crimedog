@@ -11,15 +11,31 @@ export function pickOffer(s, policy) {
   // Careful players prefer a patron's deal and steer clear of angering big outfits.
   const offers = s.offers;
   // They also steer clear of watched jobs and strangers' tips (unless they've checked them out).
-  const safe = offers.filter((o) => !o.job.watched && !o.job.tip);
+  // And they only take a four-star job when they know who'd do every master step.
+  const safe = offers.filter((o) => !o.job.watched && !o.job.tip && (o.job.tier < 4 || mastersCovered(s, o.job)));
   const pick = policy === 'smart'
     ? safe.find((o) => o.source !== 'own' && !o.job.owner) || safe.find((o) => !o.job.owner) || safe[0] || offers[0]
     : offers[0];
   E.acceptOffer(s, pick.id);
 }
 
+// How many of a job's master steps someone you know is up to, in your book or the pub.
+// The job brings one more master, and asking around might turn up another.
+export function mastersCovered(s, job) {
+  const pool = [...E.bookDogs(s), ...s.pub.map((id) => s.dogs[id])].filter((d) => d.status === 'free' && !d.undercover);
+  return job.stages.filter((st) => st.master && pool.some((d) => d.known.skills[st.needs.skill] && skillOf(d, st.needs.skill) >= st.needs.min)).length >= 1;
+}
+
 export function smartJob(s) {
   const job = s.job;
+  // A four-star job: the masters first, asking around for any still missing.
+  const missing = () => E.mastersMissing(s, [...E.crewDogs(s), ...E.bookDogs(s).filter((d) => !E.hireProblem(s, d)), ...s.pub.map((id) => s.dogs[id])]);
+  for (let k = 0; k < 3 && missing().length && job.daysLeft > 2; k++) E.askAround(s);
+  for (const st of job.stages.filter((x) => x.master)) {
+    const pool = [...E.bookDogs(s), ...s.pub.map((id) => s.dogs[id])].filter((d) => !E.hireProblem(s, d) && d.known.skills[st.needs.skill]);
+    const best = pool.sort((a, b) => skillOf(b, st.needs.skill) - skillOf(a, st.needs.skill))[0];
+    if (best && skillOf(best, st.needs.skill) >= st.needs.min && !E.crewDogs(s).some((d) => skillOf(d, st.needs.skill) >= st.needs.min)) E.hire(s, best.id);
+  }
   // Old friends first
   for (const d of E.bookDogs(s)) if (d.status === 'free' && d.relation >= 0 && !(d.known.undercover && d.undercover) && s.crew.length < 3) E.hire(s, d.id);
   const needed = () => {
