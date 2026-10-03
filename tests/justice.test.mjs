@@ -129,3 +129,17 @@ test('a lasting injury takes a point off the skill they were using', () => {
   fakeHeist(s, { escaped: [], hurt: [{ id: d.id, jobs: 3, skill: 'muscle' }] });
   assert.equal(d.skills.muscle, 3);
 });
+
+test('a brief only says the law won\'t bend further once it won\'t', async () => {
+  const { hireBrief } = await import('../src/justice.js');
+  const s = E.newGame(1);
+  s.cash = 9999;
+  const d = genDog(s, E.rngOf(s), {});
+  Object.assign(d, { status: 'pound', sentence: 6, sentenceStart: 6 });
+  s.dogs[d.id] = d;
+  const msgs = [hireBrief(s, d), hireBrief(s, d), hireBrief(s, d)].map((r) => r.msg);
+  assert.doesNotMatch(msgs[0], /as far as the law/);
+  assert.doesNotMatch(msgs[1], /as far as the law/);
+  assert.match(msgs[2], /cut to 3 jobs\. That's as far as the law will bend\./);
+  assert.equal(hireBrief(s, d).ok, false);
+});

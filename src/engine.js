@@ -2,7 +2,7 @@
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy, inSentence } from './util.js';
-import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
+import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
@@ -92,7 +92,7 @@ function pruneStrangers(state, keep) {
 // `townKey` marks this visit: stars in town for it can be hired.
 export function refreshPub(state, rng = rngOf(state)) {
   state.townKey = state.job ? state.job.id : `board-${state.stats.jobs}-${state.day}`;
-  const quality = Math.floor(state.rep / 30) + (state.job ? state.job.tier : jobTier(state)) - 1;
+  const quality = pubQuality(state, state.job ? state.job.tier : jobTier(state));
   const n = Math.min(6, 5 + Math.floor(state.rep / 40));
   const pub = [];
   // Some regulars come back.
@@ -148,11 +148,15 @@ export function refreshPub(state, rng = rngOf(state)) {
   jobArrivals(state, rng, quality);
 }
 
+// How good the faces in the pub are. A four-star job draws no better a crowd than a three-star one.
+const pubQuality = (state, tier) => Math.floor(state.rep / 30) + Math.min(3, tier) - 1;
+
 // Once you've picked a job, word gets round: whoever the job needs turns up too.
 function jobArrivals(state, rng, quality) {
   const pub = state.pub;
+  masterArrives(state, rng);
   // A job with a specialist step always has someone in the pub who's up to it (at a price).
-  const sp = state.job?.stages.find((st) => st.needs);
+  const sp = state.job?.stages.find((st) => st.needs && !st.master);
   if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
     const d = genDog(state, rng, { quality, primary: sp.needs.skill });
     d.skills[sp.needs.skill] = Math.max(d.skills[sp.needs.skill], sp.needs.min);
@@ -169,6 +173,9 @@ function jobArrivals(state, rng, quality) {
   }
   const star = starVisit(state, rng);
   if (star && !pub.includes(star.id)) pub.unshift(star.id);
+  // The four-star job's master is in the pub for as long as they're in town.
+  const ms = state.dogs[state.job?.masterStar];
+  if (ms && ms.status === 'free' && ms.inTown === state.townKey && !pub.includes(ms.id)) pub.unshift(ms.id);
   pruneStrangers(state, pub);
 }
 
@@ -183,7 +190,39 @@ function pubForJob(state, rng = rngOf(state)) {
   }
   state.pub = state.pub.filter((id) => state.dogs[id]?.status === 'free' && !state.crew.includes(id));
   if (!state.pub.length) return refreshPub(state, rng);
-  jobArrivals(state, rng, Math.floor(state.rep / 30) + state.job.tier - 1);
+  jobArrivals(state, rng, pubQuality(state, state.job.tier));
+}
+
+// A four-star job brings one star to town, a master of one of its master steps. Only
+// one: the other masters you'll have to find yourself.
+function masterArrives(state, rng) {
+  const job = state.job;
+  if (!job?.stages.some((st) => st.master) || job.masterStar) return;
+  // They fill a gap if there is one: a master you don't already know.
+  const known = bookDogs(state).filter((d) => d.status === 'free' || state.crew.includes(d.id));
+  const gaps = mastersMissing(state, known);
+  const sk = rng.pick(gaps.length ? gaps : job.stages.filter((st) => st.master).map((st) => st.needs.skill));
+  const d = master(state, rng, sk, { rarity: rng.chance(legendShare(state.rep)) ? 'legendary' : 'rare' });
+  d.inTown = state.townKey;
+  job.masterStar = d.id;
+  state.starRolled = state.townKey; // the job's star, instead of a chance one
+}
+
+// The job's master steps nobody among these dogs is known to be up to.
+export function mastersMissing(state, dogs) {
+  return (state.job?.stages || []).filter((st) => st.master)
+    .map((st) => st.needs.skill)
+    .filter((sk) => !dogs.some((d) => d.known.skills[sk] && skillOf(d, sk) >= MASTER_MIN));
+}
+
+// Someone who's a master of one skill, and known for it. They know what they're worth.
+function master(state, rng, sk, opts = {}) {
+  const d = genDog(state, rng, { quality: 2, primary: sk, ...opts });
+  while (skillOf(d, sk) < MASTER_MIN) d.skills[sk] += 1;
+  d.known.skills[sk] = true;
+  d.fee = feeFor(d) * (opts.rarity ? 1 : 3);
+  state.dogs[d.id] = d;
+  return d;
 }
 
 // Chance a rare or legendary dog is in town for a job, and how often that star is legendary.
@@ -300,6 +339,15 @@ export function askAround(state) {
   if (!useDay(state)) return fail('No days left before the job.');
   const rng = rngOf(state);
   refreshPub(state, rng);
+  // Word of a four-star job gets round: now and then a master turns up for a step nobody's covering.
+  const gaps = mastersMissing(state, [...crewDogs(state), ...state.pub.map((id) => state.dogs[id])]);
+  let heard = '';
+  if (gaps.length && rng.chance(0.25)) {
+    const sk = rng.pick(gaps);
+    const d = master(state, rng, sk);
+    state.pub.unshift(d.id);
+    heard = `Word's got round about the job, and ${shortName(d)} turns up. They say ${shortName(d)} ${SKILL_INFO[sk].rumour}.`;
+  }
   const gossip = crewDogs(state).find((d) => hasSpecial(d, 'gossip'));
   if (gossip) {
     for (const id of state.pub) {
@@ -307,9 +355,9 @@ export function askAround(state) {
       const s = rng.pick(SKILLS);
       d.known.skills[s] = true;
     }
-    return done(`New faces at the pub. ${shortName(gossip)} has the gossip on all of them.`);
+    return done(`New faces at the pub. ${shortName(gossip)} has the gossip on all of them.${heard ? ` ${heard}` : ''}`);
   }
-  return done('You spend the day at the pub. New faces drift in.');
+  return done(heard || 'You spend the day at the pub. New faces drift in.');
 }
 
 // ------------------------------------------------------------------ job selection
@@ -892,6 +940,7 @@ function finishGrade(state) {
   a.grade = g;
   let rep = REP_FOR[g.letter];
   if (state.result.runners.length) rep -= 2;
+  if (state.job.tier >= 4 && a.securedValue) rep += 6; // the whole town hears about a four-star job
   a.repDelta = rep;
   addRep(state, rep);
   a.relations = settleGroups(state);
@@ -928,6 +977,7 @@ function headline(state) {
   const pick = (list) => pickBy(`${state.job.id}|${state.job.venueName}`, list);
   if (r.setup) return `STING AT ${v}: "ANYBODY COULD BE ANYBODY," SAYS INSPECTOR`;
   if (r.outcome === 'clean' && r.swap) return pick([`"QUIET NIGHT AT ${v}," SAYS MANAGER`, `NOTHING TO SEE AT ${v}. OR IS THERE?`]);
+  if (state.job.tier >= 4 && ['clean', 'tidy'].includes(r.outcome)) return pick([`THE JOB OF THE CENTURY AT ${v}`, `${v}: "IT CAN'T BE DONE," THEY SAID`, `${v} RAID: INSPECTOR "IMPRESSED, FRANKLY"`]);
   if (r.outcome === 'clean') return pick([`MYSTERY AT ${v}: POLICE BAFFLED`, `${v} RAID: YARD ROUNDS UP THE USUAL SUSPECTS`, `"LIKE THEY WERE NEVER THERE," SAYS ${v} GUARD`]);
   if (r.outcome === 'tidy') return pick([`DARING RAID ON ${v}`, `${v} HIT IN THIRTY SECONDS FLAT`, `"IT WAS LIKE A FILM," SAYS ${v} NIGHT WATCHMAN`]);
   if (r.outcome === 'messy') return pick([`CHAOS AT ${v} AS GANG FLEES WITH LOOT`, `"THEY BLEW THE BLOODY DOORS OFF," SAYS ${v} STAFF`, `SNATCH! GANG GRABS WHAT IT CAN AT ${v}`]);

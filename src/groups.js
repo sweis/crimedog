@@ -2,7 +2,7 @@
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
 import { clamp, fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
-import { genJob, jobTier, revealIntel, totalLootValue, ownOffer } from './heists.js';
+import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady } from './heists.js';
 import { makeTip } from './inspector.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -131,6 +131,8 @@ export function genOffers(state, rng) {
       queueStory(state, o.source, 'intro');
     }
   }
+  // Once you've a name, now and then word gets round of a four-star job.
+  if (grandReady(state) && rng.chance(0.3)) offers.push(ownOffer(genJob(state, rng, { tier: GRAND_TIER, owner: null })));
   // An amends job you haven't done yet stays on the board.
   for (const gid of GROUP_IDS) if (state.groups[gid].amends && !offers.includes(state.groups[gid].amends)) offers.unshift(state.groups[gid].amends);
   state.offers = offers;
@@ -169,7 +171,7 @@ export function makeAmends(state, rng, gid, how) {
 }
 
 export function rerollOwnLeads(state, rng) {
-  state.offers = state.offers.filter((o) => o.source !== 'own' || o.job.rivalHit || o.job.wager || o.job.runnerHit);
+  state.offers = state.offers.filter((o) => o.source !== 'own' || o.job.rivalHit || o.job.wager || o.job.runnerHit || o.job.tier >= GRAND_TIER);
   state.offers.unshift(ownLead(state, rng), ownLead(state, rng));
 }
 

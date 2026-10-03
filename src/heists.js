@@ -1,6 +1,6 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
-import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MARKS, KIT } from './data.js';
+import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MASTERS, MASTER_MIN, MARKS, KIT } from './data.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank', 'Bank Job', 'Heat'],
@@ -29,8 +29,12 @@ const TYPE_NAMES = {
   train: (w) => ['The Great Mail Robbery', `The ${w} Job`, 'The Night Mail', 'Last Stop', 'The Bone Express'],
 };
 
-function jobName(rng, venueType, star, type) {
+// Four-star jobs get names to match.
+const GRAND_NAMES = (w) => [`The ${w} Job of the Century`, 'The Big One', 'The Job of a Lifetime', 'One Last Job', 'The Big Score', 'The Biggest Bone in Town', 'The Masterpiece'];
+
+function jobName(rng, venueType, star, type, grand) {
   const w = rng.pick(JOB_WORDS[venueType]);
+  if (grand) return rng.pick(GRAND_NAMES(w));
   const small = new Set(['of', 'the', 'a', 'an', 'and', 'with', 'at', 'in']);
   const starName = star.name.replace(/"/g, '').replace(/^(The|A|An) /, '')
     .split(' ').map((w, i) => (i && small.has(w) ? w : w[0].toUpperCase() + w.slice(1))).join(' ');
@@ -61,6 +65,14 @@ export function pinJob(state, holder, job) {
 export function keepPinned(state, holder) {
   if (holder.board && !state.offers.some((o) => o.id === holder.board.id)) state.offers.unshift(ownOffer(holder.board));
 }
+
+// A four-star job: three master steps, each wanting a different skill at 8+.
+export const GRAND_TIER = 4;
+const mastersFor = (type) => Object.keys(MASTERS).filter((sk) => MASTERS[sk].types.includes(type));
+// The kinds of job with enough master steps to make one.
+export const GRAND_TYPES = Object.keys(JOB_TYPES).filter((t) => mastersFor(t).length >= 3);
+// Big enough jobs, and a big enough name, before one turns up on the board.
+export const grandReady = (state) => state.stats.jobs >= 8 && state.rep >= 50;
 
 export function jobTier(state) {
   return Math.min(3, 1 + Math.floor(state.stats.jobs / 3) + (state.rep >= 60 ? 1 : 0));
@@ -95,8 +107,8 @@ const SPECIALS = {
   train: ['carpark'],
 };
 
-function pickType(rng, venueType) {
-  const fits = Object.entries(JOB_TYPES).filter(([, T]) => !venueType || T.venues.includes(venueType));
+function pickType(rng, venueType, grand) {
+  const fits = Object.entries(JOB_TYPES).filter(([id, T]) => (!venueType || T.venues.includes(venueType)) && (!grand || GRAND_TYPES.includes(id)));
   return rng.weighted(fits.map(([id, T]) => [id, T.weight]));
 }
 
@@ -263,12 +275,13 @@ const DAY_JOBS = { con: 14, fraud: 11 };
 // opts: tier, venueType, owner (group id or null), lootMult (small jobs < 1), type
 export function genJob(state, rng, opts = {}) {
   const tier = opts.tier ?? jobTier(state);
-  const type = opts.type ?? pickType(rng, opts.venueType);
+  const grand = tier >= GRAND_TIER;
+  const type = opts.type ?? pickType(rng, opts.venueType, grand);
   const T = JOB_TYPES[type];
   const venueType = opts.venueType ?? rng.pick(T.venues);
   const V = VENUES[venueType];
-  const base = 2 + tier;
-  const mult = (1 + (tier - 1) * 0.7) * (opts.lootMult ?? 1);
+  const base = 2 + Math.min(3, tier); // a four-star job's ordinary steps are no harder than a three-star's; the masters are the thing
+  const mult = (1 + (tier - 1) * 0.7) * (opts.lootMult ?? 1) * (grand ? 2.2 : 1);
   const owners = VENUE_OWNERS[venueType] || [];
   const owner = opts.owner !== undefined ? opts.owner : owners.length && rng.chance(0.45) ? rng.pick(owners) : null;
 
@@ -301,16 +314,25 @@ export function genJob(state, rng, opts = {}) {
   const insider = T.insider && !(type === 'breakin' && rng.chance(0.2));
 
   const stages = LAYOUTS[type]({ rng, V, obstacles, hazards, insider });
+  if (grand) {
+    // Three master steps before the goods, each in a different skill.
+    const at = stages.findIndex((st) => st.kind === 'vault');
+    const steps = rng.sample(mastersFor(type), 3).map((sk) => {
+      const m = MASTERS[sk];
+      return { id: `master_${sk}`, kind: 'obstacle', label: m.label, icon: m.icon, options: m.options.slice(), master: true, noSig: true, needs: { skill: sk, min: MASTER_MIN } };
+    });
+    stages.splice(at, 0, ...steps);
+  }
   // Sometimes one step takes a real specialist.
   const specials = SPECIALS[type];
-  if (specials.length && rng.chance(tier === 1 ? 0.3 : 0.45)) {
+  if (!grand && specials.length && rng.chance(tier === 1 ? 0.3 : 0.45)) {
     const sp = SPECIALISTS[rng.pick(specials)];
     const at = stages.findIndex((st) => st.kind === 'vault');
     stages.splice(at, 0, { id: 'specialist', kind: 'obstacle', label: sp.label, icon: sp.icon, options: sp.options.slice(), needs: { skill: sp.skill, min: sp.min } });
   }
 
   // A twist, now and then (more often on bigger jobs).
-  const twist = opts.twist !== undefined ? opts.twist : rng.chance([0, 0.35, 0.5, 0.65][tier]) ? pickTwist(rng, type, stages) : null;
+  const twist = opts.twist !== undefined ? opts.twist : rng.chance([0, 0.35, 0.5, 0.65, 0.65][tier]) ? pickTwist(rng, type, stages) : null;
   let daysLeft = 5;
   let jobBase = base;
   if (twist === 'rush') daysLeft = 2;
@@ -355,7 +377,7 @@ export function genJob(state, rng, opts = {}) {
   const heat = state.heat;
   const job = {
     id: `j${state.stats.jobs + 1}-${state.nextId++}`,
-    name: jobName(rng, venueType, star, type),
+    name: jobName(rng, venueType, star, type, grand),
     type,
     venueType,
     venueName,

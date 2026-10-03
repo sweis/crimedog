@@ -92,8 +92,9 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   const a = APPROACHES[approachId];
   let skill = skillOf(dog, a.skill);
   if (job.time === 'night' && hasSpecial(dog, 'night')) skill += 1;
-  // A specialist step: anyone short of the mark is out of their depth.
-  const outOfDepth = stage.needs && skill < stage.needs.min ? 3 : 0;
+  // A specialist step: anyone short of the mark is out of their depth. A master step
+  // is hopeless.
+  const outOfDepth = stage.needs && skill < stage.needs.min ? (stage.master ? 6 : 3) : 0;
   const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0) + outOfDepth;
   let p = baseOdds(skill, diff);
   const alarm = ctx.alarm || 0;
@@ -119,6 +120,8 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   p += 0.02 * roleLevel(crew, 'leader'); // a leader steadies everyone
   p += chemistry(state, dog, crew); // mates lift you; people you can't stand drag you down
   p += ctx.bonus || 0;
+  // Luck and good company don't make a master: short of the mark on a master step, it's a fluke or nothing.
+  if (stage.master && outOfDepth) p = 0.03;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
 
@@ -285,6 +288,7 @@ export function simulate(state, job, rng) {
       p = clamp(p + rng.float(-0.2, 0.2), 0.03, 0.97);
       learn(dog, 'talents', 'zoomies');
     }
+    if (stage.master && o.skill < stage.needs.min) p = 0.03; // no master, no miracle
     learn(dog, 'skills', a.skill);
     let ok;
     let roll;
@@ -595,6 +599,13 @@ export function simulate(state, job, rng) {
         if (ctx.alarm >= 4) for (const d of active()) if (rng.chance(0.5)) escapeCheck(d, id);
         return;
       case 'obstacle':
+        // Nobody barges through a master step: no master, no job.
+        if (stage.master) {
+          fail(`Nobody else can touch ${stage.label.replace(/^The /, 'the ')}. The job's off.`);
+          ctx.aborted = true;
+          if (ctx.alarm >= 4) for (const d of active()) if (rng.chance(0.5)) escapeCheck(d, id);
+          return;
+        }
         fail('No finesse left. They barge straight through.');
         addAlarm(2, id);
         return;
