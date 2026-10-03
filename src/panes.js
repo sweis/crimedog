@@ -1,7 +1,7 @@
 // The top bar's panes (cash, reputation, the Inspector, the day book) and the
 // help page. Each is modal content; renderModal in ui.js wraps it.
 import { esc, money, moneyShort } from './util.js';
-import { inspectorLabel, starChance } from './engine.js';
+import { inspectorLabel, starChance, masterChance } from './engine.js';
 import { columnChart, lineChart, meter, tile, heatLevel, UP, DOWN } from './charts.js';
 import { APPROACHES, GROUPS, RARITY } from './data.js';
 import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
@@ -86,8 +86,9 @@ function repPane(s) {
     ${t.length > 1 ? lineChart(series(s, 'rep'), { caption: 'Reputation after each job. Tap a point.' }) : '<p class="muted">Finish a job to start the chart.</p>'}
     <h3 class="dm-h">What it opens up</h3>
     <ul class="ledger">${unlocks.map(([min, what]) => `<li><span>${s.rep >= min ? '✅' : '🔒'} ${esc(what)}</span><b>${min}+</b></li>`).join('')}
-      <li><span>🌟 Chance a star's in the pub</span><b>${Math.round(starChance(s.rep) * 100)}%</b></li></ul>
-    <p class="muted">Good grades and a fair cut raise it; flops, walking away, stiffing the crew and farming real crooks lower it. At 0, nobody will work for you.</p>`;
+      <li><span>🌟 Chance a star's in the pub</span><b>${Math.round(starChance(s.rep) * 100)}%</b></li>
+      <li><span>👑 Chance a master answers when you ask around</span><b>${s.rep >= 50 ? `${Math.round(masterChance(s.rep) * 100)}%` : '50+'}</b></li></ul>
+    <p class="muted">Good grades and a fair cut raise it; flops, walking away, stiffing the crew and farming real crooks lower it. At 0, nobody will work for you. The bigger your name, the more people expect: good jobs add less, and a so-so one can cost you.</p>`;
 }
 
 const HEAT_LEVELS = [
@@ -129,7 +130,7 @@ export function paneModal(G, which) {
 const HELP = [
   ['🎯 The idea', `You're the mastermind. You never go on the job: you pick it, hire the crew, case the joint, buy the kit and draw up the plan, then watch it play out. Get rich, stay respected, and keep the Inspector off your back. Put away ${money(RETIRE.goal)} and you can retire to ${RETIRE.place} for good.`],
   ['🔁 A turn', `<b>Job board</b>: pick a job (your own leads, or offers from the city's outfits once you've a name). <b>Plan</b>: hire at the pub, case the joint, buy kit, see the fixer, then choose who does each step and how. <b>The heist</b>: watch it unfold. <b>Aftermath</b>: hand over or fence the goods, pay the crew, get graded.`],
-  ['⭐ Reputation', `Your score is your track record plus how generous you are with the crew's cut. Separately, the way you treat people makes you soft or hard: hard masterminds are feared (fewer runners and grasses) but harder to love; soft ones are liked, and easier to cross. Tap ⭐ to see where you stand.`],
+  ['⭐ Reputation', `Your score is your track record plus how generous you are with the crew's cut. The bigger your name, the harder it grows: good jobs add less, and people expect more. Separately, the way you treat people makes you soft or hard: hard masterminds are feared (fewer runners and grasses) but harder to love; soft ones are liked, and easier to cross. Tap ⭐ to see where you stand.`],
   ['🐾 Crew', `Each dog has skills (only the ones you've seen are shown), talents and quirks. Work together and you learn more; get on and they get better, even rare or legendary. 👑 Leaders steady everyone; 🃏 wildcards bring chaos, good and bad. ★ Stars drift through town with secret moves.`],
   ['🤝 Crew chemistry', `Crew who pull off jobs together get closer; bungled steps and busts sour things. 💚 Friends lift each other's odds, 💢 people who can't stand each other drag them down (a leader takes the edge off), and the plan shows who's who. When someone's collared, a brave mate who likes them may go back for them.`],
   ['📋 Planning', `Casing finds intel and hidden hazards: a good nose smells things out, a hacker finds the systems, a sneak watches the patrols. Get spotted and security goes on alert. The odds on each step are shown for skills you know. Kit and intel open new ways through.`],
@@ -137,7 +138,7 @@ const HELP = [
   ['🕵️ The Inspector', `He makes a move between jobs: coppers planted in the pub, stakeouts, tips that are really setups, crew pulled in for questioning, regulars turned into grasses, raids. He also keeps a file on your tricks: use the same one job after job and security will be ready for it. Surveil strangers, case tips before you trust them, and mix it up.`],
   ['🦹 Rivals', `Other crews work this town too. The Jack Russell Gang make trouble: tipping off security, nicking kit, turning up on your jobs. Dandy Dan leaves notes and bets you can't pull a job. Rat them out (it costs rep), set them up, or rob them. And someone called the Grey Ghost is watching: leave your calling card on good, quiet jobs and you might win them over.`],
   ['🗺️ Kinds of job', `Break-ins, switches (swap it for a replica), long cons, smash & grabs, van jobs, wire jobs and paper trails. Each has its own steps. Some won't take an insider; some need a real specialist.`],
-  ['👑 Four-star jobs', `Once you've a name, now and then word gets round of the job of a lifetime. It pays like nothing else, and it has three master steps, each wanting a different skill at 8 or better. Nobody short of 8 gets anywhere, and without its master the job's off. The job brings one master to the pub. The other two you'll have to find: in your book, by asking around, or by bringing your own crew up.`],
+  ['👑 Four-star jobs', `Once you've a name, now and then word gets round of the job of a lifetime. It pays like nothing else, and it has three master steps, each wanting a different skill at 8 or better. Nobody short of 8 gets anywhere, and without its master the job's off. The job brings one master to the pub. The other two you'll have to find: in your book, by asking around (the bigger your name, the likelier one answers), or by bringing your own crew up.`],
   ['🏙️ The city', `Five outfits offer work once your rep clears their bar. Do right by them and they pay; cross them and they act against you, until you make amends on the Players tab: pay up, or do them a hard job for nothing. The Family and the Syndicate lend money, and they collect.`],
   ['📊 The top bar', `Tap 💷 for the books, ⭐ for your reputation and 🕵️ for the Inspector. The 📅 day (on the job board, on a phone) opens the day book. 📜 Rap sheet keeps every job, and you can share any of them.`],
 ];

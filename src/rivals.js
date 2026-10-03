@@ -8,7 +8,7 @@
 // Deal with the first two by ratting them out (it costs rep), setting them up, or
 // robbing them. All scene data lives on the scene, so it survives a save.
 import { KIT, SKILLS } from './data.js';
-import { money, addHeat, addRep, addRelation, book } from './util.js';
+import { money, addHeat, addRep, repNote, addRelation, book } from './util.js';
 import { genDog, shortName, displayName, feeFor } from './dogs.js';
 import { addHardness } from './repute.js';
 import { pushScene, answerScene } from './story.js';
@@ -203,8 +203,8 @@ const EFFECTS = {
       r.status = 'away';
       r.away = 6;
       r.ended = 'setup';
-      addRep(state, 4);
-      return `A fake tip about a soft target. ${RIVALS[id].name} walk${id === 'dan' ? 's' : ''} straight into the Old Bill. Nobody knows it was you, but everyone suspects. (+4 rep)`;
+      const up = addRep(state, 4);
+      return `A fake tip about a soft target. ${RIVALS[id].name} walk${id === 'dan' ? 's' : ''} straight into the Old Bill. Nobody knows it was you, but everyone suspects.${repNote(up)}`;
     }
     r.beef += 2;
     state.gatecrash = id;
@@ -263,9 +263,9 @@ export function rivalsAfterJob(state, rng) {
     if (ok) {
       r.status = 'done';
       r.ended = 'robbed';
-      addRep(state, 6);
+      const up = addRep(state, 6);
       for (const k of r.stolen || []) state.kit[k] = (state.kit[k] || 0) + 1;
-      log.push(`${RIVALS[job.rivalHit].emblem} You robbed ${RIVALS[job.rivalHit].name}. ${job.rivalHit === 'dan' ? 'He\'s left town in a borrowed coat.' : 'They\'ve scattered. Your manor now.'} (+6 rep)`);
+      log.push(`${RIVALS[job.rivalHit].emblem} You robbed ${RIVALS[job.rivalHit].name}. ${job.rivalHit === 'dan' ? 'He\'s left town in a borrowed coat.' : 'They\'ve scattered. Your manor now.'}${repNote(up)}`);
     } else {
       r.beef += 2;
       log.push(`${RIVALS[job.rivalHit].emblem} ${RIVALS[job.rivalHit].name} know you came for them.`);
@@ -276,10 +276,10 @@ export function rivalsAfterJob(state, rng) {
     r.wager = null;
     if (['S', 'A'].includes(grade)) {
       book(state, 'wager', job.wager);
-      addRep(state, 8);
+      const up = addRep(state, 8);
       r.status = 'done';
       r.ended = 'wager';
-      log.push(`💌 Dan pays up: ${money(job.wager)}, and leaves town before anyone can laugh at him. (+8 rep)`);
+      log.push(`💌 Dan pays up: ${money(job.wager)}, and leaves town before anyone can laugh at him.${repNote(up)}`);
     } else {
       const pay = Math.min(state.cash, job.wager);
       book(state, 'wager', -pay);

@@ -849,7 +849,7 @@ function aftermathScreen(G) {
     const g = a.grade;
     const labels = { loot: 'Loot secured', fence: 'Fenced value', stealth: 'Stealth', crew: 'Crew got away', clues: 'Clean scene', pay: 'Crew paid fairly' };
     const maxes = { loot: 35, fence: 15, stealth: 20, crew: 15, clues: 10, pay: 5 };
-    h += `<section class="card center"><div class="grade ${g.letter}" data-grade="${g.letter}">${g.letter}</div><p><b>${g.score}/100</b> · Rep ${a.repDelta >= 0 ? '+' : ''}${a.repDelta}</p>
+    h += `<section class="card center"><div class="grade ${g.letter}" data-grade="${g.letter}">${g.letter}</div><p><b>${g.score}/100</b> · Rep ${a.repDelta >= 0 ? '+' : ''}${a.repDelta}</p>${a.expected ? '<p class="muted">A big name: they expect more of you now.</p>' : ''}
     ${g.letter === 'S' ? '<p class="chip good">The perfect heist.</p>' : ''}
     <p class="verdict muted"><i>${esc(pickBy(`${s.job.id}|${s.job.venueName}|${g.letter}`, VERDICTS[g.letter]))}</i></p>
     <table class="parts">${Object.entries(g.parts).map(([k, v]) => `<tr><td>${labels[k]}</td><td>${v}/${maxes[k]}</td></tr>`).join('')}</table></section>`;

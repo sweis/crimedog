@@ -1,7 +1,7 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy, inSentence } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
@@ -208,6 +208,10 @@ function masterArrives(state, rng) {
   state.starRolled = state.townKey; // the job's star, instead of a chance one
 }
 
+// Chance a master answers when you ask around for a four-star job: a quarter at 50
+// rep (when those jobs start), rising to a half at the top.
+export const masterChance = (rep) => 0.25 + Math.max(0, rep - 50) / 200;
+
 // The job's master steps nobody among these dogs is known to be up to.
 export function mastersMissing(state, dogs) {
   return (state.job?.stages || []).filter((st) => st.master)
@@ -342,7 +346,7 @@ export function askAround(state) {
   // Word of a four-star job gets round: now and then a master turns up for a step nobody's covering.
   const gaps = mastersMissing(state, [...crewDogs(state), ...state.pub.map((id) => state.dogs[id])]);
   let heard = '';
-  if (gaps.length && rng.chance(0.25)) {
+  if (gaps.length && rng.chance(masterChance(state.rep))) {
     const sk = rng.pick(gaps);
     const d = master(state, rng, sk);
     state.pub.unshift(d.id);
@@ -934,15 +938,18 @@ export function gradeJob(state) {
 }
 
 const REP_FOR = { S: 14, A: 9, B: 6, C: 3, D: -1, F: -4 };
+// A big name brings expectations: from 50, every job is marked down a point, from 70 two,
+// from 85 three. A legend who turns in a C job loses face.
+export const repExpected = (rep) => (rep >= 85 ? 3 : rep >= 70 ? 2 : rep >= 50 ? 1 : 0);
 function finishGrade(state) {
   const a = state.after;
   const g = gradeJob(state);
   a.grade = g;
-  let rep = REP_FOR[g.letter];
+  a.expected = repExpected(state.rep);
+  let rep = REP_FOR[g.letter] - a.expected;
   if (state.result.runners.length) rep -= 2;
   if (state.job.tier >= 4 && a.securedValue) rep += 6; // the whole town hears about a four-star job
-  a.repDelta = rep;
-  addRep(state, rep);
+  a.repDelta = addRep(state, rep);
   a.relations = settleGroups(state);
   state.stats.jobs += 1;
   if (g.letter === 'S') state.stats.perfect += 1;
@@ -1014,10 +1021,10 @@ export function farm(state, id) {
   if (d.undercover) {
     // Word gets round that you dealt with a copper. The underworld approves.
     d.known.undercover = true;
-    addRep(state, 6);
+    const up = addRep(state, 6);
     nudgeKnownDogs(state, 3, id);
     news(state, `${displayName(d)} was a copper. Was. They've gone to live on a farm.`);
-    return done(`A copper on the farm. Respect. (+6 rep)`);
+    return done(`A copper on the farm. Respect.${repNote(up)}`);
   }
   addRep(state, -8);
   nudgeKnownDogs(state, -8, id);
