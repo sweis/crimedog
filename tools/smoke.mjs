@@ -1017,8 +1017,18 @@ console.log('1d. Hiring from a planning step returns to that step');
   await page.evaluate(() => { document.getElementById('diag').hidden = true; window.cd.spawn('cash', 5000); window.cd.spawn('dog', 'crew'); window.cd.teleport('plan'); });
   const stageId = await page.evaluate(() => window.cd.getState().job.stages.filter((st) => !st.hidden)[2].id);
   const crewBefore = (await page.evaluate(() => window.cd.getState().crew)).length;
+  // A star you've worked with who has since left town: in your book, but not hireable.
+  const awayId = await page.evaluate(() => {
+    window.cd.spawn('dog', 'legend');
+    const s = window.cd.live();
+    const id = s.pub.at(-1);
+    s.pub = s.pub.filter((x) => x !== id);
+    Object.assign(s.dogs[id], { met: true, status: 'free', inTown: 'some other job' });
+    return id;
+  });
   await tap(page, `.plan-step[data-stage="${stageId}"] [data-act="hire-for"]`);
   check(await page.locator('main[data-screen="pub"] .hire-banner').count() === 1, 'plan step opens the pub in hiring-for mode');
+  check(await page.locator(`main .dog-card[data-id="${awayId}"]`).count() === 0, 'a star who\'s out of town isn\'t offered for the step');
   check((await page.locator('.hire-banner').innerText()).includes('step 3'), 'banner names the step');
   await shot(page, 'hire-for-step');
   await tap(page, 'main .dog-card');

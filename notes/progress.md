@@ -92,7 +92,11 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Brief message (latest, 0.16.2)
+## Out-of-town stars off the hire-for-step list (latest, 0.16.3)
+
+- Hiring for a plan step listed every free dog in your book, including stars who had left town (they showed "Out of town" and couldn't be hired). That list now drops them, as the Crew screen's book already did. Smoke 1d spawns an out-of-town star and checks the step's list leaves them out (it failed before the fix).
+
+## Brief message (0.16.2)
 
 - Every game message (hire, brief, hospital bill, kit, errors) goes through the one `#toast`, so 0.16.1 already widened them all; the narrow brief message seen after that was most likely a cached stylesheet (`styles.css` carries no version query).
 - The brief message said "That's as far as the law will bend for now" after every brief; it now only says it on the brief that hits the half-sentence floor. Unit test in justice.test.

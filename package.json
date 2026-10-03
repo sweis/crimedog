@@ -1,6 +1,6 @@
 {
   "name": "crimedog",
-  "version": "0.16.2",
+  "version": "0.16.3",
   "private": true,
   "description": "Crimedog: a heist game. For dogs.",
   "type": "module",
