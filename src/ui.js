@@ -665,10 +665,17 @@ function patchHeist(G) {
   return true;
 }
 
+// A step's header reads "🚪 Getting In: Biscuits — Pick the lock." The step gets its own line.
+function beatText(b) {
+  const at = b.kind === 'stage' ? b.text.indexOf(': ') : -1;
+  if (at < 0) return esc(b.text);
+  return `<span class="phase">${esc(b.text.slice(0, at + 1))}</span>${esc(b.text.slice(at + 2))}`;
+}
+
 function beatHTML(G, b, latest) {
   const d = b.dog ? G.state.dogs[b.dog] : null;
   const pct = b.p != null ? `<span class="pct">${b.kind === 'ok' ? '✓' : '✗'} ${Math.round(b.p * 100)}%</span>` : '';
-  return `<div class="beat ${b.kind}" ${latest ? 'data-latest' : ''}>${d && b.kind !== 'stage' ? `<div class="mini">${portraitHTML(d, { size: 40 })}</div>` : ''}<div class="txt">${esc(b.text)}${b.line ? `<div class="line">"${esc(b.line)}"</div>` : ''}</div>${pct}</div>`;
+  return `<div class="beat ${b.kind}" ${latest ? 'data-latest' : ''}>${d && b.kind !== 'stage' ? `<div class="mini">${portraitHTML(d, { size: 40 })}</div>` : ''}<div class="txt">${beatText(b)}${b.line ? `<div class="line">"${esc(b.line)}"</div>` : ''}</div>${pct}</div>`;
 }
 
 function blueprintSVG(G, shown) {

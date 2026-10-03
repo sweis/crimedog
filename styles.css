@@ -429,6 +429,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .beat.betray, .beat.interrogation { border-left-color: var(--purple); }
 .beat.good, .beat.escape, .beat.luck { border-left-color: var(--blue); }
 .beat.stage { background: linear-gradient(90deg, #1e2d55, #172344); color: var(--paper); border-left-color: var(--brass); font-weight: 700; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 6px 14px -6px rgba(0, 0, 0, .55); }
+.beat.stage .phase { display: block; color: var(--brass); }
 .beat.intro, .beat.end, .beat.omen { background: var(--rain), linear-gradient(180deg, #1d1c26, #121118); color: var(--paper); font-family: var(--font-quote); font-style: italic; border-left-color: #555; }
 .beat.surprise, .beat.chaos { border-left-color: #e76f51; background: #ffe9dc; }
 .heist-controls { position: sticky; bottom: 0; background: var(--night); padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); display: flex; gap: 8px; z-index: 5; }

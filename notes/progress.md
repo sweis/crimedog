@@ -92,7 +92,11 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Reputation harder to max; masters answer a bigger name (latest, 0.18.0)
+## Heist step headers on two lines (latest, 0.18.1)
+
+- A step's beat ("🚪 Getting In: Biscuits — Pick the lock.") renders the step name on its own line in brass (`beatText` in ui.js, `.beat.stage .phase`). Display only: the beat text is unchanged, so tests and recaps are unaffected. Smoke 1 checks every step header on the real play-through has its own `.phase` line.
+
+## Reputation harder to max; masters answer a bigger name (0.18.0)
 
 - **Taper:** `repGain` in util.js. Record gains are full below 40, then scale by `((100 - rep) / 60) ^ 1.5` (≈0.54 at 60, 0.27 at 80, 0.07 at 90, 0 at 100). Losses hit in full. Generosity's part of the score isn't tapered (it's bounded ±15 anyway). `addRep` now returns the change actually made; lines that quote a rep gain use `repNote(d)`.
 - **Expectations:** `repExpected` in engine.js marks every graded job down 1 from 50 rep, 2 from 70, 3 from 85 (applied before the taper; F at 90 costs 7). The aftermath grade card says "A big name: they expect more of you now."

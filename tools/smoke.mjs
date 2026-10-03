@@ -148,6 +148,8 @@ console.log('1. Cold boot, real touch play-through');
     return { top: Math.round(b.top), bottom: Math.round(b.bottom), head: Math.round(head.bottom), ctl: Math.round(ctl.top), scrolled: scrollY };
   });
   check(seen.scrolled > 0 && seen.top >= seen.head - 2 && seen.bottom <= seen.ctl + 2, `latest beat in view after stepping (${JSON.stringify(seen)})`);
+  const phases = await page.evaluate(() => [...document.querySelectorAll('.beat.stage')].map((b) => ({ phase: b.querySelector('.phase')?.textContent, block: b.querySelector('.phase') && getComputedStyle(b.querySelector('.phase')).display })));
+  check(phases.length > 0 && phases.every((x) => x.phase?.endsWith(':') && x.block === 'block'), `each step's name is on its own line (${phases.map((x) => x.phase).join(' | ')})`);
   await shot(page, '09-heist');
   if (await page.locator('[data-act="heist-skip"]').count()) await tap(page, '[data-act="heist-skip"]');
   await shot(page, '10-heist-end');
