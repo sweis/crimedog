@@ -2,7 +2,7 @@
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
 import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES } from './data.js';
 import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
-import { clamp, hashOf } from './util.js';
+import { clamp, hashOf, inSentence } from './util.js';
 import { lootItem } from './heists.js';
 import { moPenalty, SETUP_TEXT } from './inspector.js';
 import { crewFeeling } from './repute.js';
@@ -442,7 +442,7 @@ export function simulate(state, job, rng) {
         const lootId = ctx.secured.shift();
         ctx.runners.push({ id: d.id, lootId });
         learn(d, 'loyalty');
-        beat({ kind: 'betray', stage: 'vault', dog: d.id, text: `${shortName(d)} grabs ${lootName(lootId)} and legs it out a side door! Didn't even say goodbye.` });
+        beat({ kind: 'betray', stage: 'vault', dog: d.id, text: `${shortName(d)} grabs ${inSentence(lootName(lootId))} and legs it out a side door! Didn't even say goodbye.` });
       }
     }
   };

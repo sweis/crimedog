@@ -5,8 +5,9 @@ import { GROUPS } from './data.js';
 import { RETIRE, nestEggPct } from './retire.js';
 import { RIVALS, rivalsOf } from './rivals.js';
 import { runnersList, loose } from './runners.js';
-import { displayName, relationLabel } from './dogs.js';
+import { displayName, relationLabel, closestMates } from './dogs.js';
 import { standingLabel } from './groups.js';
+import { inSentence } from './util.js';
 import { GRADE_ORDER } from './recap.js';
 
 
@@ -35,9 +36,7 @@ function bestAndWorst(history) {
 
 // The crew member who likes you most (and has worked with you).
 function closestMate(state) {
-  const d = Object.values(state.dogs)
-    .filter((x) => x.met && x.jobs >= 1 && !(x.undercover && x.known.undercover) && !['gone', 'farm'].includes(x.status) && x.relation > 0)
-    .sort((a, b) => b.relation - a.relation || b.jobs - a.jobs)[0];
+  const d = closestMates(state)[0];
   return d ? { dog: d.id, name: displayName(d), relation: relationLabel(d), jobs: d.jobs } : null;
 }
 
@@ -53,7 +52,7 @@ function biggestEnemy(state) {
   for (const r of runnersList(state)) {
     const d = state.dogs[r.dog];
     if (!d || !loose(r)) continue;
-    out.push({ kind: 'runner', id: d.id, score: 55, name: displayName(d), emblem: '💨', why: `Did a runner with ${r.took}` });
+    out.push({ kind: 'runner', id: d.id, score: 55, name: displayName(d), emblem: '💨', why: `Did a runner with ${inSentence(r.took)}` });
   }
   const R = rivalsOf(state);
   for (const id of ['jacks', 'dan']) {

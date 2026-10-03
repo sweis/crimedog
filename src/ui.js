@@ -1,7 +1,7 @@
 // DOM rendering. Every screen is a function of (state, ui) -> HTML string;
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
-import { esc, money, moneyShort, count, pickBy } from './util.js';
+import { esc, money, moneyShort, count, pickBy, inSentence } from './util.js';
 import { meter, tile, heatLevel } from './charts.js';
 import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS, VERDICTS } from './data.js';
 import { portraitSVG, portraitHTML, displayName, shortName, skillOf, relationLabel, band, isVisitor, specialty, roleLevel } from './dogs.js';
@@ -211,7 +211,7 @@ function selectScreen(G) {
       <div class="offer-from">${pic}<div class="grow"><b>${whoName}</b><div class="muted">${esc(VENUE_LABELS[job.venueType])} · ${stars}</div></div></div>
       <div class="job-name">${esc(job.name)}</div>
       <p class="muted">${esc(job.venueName)}, ${esc(job.district)}</p>
-      ${runner ? `<div class="quote">They ran with ${esc(job.loot[0].name)}. Not for long.</div>` : job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
+      ${runner ? `<div class="quote">They ran with ${esc(inSentence(job.loot[0].name))}. Not for long.</div>` : job.wager ? `<div class="quote">"${money(job.wager)} says you can't pull this one with an A. — D."</div>` : job.rivalHit ? `<div class="quote">${job.rivalHit === 'dan' ? 'His penthouse, while he\'s out being flash.' : 'Their lock-up, while they\'re out making trouble.'}</div>` : o.source !== 'own' ? `<div class="quote">${esc(o.pitch)}</div>` : job.tip ? '<div class="quote">A bloke in a good coat slips you a note at the bar. "Easy money, this one. Trust me."</div>' : ''}
       <div class="dm-chips">${jobTraits(job)}${dealTerms(G, job)}</div>
       <button class="btn block mt ${['marker', 'amends'].includes(o.kind) ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : o.kind === 'amends' ? 'Make amends' : 'Take the job'}</button></section>`;
   }
@@ -260,7 +260,7 @@ function runnerRow(G, r) {
   const acts = s.phase !== 'select' ? [] : r.stage === 'loose' ? [btn('hunt', '🔎 Put the word out', HUNT_COST), btn('letgo', 'Let them go')]
     : r.stage === 'found' ? [...(r.board ? [] : [btn('stealback', '💰 Steal it back')]), btn('farm', '🚜 The farm'), btn('mercy', '🤝 Mercy')] : [];
   return playerRow({ face: portraitHTML(d, { size: 44 }), faded: !runnerLoose(r), name: `💨 ${esc(displayName(d))}`, chip: esc(runnerStatus(r)), chipCls: runnerLoose(r) ? 'bad' : '',
-    body: `<div class="muted">Did a runner with ${esc(r.took)}.</div>${acts.length ? `<div class="btn-row runner-acts">${acts.join('')}</div>` : ''}` });
+    body: `<div class="muted">Did a runner with ${esc(inSentence(r.took))}.</div>${acts.length ? `<div class="btn-row runner-acts">${acts.join('')}</div>` : ''}` });
 }
 
 function rivalRow(G, id) {
@@ -757,7 +757,7 @@ function aftermathScreen(G) {
   const sec = loot(r.secured);
   h += sec.length ? `<ul class="loot-list">${sec.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}</span><span class="v">${money(l.value)}</span></li>`).join('')}</ul>` : '<p>No loot. Not a sausage.</p>';
   const lines = [];
-  for (const run of r.runners) lines.push(`💨 <b>${esc(shortName(s.dogs[run.id]))}</b> did a runner with ${esc(lootItem(job, run.lootId).name)}.`);
+  for (const run of r.runners) lines.push(`💨 <b>${esc(shortName(s.dogs[run.id]))}</b> did a runner with ${esc(inSentence(lootItem(job, run.lootId).name))}.`);
   for (const l of loot(r.dropped)) lines.push(`🚓 Lost to the police: ${esc(l.name)}.`);
   for (const l of r.lost || []) lines.push(`🚜 <b>${esc(shortName(s.dogs[l.id]))}</b> has gone to live on a farm. For good.`);
   for (const h of r.hurt || []) {

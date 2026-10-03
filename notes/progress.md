@@ -91,7 +91,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Performance and code-quality pass (latest, 0.15.2)
+## Endings fixes (latest, 0.15.3)
+- Skint ending no longer says "not a dog to your name" (now "not a soul"); a runner's hideout is "behind the racetrack", not the dog track. Kept on purpose: dog puns on human idioms ("inside dog", "Every dog for himself!", "Bad dog— bad luck"), the scanner's "a dog" gag, the Dog & Duck, the tagline. Test: no game-over text uses "dog" (pub name aside).
+- Loot names mid-sentence lose their leading capital (`util.inSentence`: "did a runner with a solid gold roulette ball"; quoted titles keep theirs): runner scenes, hunts, the Players row, aftermath and news, the career card's enemy line, the runner epilogue, a betrayal beat, and handing goods to a patron. Lists and labels keep the capital.
+- One closest-mate ranking (`dogs.closestMates`: likes you most, then most jobs together; coppers you never caught drop off once the game's over) shared by the career card and the retirement epilogues. The closest mate always gets the first epilogue ("came too", or "still inside" if they're in the pound; the Ghost's goodbye stays with the rivals). Test: over 40 careers the first epilogue and the card name the same dog; a tie goes to more jobs together.
+
+## Performance and code-quality pass (0.15.2)
 - **Portraits as cached images** (`dogs.portraitHTML`): each face is drawn once as an SVG blob URL and reused as an `<img>` (inline SVG was ~60 DOM nodes a face). The blueprint's nested portraits and the recap card's SVG still use `portraitSVG`. Measured on a 40-job career in desktop Chromium (render + save per tap): crew 17.4 → 2.8 ms (2,999 → 411 nodes), a profile 12.9 → 2.9, reputation pane 12.0 → 1.9, players 6.1 → 1.1, job board 10.1 → 6.1. Venue art stays inline: its signs use the Alfa Slab web font, which an `<img>` can't load.
 - **Saving off the tap**: `G.commit` renders now and saves 250 ms later (coalesced), flushing on `pagehide` and when the tab is hidden; `clearSave` cancels a pending save.
 - **Story scenes consolidated** (`src/story.js`): one `pushScene`/`affordable`/`answerScene` for the Inspector, rivals and runners (was four copies); `engine.chooseStory` and `storyChoices` replace per-type dispatch in main.js, engine.dismissStory and the balance tool; one `storyModal` renders every kind of scene (was three branches).

@@ -4,7 +4,7 @@
 // visit and send them to the farm (hard), show mercy (soft), or let it go.
 // While they're loose they make trouble: talking to the Inspector, tipping off
 // security. Scene data lives on the scene, so it survives a save.
-import { fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
+import { fail, done, money, addHeat, addRep, addRelation, book, inSentence } from './util.js';
 import { displayName, shortName, skillOf } from './dogs.js';
 import { addHardness } from './repute.js';
 import { pushScene, answerScene } from './story.js';
@@ -12,7 +12,7 @@ import { pinJob, keepPinned } from './heists.js';
 
 export const HUNT_COST = 150;
 const LEADS_NEEDED = 2;
-const HIDEOUTS = ['a caravan behind the dog track', 'a bedsit above a chip shop', 'a houseboat on the canal', 'a lock-up under the railway arches', 'their nan\'s spare room'];
+const HIDEOUTS = ['a caravan behind the racetrack', 'a bedsit above a chip shop', 'a houseboat on the canal', 'a lock-up under the railway arches', 'their nan\'s spare room'];
 
 const runnersOf = (state) => (state.runners ||= {});
 export const loose = (r) => ['loose', 'hunting', 'found'].includes(r.stage);
@@ -23,7 +23,7 @@ export function newRunner(state, d, took, value, rng) {
   R[d.id] = { dog: d.id, took, value: Math.max(100, value || 0), stage: 'loose', leads: 0, hideout: rng.pick(HIDEOUTS), since: state.day };
   return scene(state, d.id, 'ran', {
     title: 'Done a Runner',
-    text: `${displayName(d)} did a runner with ${took}. Nobody's seen them since. The whole pub is waiting to see what you do about it.`,
+    text: `${displayName(d)} did a runner with ${inSentence(took)}. Nobody's seen them since. The whole pub is waiting to see what you do about it.`,
     choices: [{ label: 'Put the word out', cost: HUNT_COST, effect: 'hunt' }, { label: 'Let them go', effect: 'letgo' }],
   });
 }
@@ -48,7 +48,7 @@ export function runnersBetweenJobs(state, rng) {
         r.stage = 'found';
         scene(state, d.id, 'found', {
           title: 'Found Them',
-          text: `${t ? `${shortName(t)} sniffed out the trail. ` : ''}${displayName(d)} is holed up in ${r.hideout}, living off ${r.took}. They don't know you know.`,
+          text: `${t ? `${shortName(t)} sniffed out the trail. ` : ''}${displayName(d)} is holed up in ${r.hideout}, living off ${inSentence(r.took)}. They don't know you know.`,
           choices: foundChoices(state, r),
         });
         events.push(`${displayName(d)} has been found.`);
@@ -153,7 +153,7 @@ export function runnersAfterJob(state) {
     r.ended = 'robbed';
     addHardness(state, 3);
     addRelation(d, -10);
-    return [`💨 You got ${r.took} back from ${shortName(d)}. They've fled town with nothing.`];
+    return [`💨 You got ${inSentence(r.took)} back from ${shortName(d)}. They've fled town with nothing.`];
   }
   r.stage = 'hunting';
   r.leads = 0;

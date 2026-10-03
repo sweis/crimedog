@@ -1,7 +1,7 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy, inSentence } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
@@ -714,7 +714,7 @@ export function resolveHeist(state) {
     leaveCrew(state, run.id);
     // They don't just vanish: they become someone to hunt down.
     newRunner(state, d, d.ranWith, lootItem(job, run.lootId).value, rng);
-    news(state, `${displayName(d)} did a runner with ${lootItem(job, run.lootId).name}.`);
+    news(state, `${displayName(d)} did a runner with ${inSentence(lootItem(job, run.lootId).name)}.`);
   }
   for (const id of [...r.exposed, ...r.tipped]) {
     const d = state.dogs[id];
@@ -771,7 +771,7 @@ export function deliver(state) {
   state.stats.earned += pay;
   a.step = toFence(state).length ? 'fence' : 'pay';
   const G = GROUPS[p.group];
-  const item = lootItem(state.job, p.want).name;
+  const item = inSentence(lootItem(state.job, p.want).name);
   if (p.deal === 'marker') return done(`${G.boss} takes ${item}. Your debt is squared.`);
   return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the £${p.front} advance)` : ''}.`);
 }
@@ -1052,7 +1052,7 @@ export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
   nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Coffee\'s for closers, and you\'re not getting any.' },
   retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
-  broke: { title: 'Skint', text: 'Not a penny to your name and not a dog to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
+  broke: { title: 'Skint', text: 'Not a penny to your name and not a soul to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
 };
 
 // Make sure crew/status bookkeeping is consistent (used by tests).

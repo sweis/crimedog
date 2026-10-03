@@ -55,7 +55,7 @@ test('the epilogues: a close mate, a runner tracked down, a star, then rivals an
   assert.equal(eps[0].dog, close.id);
   assert.match(eps[0].text, /The Kibble Job/, 'remembers the best job together');
   assert.equal(eps[1].dog, runner.id);
-  assert.match(eps[1].text, /The Golden Bone/);
+  assert.match(eps[1].text, /did a runner with the Golden Bone\./, 'the loot reads mid-sentence');
   assert.equal(eps[2].dog, star.id);
   assert.ok(kinds.includes('rival') && kinds.at(-1) === 'inspector');
   for (const e of eps) assert.doesNotMatch(e.text, /\{|undefined/);
