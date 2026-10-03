@@ -27,7 +27,7 @@ test('a sting after a delivery keeps the delivery money on the books', () => {
 });
 
 test('paying a debt removes the marker job; botching a stale marker creates no £0 debt', () => {
-  const { s, o } = offer('family', 'commission');
+  const { s } = offer('family', 'commission');
   s.groups.family.debt = { amount: 500, patience: 2 };
   genOffers(s, E.rngOf(s));
   assert.ok(s.offers.some((x) => x.kind === 'marker'));

@@ -3,6 +3,12 @@
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 export const money = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
+// £950, £1.2k, £16k. Rounded down, so £99,600 never reads as £100k.
+export const moneyShort = (n) => {
+  const a = Math.abs(n);
+  const k = a < 1000 ? null : a < 10000 ? Math.floor(a / 100) / 10 : Math.floor(a / 1000);
+  return `${n < 0 ? '−' : ''}£${k === null ? Math.round(a) : `${k}k`}`;
+};
 export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // A stable pick for flavour text, so it doesn't use up a draw from the game's RNG.

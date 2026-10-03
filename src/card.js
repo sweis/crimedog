@@ -90,6 +90,8 @@ function recapSVG(r) {
   </svg>`;
 }
 
+const canvasPNG = (canvas) => new Promise((res) => canvas.toBlob(res, 'image/png'));
+
 // Rasterise an SVG card to a PNG blob.
 async function svgPNG(svg) {
   const [, w, h] = svg.match(/width="(\d+)" height="(\d+)"/);
@@ -100,7 +102,7 @@ async function svgPNG(svg) {
     const c = document.createElement('canvas');
     c.width = Number(w); c.height = Number(h);
     c.getContext('2d').drawImage(img, 0, 0);
-    return await new Promise((res) => c.toBlob(res, 'image/png'));
+    return await canvasPNG(c);
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -120,8 +122,6 @@ function loadHtml2canvas() {
   }));
 }
 
-export const CARD_WIDTH = 390;
-
 // Picture the profile card exactly as it looks in the game: render the same
 // HTML off-screen at phone width, then capture it at 2x.
 async function htmlPNG(html) {
@@ -131,8 +131,7 @@ async function htmlPNG(html) {
   document.body.appendChild(el);
   try {
     const [render] = await Promise.all([loadHtml2canvas(), document.fonts?.ready]);
-    const canvas = await render(el, { scale: 2, backgroundColor: null, logging: false, useCORS: true });
-    return await new Promise((res) => canvas.toBlob(res, 'image/png'));
+    return await canvasPNG(await render(el, { scale: 2, backgroundColor: null, logging: false, useCORS: true }));
   } finally {
     el.remove();
   }
@@ -154,7 +153,7 @@ export async function careerPNG(state, html) {
     blob: await htmlPNG(html),
     file: `crimedog-career-day-${state.day}.png`,
     title: 'Your career',
-    text: `${state.stats.jobs} jobs, £${Math.round(state.cash).toLocaleString('en-GB')} put away, and the Inspector still hasn't caught me. #Crimedog`,
+    text: `${state.stats.jobs} jobs, ${money(state.cash)} put away, and the Inspector still hasn't caught me. #Crimedog`,
   };
 }
 

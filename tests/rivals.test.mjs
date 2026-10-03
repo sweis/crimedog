@@ -24,9 +24,8 @@ const choose = (s, effect) => E.chooseRival(s, s.story[0].choices.findIndex((c) 
 
 test('the rivals turn up early in a career, and keep making trouble', () => {
   const seen = { jacks: 0, dan: 0 };
-  let scenes = 0;
   for (let seed = 1; seed <= 60; seed++) {
-    const { s } = career(seed, 'smart', 10, (st) => { scenes += 0; });
+    const { s } = career(seed, 'smart', 10);
     const R = rivalsOf(s);
     if (R.jacks.met) seen.jacks++;
     if (R.dan.met) seen.dan++;

@@ -10,7 +10,8 @@ import { retire } from './retire.js';
 import { bump } from './career.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
-import { advanceArcs } from './drama.js';
+import { advanceArcs, chooseDrama, sceneChoices as dramaChoices } from './drama.js';
+import { affordable } from './story.js';
 import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
 import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
@@ -233,6 +234,14 @@ function useDay(state) {
   state.day += 1;
   return true;
 }
+// Pay for something that takes a day of the job's window. Checks both before
+// spending either; returns a failure to hand back, or null once it's paid for.
+function payForDay(state, cost, cat, tooDear) {
+  if (state.cash < cost) return fail(tooDear);
+  if (!useDay(state)) return fail('No days left before the job.');
+  book(state, cat, -cost);
+  return null;
+}
 
 export function inspectorLabel(heat) {
   if (heat >= 100) return 'Knock knock.';
@@ -332,7 +341,7 @@ export function borrow(state) {
 }
 
 export { payDebt } from './groups.js';
-export { chooseDrama } from './drama.js';
+export { chooseDrama };
 
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
 export const retireNow = (state) => retire(state, rngOf(state));
@@ -341,11 +350,21 @@ export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), {
 export const runnerAction = (state, dogId, effect) => actOnRunner(state, dogId, effect, rngOf(state), { genJob });
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
+// The scene at the front of the queue, answered by whoever's story it is.
+// Outfits' scenes (no type) just have an "OK".
+const ANSWER = { inspector: chooseInspector, rival: chooseRival, runner: chooseRunner, drama: chooseDrama };
+export function chooseStory(state, i) {
+  const answer = ANSWER[state.story[0]?.type];
+  if (answer) return answer(state, i);
+  state.story.shift();
+  return done('');
+}
+export const storyChoices = (state, st) => (st.type === 'drama' ? dramaChoices(state, st) : affordable(state, st.choices || []));
+
+// Waved away: take the last (free) choice. A drama scene just goes.
 export function dismissStory(state) {
   const st = state.story[0];
-  if (st?.type === 'inspector') return chooseInspector(state, st.choices.length - 1);
-  if (st?.type === 'rival') return chooseRival(state, st.choices.length - 1);
-  if (st?.type === 'runner') return chooseRunner(state, st.choices.length - 1);
+  if (st && st.type !== 'drama' && ANSWER[st.type]) return chooseStory(state, st.choices.length - 1);
   state.story.shift();
   return done('');
 }
@@ -385,18 +404,16 @@ export function caseJoint(state, who) {
   if (!unknown.length) return fail('You know everything there is to know.');
   const rng = rngOf(state);
   if (who === 'tipster') {
-    if (state.cash < 120) return fail('The tipster wants £120.');
-    if (!useDay(state)) return fail('No days left before the job.');
-    spend(state, 120, 'intel');
+    const unpaid = payForDay(state, 120, 'intel', 'The tipster wants £120.');
+    if (unpaid) return unpaid;
     const k = rng.pick(unknown);
     revealIntel(job, k);
     return done(`A tipster sells you: ${intelLabel(job, k)}.`, { revealed: [k] });
   }
   const d = state.dogs[who];
   if (!d || !state.crew.includes(who)) return fail('Send someone from the crew.');
-  if (state.cash < 40) return fail('Expenses are £40.');
-  if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 40, 'intel');
+  const unpaid = payForDay(state, 40, 'intel', 'Expenses are £40.');
+  if (unpaid) return unpaid;
   const odds = caseOdds(state, d);
   if (hasSpecial(d, 'intel')) {
     const t = d.talents.find((x) => ['radio', 'bloodhound', 'casing'].includes(x));
@@ -425,9 +442,8 @@ export function surveil(state, id) {
   const d = state.dogs[id];
   if (!d) return fail('No such dog.');
   if (d.known.loyalty && (d.known.undercover || d.cleared)) return fail(`You already know all about ${shortName(d)}.`);
-  if (state.cash < 80) return fail('Surveillance costs £80.');
-  if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 80, 'intel');
+  const unpaid = payForDay(state, 80, 'intel', 'Surveillance costs £80.');
+  if (unpaid) return unpaid;
   const rng = rngOf(state);
   d.met = true;
   d.known.loyalty = d.known.nerve = d.known.greed = true;
@@ -455,9 +471,8 @@ export function plantInsider(state, id) {
   if (job.noInsider) return fail('No way to get anyone inside on this one.');
   if (!state.crew.includes(id)) return fail('Pick someone from the crew.');
   if (job.insider) return fail('You already have someone inside.');
-  if (state.cash < 100) return fail('Costs £100 for a fake reference.');
-  if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 100, 'fixer');
+  const unpaid = payForDay(state, 100, 'fixer', 'Costs £100 for a fake reference.');
+  if (unpaid) return unpaid;
   const rng = rngOf(state);
   const s = Math.max(skillOf(d, 'disguise'), skillOf(d, 'charm'));
   d.known.skills[skillOf(d, 'disguise') >= skillOf(d, 'charm') ? 'disguise' : 'charm'] = true;
@@ -498,9 +513,8 @@ export function buyFakeIds(state) {
 }
 export function lineUpBuyer(state) {
   if (state.job.buyer) return fail('The Collector is already waiting.');
-  if (state.cash < 150) return fail('Costs £150 to get a meeting.');
-  if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 150, 'fixer');
+  const unpaid = payForDay(state, 150, 'fixer', 'Costs £150 to get a meeting.');
+  if (unpaid) return unpaid;
   state.job.buyer = true;
   return done('The Collector agrees to buy the lot — at full value.');
 }
@@ -511,9 +525,8 @@ export function vetFence(state) {
   return done(state.job.stingFence ? 'Fancy Francesca drives a police-issue car. She\'s a STING.' : 'Fancy Francesca checks out. Just flashy.');
 }
 export function layLow(state) {
-  if (state.cash < 100) return fail('Lying low costs £100.');
-  if (!useDay(state)) return fail('No days left before the job.');
-  spend(state, 100, 'fixer');
+  const unpaid = payForDay(state, 100, 'fixer', 'Lying low costs £100.');
+  if (unpaid) return unpaid;
   const before = state.heat;
   addHeat(state, -8);
   return done(`You keep your head down. The Inspector's trail goes cold (-${before - state.heat} heat).`);

@@ -23,6 +23,7 @@
 | `src/main.js` | Boot, save/load (localStorage, try/catch), input routing, fixed-step frame loop |
 | `src/debug.js` | `window.cd` hooks + overlay |
 | `src/art.js` | Seeded SVG scenery: night-time facades per venue type (job board) and the title skyline |
+| `src/story.js` | The story queue's shared machinery: `pushScene`, `affordable`, `answerScene` (the Inspector, rivals and runners use it; `engine.chooseStory`/`storyChoices` dispatch by scene type, drama included) |
 | `src/career.js` | Career summary (`careerOf`): nest egg, rep, heat, the record (with arrest/runner/lost/hospital counters, seeded from the rap sheet for old saves), best/worst job, closest mate, biggest enemy |
 | `src/card.js` | Share cards: the crew profile card captured from the game's own HTML (html2canvas, vendored in `src/vendor/`, loaded on first share), and the heist recap card (SVG → PNG); Web Share API or save |
 
@@ -90,7 +91,20 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Career card (latest, 0.15.0)
+## Performance and code-quality pass (latest, 0.15.2)
+- **Portraits as cached images** (`dogs.portraitHTML`): each face is drawn once as an SVG blob URL and reused as an `<img>` (inline SVG was ~60 DOM nodes a face). The blueprint's nested portraits and the recap card's SVG still use `portraitSVG`. Measured on a 40-job career in desktop Chromium (render + save per tap): crew 17.4 → 2.8 ms (2,999 → 411 nodes), a profile 12.9 → 2.9, reputation pane 12.0 → 1.9, players 6.1 → 1.1, job board 10.1 → 6.1. Venue art stays inline: its signs use the Alfa Slab web font, which an `<img>` can't load.
+- **Saving off the tap**: `G.commit` renders now and saves 250 ms later (coalesced), flushing on `pagehide` and when the tab is hidden; `clearSave` cancels a pending save.
+- **Story scenes consolidated** (`src/story.js`): one `pushScene`/`affordable`/`answerScene` for the Inspector, rivals and runners (was four copies); `engine.chooseStory` and `storyChoices` replace per-type dispatch in main.js, engine.dismissStory and the balance tool; one `storyModal` renders every kind of scene (was three branches).
+- **Shared helpers**: `meter`/`tile`/`heatLevel` (charts.js), `moneyShort` (util; rounds down, so £99,600 never reads £100k), `nestEggPct` and `canRetire` reuse, `GRADE_ORDER` (recap.js), `ownOffer`/`pinJob`/`keepPinned` for jobs pinned to the board (heists.js), `payForDay` for the six "costs money and a day" actions (engine), `playerRow`/`bossFace`/`fromBoss`/`dogCards`/`tierStars` in ui.js, modal tables in main.js (`OPENS`) and ui.js (`MODALS`), `yScale`/`rule` in charts.js.
+- **Dead code removed**: `CARD_WIDTH`, per-type `*Choices` functions, an unused import, unused parameters and test variables; three exports made file-local.
+- Verified unchanged behaviour: 153 unit tests; `tools/balance.mjs 60` output identical before and after; 550 generated jobs (every type, 50 seeds) byte-identical to the previous commit; ESLint (no-unused-vars, no-undef) and jscpd clean; smoke passes; captures checked by eye (pub, Inspector/rival/drama/outfit scenes, the career share card built from image portraits).
+
+## Small-text edit (0.15.1)
+- Went through every screen's small text (full-page captures plus a DOM dump of everything ≤15px) and cut only what repeats something already on screen. Flavour (catchphrases, nicknames, quotes, kit jokes, Francesca's "Anybody could be anybody") stays.
+- Cut: the "Lately" lists in the ⭐ and 🕵️ panes (the chart above shows the same per job); "It counts towards your reputation" (the tiles above show it); the pub hint's specialist clause; the Fixer's Inspector box (repeated the top bar's 🕵️, and its 25+/40+ thresholds were out of date: plants start at 12, stings at 25); the twist and prize chips on the job screen (its twist note and "Yours to keep" row say it); the debt amount on the Players row (the debt card above has it); Honest Hal's third sentence. Tightened the aftermath's Inspector-file line.
+- Verified: unit tests, smoke; before/after captures compared by eye; DOM text diff confirms only those strings changed.
+
+## Career card (0.15.0)
 - 📇 **Your career card** (rap sheet, bottom of the Players tab; and in place of the old summary on the game-over screen): the Guv'nor, status (still at large / retired / banged up / washed up / skint), nest egg toward £100,000, reputation (with generosity and soft/hard), the Inspector's heat, the record (pulled off, flops, perfect, arrests, runners, hospital, lost on jobs, farmed, earned), best and worst job, closest mate, biggest enemy. 📸 shares the same card as a PNG (`careerPNG`, same html2canvas path as the profile card).
 - New counters in `state.stats`: `arrests`, `runners`, `lost`, `hospital` (`career.bump` in `engine.resolveHeist`); farming a found runner now counts in `farmed`.
 - Biggest enemy: the worst of hostile outfits (standing ≤ −20, worse with a debt), loose runners, and the Jack Russells / Dandy Dan by grudge. The Grey Ghost never counts.

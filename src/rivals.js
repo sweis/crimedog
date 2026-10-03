@@ -8,9 +8,11 @@
 // Deal with the first two by ratting them out (it costs rep), setting them up, or
 // robbing them. All scene data lives on the scene, so it survives a save.
 import { KIT, SKILLS } from './data.js';
-import { fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
+import { money, addHeat, addRep, addRelation, book } from './util.js';
 import { genDog, shortName, displayName, feeFor } from './dogs.js';
 import { addHardness } from './repute.js';
+import { pushScene, answerScene } from './story.js';
+import { pinJob, keepPinned } from './heists.js';
 
 export const RIVALS = {
   jacks: {
@@ -47,7 +49,7 @@ const active = (r) => r.met && r.status === 'active';
 export function rivalsBetweenJobs(state, rng, ctx = {}) {
   const R = rivalsOf(state);
   // A rival job you haven't taken yet stays on the board.
-  for (const r of Object.values(R)) if (r.board && !state.offers.some((o) => o.id === r.board.id)) state.offers.unshift({ id: r.board.id, source: 'own', kind: 'own', job: r.board });
+  for (const r of Object.values(R)) keepPinned(state, r);
   // Rivals doing time come back, and they know who grassed.
   for (const [id, r] of Object.entries(R)) {
     if (r.status !== 'away') continue;
@@ -73,11 +75,7 @@ export function rivalsBetweenJobs(state, rng, ctx = {}) {
   return MOVES[rng.weighted(candidates)](state, rng, ctx);
 }
 
-function scene(state, rival, move, s) {
-  const st = { type: 'rival', rival, move, title: s.title || RIVALS[rival].name, ...s, choices: s.choices.map((c) => ({ label: c.label, cost: c.cost || 0, effect: c.effect || null })) };
-  state.story.push(st);
-  return st;
-}
+const scene = (state, rival, move, s) => pushScene(state, 'rival', { rival, move, title: s.title || RIVALS[rival].name, ...s });
 
 // How to deal with a troublesome rival. The last choice is always free.
 function dealWith(state, id, setupCost) {
@@ -134,7 +132,7 @@ const MOVES = {
       choices: [{ label: 'Who does he think he is?', effect: 'letgo' }],
     });
   },
-  danNote(state, rng, ctx) {
+  danNote(state, rng) {
     const r = rivalsOf(state).dan;
     r.notes += 1;
     const last = state.history?.[0]?.grade;
@@ -155,7 +153,7 @@ const MOVES = {
     }
     return scene(state, 'dan', 'note', { title: 'Another Note from Dan', text, choices: dealWith(state, 'dan', 300) });
   },
-  danWager(state, rng, ctx) {
+  danWager(state) {
     const r = rivalsOf(state).dan;
     const amt = 1000 + 500 * Math.min(4, Math.floor(state.stats.jobs / 4));
     r.wagerAmt = amt;
@@ -168,20 +166,7 @@ const MOVES = {
 };
 
 // ------------------------------------------------------------------ choices
-export function rivalChoices(state, st) {
-  return st.choices.map((c) => ({ ...c, ok: c.cost <= state.cash }));
-}
-
-export function chooseRival(state, i, rng, ctx = {}) {
-  const st = state.story[0];
-  if (!st || st.type !== 'rival') return fail('Nothing to answer.');
-  const c = st.choices[i];
-  if (!c) return fail('No such choice.');
-  if (c.cost > state.cash) return fail('You can\'t afford that.');
-  if (c.cost) book(state, 'fixer', -c.cost);
-  state.story.shift();
-  return done(c.effect ? EFFECTS[c.effect](state, st.rival, rng, ctx) : '');
-}
+export const chooseRival = (state, i, rng, ctx = {}) => answerScene(state, 'rival', i, (st, effect) => EFFECTS[effect](state, st.rival, rng, ctx), 'fixer');
 
 const EFFECTS = {
   peace(state, id) {
@@ -231,8 +216,7 @@ const EFFECTS = {
     job.name = H.name;
     job.venueName = H.lair;
     job.rivalHit = id;
-    rivalsOf(state)[id].board = job;
-    state.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    pinJob(state, rivalsOf(state)[id], job);
     return `${id === 'dan' ? 'His penthouse' : 'Their lock-up'} is on the job board. Let's see how ${id === 'dan' ? 'he likes it' : 'they like it'}.`;
   },
   wager(state, id, rng, ctx) {
@@ -241,8 +225,7 @@ const EFFECTS = {
     job.wager = r.wagerAmt;
     job.name = `Dan's Wager: ${job.name}`;
     r.wager = job.id;
-    r.board = job;
-    state.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    pinJob(state, r, job);
     return `The bet's on: ${money(r.wagerAmt)}, and it takes an A. The job is on the board.`;
   },
   nowager(state, id) {

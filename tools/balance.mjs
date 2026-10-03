@@ -4,7 +4,6 @@ import * as E from '../src/engine.js';
 import { APPROACHES, KIT } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
 import { skillOf, topSkills } from '../src/dogs.js';
-import { sceneChoices } from '../src/drama.js';
 import { amendsCost } from '../src/groups.js';
 
 export function pickOffer(s, policy) {
@@ -71,18 +70,19 @@ export function smartJob(s) {
 // Read the job board's scenes: careful players help out when they can spare the
 // money; reckless ones stay out of it (the last choice).
 export function answerStories(s, policy) {
+  const smart = policy === 'smart';
   for (let guard = 0; guard < 20 && s.story.length; guard++) {
     const st = s.story[0];
-    if (st.type === 'inspector') { E.chooseInspector(s, policy === 'smart' && st.choices[0].cost && s.cash - st.choices[0].cost > 800 ? 0 : st.choices.length - 1); continue; }
+    const ch = E.storyChoices(s, st);
     // Careful players set up troublemakers when they can afford to, and take Dan's bets.
-    if (st.type === 'rival' && policy === 'smart') {
-      const want = st.choices.findIndex((c) => (c.effect === 'setup' && s.cash - c.cost > 1500) || c.effect === 'wager');
-      E.chooseRival(s, want >= 0 ? want : st.choices.length - 1);
-      continue;
-    }
-    if (st.type !== 'drama') { E.dismissStory(s); continue; }
-    const ch = sceneChoices(s, st);
-    E.chooseDrama(s, policy === 'smart' && ch[0].ok && s.cash - ch[0].cost > 800 ? 0 : ch.length - 1);
+    if (st.type === 'rival' && smart) {
+      const want = ch.findIndex((c) => (c.effect === 'setup' && s.cash - c.cost > 1500) || c.effect === 'wager');
+      E.chooseStory(s, want >= 0 ? want : ch.length - 1);
+    } else if (st.type === 'inspector' || st.type === 'drama') {
+      // The Inspector's paid options only count if there's a price to pay.
+      const help = smart && ch[0].ok && s.cash - ch[0].cost > 800 && (st.type === 'drama' || ch[0].cost > 0);
+      E.chooseStory(s, help ? 0 : ch.length - 1);
+    } else E.dismissStory(s);
   }
 }
 

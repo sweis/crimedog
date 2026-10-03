@@ -18,6 +18,7 @@ const G = {
 };
 
 // ------------------------------------------------------------------ persistence
+let saveTimer = null;
 G.hasSave = () => {
   try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; }
 };
@@ -40,12 +41,25 @@ G.load = () => {
   } catch { return false; }
 };
 G.clearSave = () => {
+  clearTimeout(saveTimer);
+  saveTimer = null;
   try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
 };
-G.commit = () => {
+// Saving a long career takes a few milliseconds, so it happens just after the
+// tap rather than during it, and any pending save is flushed when the page is
+// hidden or closed (switching apps on a phone, a reload).
+const flushSave = () => {
+  if (!saveTimer) return;
+  clearTimeout(saveTimer);
+  saveTimer = null;
   G.save();
-  G.render();
 };
+G.commit = () => {
+  G.render();
+  saveTimer ||= setTimeout(flushSave, 250);
+};
+window.addEventListener('pagehide', flushSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
 G.render = () => {
   const t0 = performance.now();
   render(G);
@@ -182,12 +196,11 @@ const A = {
     show('job');
   },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
-  'drama'(el) { run({ inspector: E.chooseInspector, rival: E.chooseRival, runner: E.chooseRunner }[G.state.story[0]?.type] || E.chooseDrama, Number(el.dataset.i)); },
+  'drama'(el) { run(E.chooseStory, Number(el.dataset.i)); },
   'pay-hospital'(el) { run(E.payHospitalBill, el.dataset.id); },
   'amends'(el) { run(E.makeAmends, el.dataset.g, el.dataset.how); },
   'runner-act'(el) { run(E.runnerAction, el.dataset.id, el.dataset.effect); },
   'calling-card'() { run(E.toggleCallingCard); },
-  'pick'(el) { G.ui.modal = { type: 'pick', purpose: el.dataset.purpose }; G.render(); },
   'picked'(el) {
     G.ui.modal = null;
     run(el.dataset.purpose === 'case' ? E.caseJoint : E.plantInsider, el.dataset.id);
@@ -248,7 +261,6 @@ const A = {
     const d = G.state.dogs[el.dataset.id];
     await showCard(() => cardPNG(d, profileHTML(G, d)));
   },
-  'career'() { G.ui.modal = { type: 'career' }; G.render(); },
   async 'share-career'() {
     await showCard(() => careerPNG(G.state, careerHTML(G)));
   },
@@ -261,15 +273,11 @@ const A = {
     if (how === 'shared') toast('Shared.');
     else if (how !== 'cancelled') toast('Sharing isn\'t available here. Long-press the card to save it.', true);
   },
-  'history'() { G.ui.modal = { type: 'history' }; G.render(); },
-  'help'() { G.ui.modal = { type: 'help' }; G.render(); },
-  'pane'(el) { G.ui.modal = { type: 'pane', pane: el.dataset.pane }; G.render(); },
   // Tapping a chart mark shows its value in the chart's caption (phones can't hover).
   'tip'(el) {
     const cap = el.closest('.chart')?.querySelector('.chart-tip');
     if (cap) cap.textContent = el.dataset.text;
   },
-  'recap'(el) { G.ui.modal = { type: 'recap', i: Number(el.dataset.i) }; G.render(); },
   'plan-ap'(el) {
     const st = el.dataset.stage;
     const cur = G.state.job.plan[st] || {};
@@ -295,6 +303,14 @@ const A = {
   'next-job'() { run(E.nextJob); show('job'); },
 };
 for (const [act, [fn, key]] of Object.entries(SIMPLE)) A[act] = (el) => run(fn, key && el.dataset[key]);
+// Buttons that open a modal sheet, and the data-* value it needs (if any).
+const OPENS = { pick: 'purpose', career: null, history: null, help: null, pane: 'pane', recap: 'i' };
+for (const [type, key] of Object.entries(OPENS)) {
+  A[type] = (el) => {
+    G.ui.modal = key ? { type, [key]: el.dataset[key] } : { type };
+    G.render();
+  };
+}
 
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act],[data-stop]');

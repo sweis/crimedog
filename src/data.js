@@ -958,7 +958,7 @@ export const INTEL = {
 };
 
 export const FENCES = {
-  hal: { name: 'Honest Hal\'s Pawnbrokers', blurb: 'Pays peanuts. Never grasses. Doesn\'t ask, doesn\'t want to know.', rates: { cash: 0.85, jewel: 0.5, art: 0.3, oddity: 0.5 } },
+  hal: { name: 'Honest Hal\'s Pawnbrokers', blurb: 'Pays peanuts. Never grasses.', rates: { cash: 0.85, jewel: 0.5, art: 0.3, oddity: 0.5 } },
   francesca: { name: 'Fancy Francesca', blurb: 'Pays well. New in town. Anybody could be anybody.', rates: { cash: 0.9, jewel: 0.8, art: 0.65, oddity: 0.75 } },
   collector: { name: 'The Collector', blurb: 'Full value. By appointment. Nobody\'s ever seen his face.', rates: { cash: 1, jewel: 1, art: 1, oddity: 1 } },
 };

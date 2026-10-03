@@ -49,6 +49,19 @@ function jobName(rng, venueType, star, type) {
   return rng.weighted(patterns.map((p, i) => [p, weights[i]]))();
 }
 
+// Your own lead on the job board (no outfit behind it).
+export const ownOffer = (job, extra = {}) => ({ id: job.id, source: 'own', kind: 'own', job, ...extra });
+
+// A job pinned to the board by someone's story (a rival's lair, a runner's hideout,
+// Dan's wager). holder.board keeps it there through fresh boards until it's taken.
+export function pinJob(state, holder, job) {
+  holder.board = job;
+  state.offers.unshift(ownOffer(job));
+}
+export function keepPinned(state, holder) {
+  if (holder.board && !state.offers.some((o) => o.id === holder.board.id)) state.offers.unshift(ownOffer(holder.board));
+}
+
 export function jobTier(state) {
   return Math.min(3, 1 + Math.floor(state.stats.jobs / 3) + (state.rep >= 60 ? 1 : 0));
 }
@@ -198,15 +211,17 @@ const LAYOUTS = {
     ];
   },
   fix({ rng, V, hazards }) {
+    const bets = (label) => step(rng, 'obs_bets', 'obstacle', label, '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true });
+    const collect = () => step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true });
     // At the boxing club, sometimes one of the crew gets on the card and fights him.
     if (V === VENUES.ring && rng.chance(0.5)) {
       return [
         step(rng, 'entry', 'entry', 'Get on the Card', '📝', ['k_signup', 'k_sparring', 'k_record', 'k_moustache'], 3, { noSig: true }),
         step(rng, 'obs_camp', 'obstacle', 'Training Camp', '🏋️', ['k_roadwork', 'k_skipping', 'k_tapes', 'k_gloves'], 3, { noSig: true }),
-        step(rng, 'obs_bets', 'obstacle', 'Bet on Ourselves', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
+        bets('Bet on Ourselves'),
         ...hiddenHazards(hazards),
         vault('fight', options(rng, ['k_slug', 'k_dance', 'k_lowblow', 'k_uppercut'], 3), { noSig: true, label: 'Into the Ring' }),
-        step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true }),
+        collect(),
       ];
     }
     const nobble = step(rng, 'obs_nobble', 'obstacle', 'Nobble the Favourite', '🧪', ['k_camomile', 'k_purse', 'k_laces', 'k_word', 'k_kibble']);
@@ -214,10 +229,10 @@ const LAYOUTS = {
     return [
       step(rng, 'entry', 'entry', 'Get to the Favourite', '🥊', ['k_trainer', 'k_fan', 'k_window', 'k_liniment'], 3, { noSig: true }),
       nobble,
-      step(rng, 'obs_bets', 'obstacle', 'Place the Bets', '💷', ['k_spread', 'k_runners', 'k_mug', 'k_phones'], 3, { noSig: true }),
+      bets('Place the Bets'),
       ...hiddenHazards(hazards),
       vault('fight', options(rng, VAULTS.fight.options, 3), { noSig: true }),
-      step(rng, 'exit', 'exit', 'Collect the Winnings', '💰', ['k_collect', 'k_quick', 'k_sniffcash'], 3, { noSig: true }),
+      collect(),
     ];
   },
   train({ rng, hazards, insider }) {

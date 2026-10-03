@@ -6,10 +6,13 @@ import { fail, done, money } from './util.js';
 import { displayName, shortName } from './dogs.js';
 import { rivalsOf, RIVALS } from './rivals.js';
 import { INSPECTOR } from './inspector.js';
+import { GRADE_ORDER } from './recap.js';
 
 export const RETIRE = { goal: 100000, place: 'the Costa del Bone' };
 
 export const canRetire = (state) => state.phase === 'select' && state.cash >= RETIRE.goal;
+// How full the nest egg is, 0–100.
+export const nestEggPct = (cash) => Math.min(100, Math.floor((100 * Math.max(0, cash)) / RETIRE.goal));
 
 export function retire(state, rng) {
   if (state.phase !== 'select') return fail('Finish the job first.');
@@ -21,8 +24,7 @@ export function retire(state, rng) {
 
 // The best job a dog pulled with you, from the rap sheet.
 function bestJob(state, d) {
-  const order = 'SABCDF';
-  return (state.history || []).filter((h) => h.crew?.some((c) => c.id === d.id)).sort((a, b) => order.indexOf(a.grade) - order.indexOf(b.grade))[0] || null;
+  return (state.history || []).filter((h) => h.crew?.some((c) => c.id === d.id)).sort((a, b) => GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade))[0] || null;
 }
 const bestSkill = (d) => SKILLS.slice().sort((a, b) => (d.skills[b] || 0) - (d.skills[a] || 0))[0];
 

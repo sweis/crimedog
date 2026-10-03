@@ -262,7 +262,6 @@ console.log('1f. A star in the first pub; hiring them opens a secret option');
   await tap(page, '.opt.secret');
   const after = await page.evaluate(() => {
     const s = window.cd.getState();
-    const star = s.crew.find((c) => c.id === s.stars[0]?.id) || null;
     const step = document.querySelector('.opt.secret.on')?.closest('.plan-step')?.dataset.stage;
     return { step, plan: step ? s.job.plan[step] : null };
   });

@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
-import { genJob, visibleStages } from '../src/heists.js';
-import { inspectorMoves, inspectorChoices, makeTip, moPenalty, recordMO } from '../src/inspector.js';
+import { genJob, ownOffer, visibleStages } from '../src/heists.js';
+import { inspectorMoves, makeTip, moPenalty, recordMO } from '../src/inspector.js';
 import { difficulty, simulate } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
 import { takeJob, fakeHeist, finish } from './helpers.mjs';
@@ -64,7 +64,7 @@ test('every move makes a scene whose choices all resolve; the last is free', () 
       s.heat = 60;
       const st = move(s, id);
       assert.ok(st, id);
-      const ch = inspectorChoices(s, st);
+      const ch = E.storyChoices(s, st);
       assert.equal(ch.at(-1).cost, 0, `${id}: last choice free`);
       const pick = i === 0 ? 0 : ch.length - 1;
       const cash = s.cash;
@@ -106,7 +106,7 @@ test('a setup: casing can spot it, walking away from it is no shame', () => {
     s.heat = 30;
     const job = genJob(s, E.rngOf(s), { type: 'breakin' });
     makeTip(job, true);
-    s.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    s.offers.unshift(ownOffer(job));
     E.acceptOffer(s, job.id);
     assert.equal(s.job.intel.tipster, false);
     // Ask around enough and the tip is shown up for what it is.
@@ -128,7 +128,7 @@ test('a setup reached on the night ends with the police and no loot', () => {
     s.cash = 9000;
     const job = genJob(s, E.rngOf(s), { type: 'smash' });
     makeTip(job, true);
-    s.offers.unshift({ id: job.id, source: 'own', kind: 'own', job });
+    s.offers.unshift(ownOffer(job));
     E.acceptOffer(s, job.id);
     for (const id of s.pub.slice(0, 3)) E.hire(s, id);
     E.autoPlan(s);

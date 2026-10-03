@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
 import { APPROACHES, JOB_TYPES, SIGNATURES } from '../src/data.js';
-import { genJob, visibleStages } from '../src/heists.js';
+import { genJob } from '../src/heists.js';
 import { skillOf } from '../src/dogs.js';
 import { simulate, odds, approachAvailable, signatureFits } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
