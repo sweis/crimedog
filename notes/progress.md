@@ -92,7 +92,12 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Crew chemistry, rescues, out of town, recruit to case (latest, 0.16.0)
+## Toasts up top (latest, 0.16.1)
+
+- Toasts were centred with `left: 50%`, which capped their width at half the screen (195px on a phone, four lines for a hire), and sat at the bottom unless a sheet was open. Now they span the page column (max 516px) and always drop in just under the top bar, so they never cover the bottom buttons or a sheet's actions.
+- Smoke 1c checks the toast is page-wide and in the top half. Verified at 390x844, 375x667 and 1024x768 (hire from a profile, hire for a step, recruit to case). Not verified on a real notched phone (safe-area inset is in the offset).
+
+## Crew chemistry, rescues, out of town, recruit to case (0.16.0)
 - **Bonds** (`src/bonds.js`, `state.bonds`, keyed by sorted dog-id pair): start where outfits put them (same outfit +15, rival outfits -30, else 0); after each job every pair on it moves by the outcome (clean +8 … bust -6) plus 2 per step pulled off and -3 per step bungled (capped ±15); grassing or doing a runner on your mates sets -35; going back for a mate +25 (+30 if it worked). Aftermath lines for pairs crossing into "get on well" (25+) or "aren't speaking" (-20 or less) and for rescues.
 - **Chemistry on a job** (`bonds.chemistry` in `sim.odds`): average bond with the rest of the crew → up to +8% odds among friends, down to -10% among enemies; a leader cuts the bad side by 15% a level. The step odds on the plan include it.
 - **Visible**: a 🤝 Crew chemistry panel on the plan (💢/💚 pairs, "The leader keeps a lid on it"); 💢/💚 chips naming crewmates on dog cards while planning (pub, book, crew); "Gets on with" on the profile; a help entry.

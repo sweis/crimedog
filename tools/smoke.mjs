@@ -225,6 +225,8 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
     return [...document.querySelectorAll('.dm-actions .btn')].some((el) => { const r = el.getBoundingClientRect(); return !(tr.bottom < r.top || tr.top > r.bottom || tr.right < r.left || tr.left > r.right); });
   });
   check(!toastHitsActions, `${w}x${h}: toast does not cover the profile's buttons`);
+  const tb = await page.evaluate(() => { const r = document.querySelector('#toast .t')?.getBoundingClientRect(); return r && { w: r.width, top: r.top, bottom: r.bottom, vw: Math.min(innerWidth, 540), vh: innerHeight }; });
+  check(!tb || (tb.w >= tb.vw - 40 && tb.bottom < tb.vh / 2), `${w}x${h}: toast is page-wide and up top (${tb && `${Math.round(tb.w)}px wide, ${Math.round(tb.top)}-${Math.round(tb.bottom)}`})`);
   check(b.scroll <= 1 && b.bottom <= b.vh && !b.overflow, `${w}x${h}: tailed dog (more traits) still fits (scroll ${b.scroll})`);
   if (w === 375) await shot(page, 'profile-375x667');
   // A legendary: every talent known, plus a signature line.
