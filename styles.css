@@ -544,3 +544,6 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .share-card .career .gbadge { box-shadow: none; }
 .modal-bar + .career { padding-right: 0; }
 .modal-bar + .career .dm-head { padding-right: 52px; }
+
+/* Going back for a collared mate: the bravest moment on a job. */
+.beat.rescue { border-left-color: var(--brass); background-color: #fff6dc; }

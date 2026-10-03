@@ -958,6 +958,52 @@ console.log('1r. One nicked, one hurt: pay the hospital bill, and a brief that c
 }
 
 // ---------------------------------------------------------------- 1d. hire from a plan step
+console.log('1s. How the crew get on: chemistry on the plan, marks on the crew, and a recruit to case the joint');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=23`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(23); window.cd.teleport('pub'); window.cd.live().cash += 9000; window.cd.teleport('pub'); });
+  // Hire three from the pub with real taps.
+  for (let k = 0; k < 3; k++) {
+    await tap(page, 'main .dog-card:not(.hired)');
+    if (await page.locator('.modal [data-act="hire"]').count()) await tap(page, '.modal [data-act="hire"]');
+    if (await page.locator('.modal .close').count()) await tap(page, '.modal .close');
+  }
+  const crew = await page.evaluate(() => window.cd.live().crew.slice());
+  check(crew.length === 3, `hired three at the pub (${crew.length})`);
+  // Two who can't stand each other, two who are thick as thieves.
+  await page.evaluate(([a, b, c]) => {
+    const s = window.cd.live();
+    const key = (x, y) => (x < y ? `${x}|${y}` : `${y}|${x}`);
+    s.bonds = { [key(a, b)]: -70, [key(b, c)]: 70 };
+    window.cd.teleport('plan');
+  }, crew);
+  const chem = await page.locator('main .chem .chip').allInnerTexts();
+  check(chem.some((t) => t.startsWith('💢')) && chem.some((t) => t.startsWith('💚')), `the plan shows who gets on and who doesn't (${chem.join(' | ')})`);
+  await shot(page, 'bonds-plan');
+  await tap(page, 'nav [data-act="go"][data-to="crew"]');
+  const marks = await page.locator('main .dog-card .chip:is(.good,.bad)').allInnerTexts();
+  check(marks.filter((t) => t.startsWith('💢')).length === 2 && marks.filter((t) => t.startsWith('💚')).length === 2, `each of the pair is marked on their card (${marks.join(' | ')})`);
+  await shot(page, 'bonds-crew');
+  // Case the joint → recruit someone suited to it → back to the list with them on it.
+  await tap(page, 'nav [data-act="go"][data-to="job"]');
+  await tap(page, 'main [data-act="pick"][data-purpose="case"]');
+  await tap(page, '.modal [data-act="recruit"]');
+  check(await page.locator('.modal h2').innerText() === 'Recruit someone to case it', 'the recruit list opens from the casing picker');
+  await shot(page, 'bonds-recruit');
+  if (await page.locator('.modal .dog-card').count()) {
+    await tap(page, '.modal .dog-card');
+    const after = await page.evaluate(() => window.cd.live().crew.length);
+    check(after === 4 && (await page.locator('.modal h2').innerText()) === 'Who cases the joint?', `recruited, and back to the casing list (${after} crew)`);
+  }
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 console.log('1d. Hiring from a planning step returns to that step');
 {
   const ctx = await browser.newContext(phone);

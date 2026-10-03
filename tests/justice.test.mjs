@@ -68,7 +68,8 @@ test('a brief cuts a job off at a time, but never more than half the sentence', 
 test('a bad fall usually means hospital, not the farm', () => {
   let hurt = 0;
   let farm = 0;
-  for (let k = 1; k <= 400; k++) {
+  // Enough jobs that the farm count isn't a handful (it swings a lot over a few hundred).
+  for (let k = 1; k <= 1200; k++) {
     const s = E.newGame(k);
     takeJob(s);
     s.cash = 9000;

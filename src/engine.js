@@ -8,6 +8,7 @@ import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabe
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { bump } from './career.js';
+import { settleBonds } from './bonds.js';
 import { rivalsBetweenJobs, rivalsAfterJob, chooseRival as answerRival, gatecrash, tookRivalJob } from './rivals.js';
 import { makeAmends as amendsWith, canBorrow, borrow as borrowFromFamily, initGroups, genOffers, rerollOwnLeads, settleGroups, betweenJobs, hireBlocked, hireCost, adjust } from './groups.js';
 import { advanceArcs, chooseDrama, sceneChoices as dramaChoices } from './drama.js';
@@ -253,20 +254,27 @@ export function inspectorLabel(heat) {
 }
 
 // ------------------------------------------------------------------ recruiting
+// Why this dog can't be hired right now (anything but the money), or null if they can.
+export function hireProblem(state, d) {
+  if (!d) return 'No such dog.';
+  if (state.phase !== 'plan') return 'Not now.';
+  if (state.crew.includes(d.id)) return 'Already on the crew.';
+  if (d.status === 'hospital') return `${shortName(d)} is in hospital for ${d.hospital.jobs} more job${d.hospital.jobs > 1 ? 's' : ''}.`;
+  if (d.status !== 'free') return `${shortName(d)} isn't available.`;
+  if (state.crew.length >= MAX_CREW) return 'Crew\'s full. Six is plenty.';
+  if (state.rep < d.minRep && d.relation < 30) return `"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`;
+  if (d.relation <= -30) return `${shortName(d)} won't work for you. Not after last time.`;
+  if (hireBlocked(state, d)) return `"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`;
+  if (d.drama?.away) return `${shortName(d)} is sitting this one out.`;
+  if (isVisitor(d) && d.inTown !== state.job.id) return `${shortName(d)} is out of town. Stars come and go.`;
+  if (d.undercover && d.known.undercover) return `${shortName(d)} works for the Inspector. Not a chance.`;
+  return null;
+}
+
 export function hire(state, id) {
   const d = state.dogs[id];
-  if (!d) return fail('No such dog.');
-  if (state.phase !== 'plan') return fail('Not now.');
-  if (state.crew.includes(id)) return fail('Already on the crew.');
-  if (d.status === 'hospital') return fail(`${shortName(d)} is in hospital for ${d.hospital.jobs} more job${d.hospital.jobs > 1 ? 's' : ''}.`);
-  if (d.status !== 'free') return fail(`${shortName(d)} isn't available.`);
-  if (state.crew.length >= MAX_CREW) return fail('Crew\'s full. Six is plenty.');
-  if (state.rep < d.minRep && d.relation < 30) return fail(`"I don't work with amateurs." (${shortName(d)} wants rep ${d.minRep}+)`);
-  if (d.relation <= -30) return fail(`${shortName(d)} won't work for you. Not after last time.`);
-  if (hireBlocked(state, d)) return fail(`"Nothing personal. ${GROUPS[d.faction].name} say no." ${shortName(d)} won't work for you.`);
-  if (d.drama?.away) return fail(`${shortName(d)} is sitting this one out.`);
-  if (isVisitor(d) && d.inTown !== state.job.id) return fail(`${shortName(d)} is out of town. Stars come and go.`);
-  if (d.undercover && d.known.undercover) return fail(`${shortName(d)} works for the Inspector. Not a chance.`);
+  const problem = hireProblem(state, d);
+  if (problem) return fail(problem);
   const cost = hireCost(state, d);
   if (!spend(state, cost, 'crew')) return fail('You can\'t afford the retainer.');
   d.status = 'crew';
@@ -657,6 +665,7 @@ export function resolveHeist(state) {
       for (const t of L.talents) if (t && !d.known.talents.includes(t)) d.known.talents.push(t);
       for (const q of L.quirks) if (!d.known.quirks.includes(q)) d.known.quirks.push(q);
       if (L.loyalty) d.known.loyalty = true;
+      if (L.nerve) d.known.nerve = true;
       if (L.undercover) d.known.undercover = true;
     }
   }
@@ -738,12 +747,15 @@ export function resolveHeist(state) {
     news(state, `You kept the ${KIT[prize].name} from ${job.name}.`);
   }
   addHeat(state, r.heatGain);
+  // Who the crew are to each other now: closer after a job done right, strained after a botch.
+  const bondNews = settleBonds(state, r);
   const noted = recordMO(state, r);
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
   state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [] };
   state.after.headline = headline(state);
+  state.after.bonds = bondNews;
   state.after.improved = improved;
   state.after.promoted = promoted;
   state.after.prize = prize;

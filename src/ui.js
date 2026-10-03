@@ -11,6 +11,7 @@ import { canShareFiles, FATES } from './card.js';
 import { ARCS } from './drama.js';
 import { helpModal, paneModal, repWord } from './panes.js';
 import { careerOf } from './career.js';
+import { bondOf, bondLabel, bondIcon, bondsWith, cohesion, GOOD, BAD } from './bonds.js';
 import { generosityOf, hardnessOf, generosityLabel, hardnessLabel } from './repute.js';
 import { INSPECTOR, moPenalty } from './inspector.js';
 import { RETIRE } from './retire.js';
@@ -329,6 +330,17 @@ function jobScreen(G) {
   <div class="btn-row mt"><button class="btn ghost small" data-act="walk-away">Walk away from this job</button></div>`;
 }
 
+// How the crew get on. Friends lift each other's odds; people who can't stand each
+// other drag them down (a leader takes the edge off). The step odds below include it.
+function chemistryPanel(s, crew) {
+  if (crew.length < 2) return '';
+  const c = cohesion(s, crew);
+  const pair = (p) => `<span class="chip ${p.bond >= GOOD ? 'good' : 'bad'}" title="${esc(bondLabel(p.bond))}">${bondIcon(p.bond)} ${esc(shortName(p.a))} &amp; ${esc(shortName(p.b))}</span>`;
+  const chips = [...c.bad, ...c.good].map(pair);
+  if (c.bad.length && c.leader) chips.push('<span class="chip info">👑 The leader keeps a lid on it</span>');
+  return `<section class="card chem"><div class="row spread"><b>🤝 Crew chemistry</b><span class="muted">${esc(c.label)}</span></div>${chips.length ? `<div class="dm-chips">${chips.join('')}</div>` : ''}</section>`;
+}
+
 // Why security is on alert (each reason made every step 1 harder).
 function alertNote(job) {
   if (!job.alert) return '';
@@ -346,6 +358,16 @@ function pips(v, known, max = 7) {
   let h = '<span class="pips">';
   for (let i = 0; i < max; i++) h += `<i class="${i < v ? 'on' : ''}"></i>`;
   return h + '</span>';
+}
+
+// Away visitors: stars who drift through town and aren't about right now.
+const outOfTown = (s, d) => isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
+
+// While you're putting a crew together: who this dog gets on with, or can't stand, on it.
+function crewBonds(s, d) {
+  if (s.phase !== 'plan' || ['gone', 'farm'].includes(d.status)) return [];
+  return E.crewDogs(s).filter((m) => m.id !== d.id).map((m) => ({ m, b: bondOf(s, d.id, m.id) })).filter(({ b }) => b >= GOOD || b <= BAD)
+    .map(({ m, b }) => `<span class="chip ${b >= GOOD ? 'good' : 'bad'}" title="${esc(bondLabel(b))}">${bondIcon(b)} ${esc(shortName(m))}</span>`);
 }
 
 // Best skill the player actually knows about (never leaks hidden stats).
@@ -381,7 +403,7 @@ function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
   const hired = s.crew.includes(d.id);
-  const away = isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
+  const away = outOfTown(s, d);
   let right = '';
   if (opts.fee && away) right = '<div class="chip">Out of town</div>';
   else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
@@ -396,6 +418,7 @@ function dogCard(G, d, opts = {}) {
   for (const inj of d.injuries || []) flags.push(`<span class="chip warn">🩹 ${esc(inj.text)}</span>`);
   if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
   flags.push(...dramaChips(d));
+  flags.push(...crewBonds(s, d));
   return `<button class="dog-card ${d.rarity || ''} ${hired ? 'hired' : ''} ${['gone', 'farm'].includes(d.status) ? 'gone' : ''}" data-act="${opts.act || 'dog'}" data-id="${d.id}" ${opts.extra || ''}>
     <div class="pic">${portraitHTML(d, { size: 64 })}</div>
     <div class="grow"><div class="name">${esc(displayName(d))}</div>
@@ -448,7 +471,8 @@ function crewScreen(G) {
   const crew = E.crewDogs(s);
   const known = E.bookDogs(s);
   const where = (status) => known.filter((d) => d.status === status);
-  const book = where('free').filter((d) => !s.crew.includes(d.id));
+  const book = where('free').filter((d) => !s.crew.includes(d.id) && !outOfTown(s, d));
+  const away = where('free').filter((d) => outOfTown(s, d));
   const gone = known.filter((d) => ['gone', 'farm'].includes(d.status));
   const section = (title, list) => (list.length ? `<h2 class="mt">${title}</h2>${dogCards(G, list)}` : '');
   const head = browsing(s)
@@ -458,6 +482,7 @@ function crewScreen(G) {
   <h2 class="mt">Little Black Book</h2>`;
   return `${head}
   ${dogCards(G, book, { fee: true }, 'Empty. For now.')}
+  ${section('Out of Town', away)}
   ${section('In Hospital', where('hospital'))}
   ${section('In the Pound', where('pound'))}
   ${section('Gone', gone)}
@@ -536,6 +561,7 @@ function planScreen(G) {
   const lead = roleLevel(crew, 'leader');
   const wild = crew.filter((d) => d.role?.kind === 'wildcard');
   if (lead || wild.length) h += `<p class="dm-chips">${lead ? `<span class="chip good">👑 Every step +${lead * 2}%</span>` : ''}${wild.length ? `<span class="chip warn">🃏 Expect the unexpected</span>` : ''}</p>`;
+  h += chemistryPanel(s, crew);
   if (unknownIntel || job.alert || job.twist) h += `<p>${job.twist ? `<span class="chip warn">${TWISTS[job.twist].icon} ${esc(TWISTS[job.twist].label)}</span> ` : ''}${unknownIntel ? `<span class="chip warn">❓ ${unknownIntel} intel unknown</span> ` : ''}${job.alert ? `<span class="chip bad">⚠️ Alert +${job.alert}</span>` : ''}</p>`;
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
@@ -767,6 +793,7 @@ function aftermathScreen(G) {
   }
   for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound${recordOf(s.dogs[c.id]) > 1 ? ` (${recordOf(s.dogs[c.id]) - 1} previous: the judge noticed)` : ''}.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
+  for (const t of a.bonds || []) lines.push(esc(t));
   if (a.prize) lines.push(`🎁 Kept: ${KIT[a.prize].icon} <b>${esc(KIT[a.prize].name)}</b>. ${esc(KIT[a.prize].blurb)}`);
   for (const p of a.promoted || []) {
     const d = s.dogs[p.id];
@@ -908,6 +935,7 @@ function renderModal(G) {
 const MODALS = {
   dog: (G, m) => dogModal(G, G.state.dogs[m.id]),
   pick: (G, m) => pickModal(G, m.purpose),
+  recruit: (G) => recruitModal(G),
   card: (G) => cardModal(G),
   history: (G) => historyModal(G),
   career: (G) => careerModal(G),
@@ -972,7 +1000,16 @@ export function profileHTML(G, d) {
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
     <h3 class="dm-h">Character</h3><div class="dm-traits">${trait('loyalty', 'Loyalty')}${trait('nerve', 'Nerve')}${trait('greed', 'Greed')}<div class="dm-trait" title="${esc(recordLabel(d))}"><span>Record</span><b class="${recordOf(d) >= 3 ? 'bad' : ''}">${recordOf(d) ? `${recordOf(d)} prev.` : 'Clean'}</b></div></div>
-    <div class="dm-chips">${undercover}${record}${quirks}</div>`;
+    <div class="dm-chips">${undercover}${record}${quirks}</div>
+    ${bondsSection(s, d)}`;
+}
+
+// The people in your book this dog gets on with, or can't stand.
+function bondsSection(s, d) {
+  const list = bondsWith(s, d, E.bookDogs(s).filter((x) => !['gone', 'farm'].includes(x.status)));
+  if (!list.length) return '';
+  const shown = [...list.slice(0, 3), ...list.slice(3).slice(-3)].filter((x, i, a) => a.indexOf(x) === i);
+  return `<h3 class="dm-h">Gets on with</h3><div class="dm-chips">${shown.map(({ dog, bond }) => `<span class="chip ${bond >= GOOD ? 'good' : 'bad'}">${bondIcon(bond)} ${esc(shortName(dog))} · ${esc(bondLabel(bond))}</span>`).join('')}</div>`;
 }
 
 // Compact profile: sized to fit a phone screen, with actions pinned to the
@@ -987,7 +1024,7 @@ function dogModal(G, d) {
   const primary = [];
   const minor = [];
   const hf = hiringFor(G);
-  const away = isVisitor(d) && d.status === 'free' && d.inTown !== (s.townKey ?? s.job?.id);
+  const away = outOfTown(s, d);
   if (s.phase === 'select' && d.status === 'free') primary.push('<span class="chip">Pick a job to hire</span>');
   if (planning && d.status === 'free' && !inCrew && away) primary.push('<span class="chip">Out of town. Stars come and go.</span>');
   else if (planning && d.status === 'free' && !inCrew && d.drama?.away) primary.push('<span class="chip">Sitting this one out.</span>');
@@ -1085,19 +1122,42 @@ function recapModal(G, i) {
     <div class="btn-row mt"><button class="btn" data-act="share-recap" data-i="${i}">📸 Share this heist</button><button class="btn ghost" data-act="history">📜 Rap sheet</button></div>`;
 }
 
+// Casing: what's still unknown decides which skills are worth sending (plus a
+// sneak or a disguise, so they aren't spotted).
+function caseSkills(s) {
+  const want = {};
+  for (const [k, v] of Object.entries(s.job.intel)) if (!v) want[INTEL[k].skill] = (want[INTEL[k].skill] || 0) + 1;
+  const finds = Object.keys(want).sort((a, b) => want[b] - want[a]).slice(0, 3);
+  return { want, finds, skills: [...new Set([...finds, 'sneak'])] };
+}
+
 function pickModal(G, purpose) {
   const s = G.state;
   const crew = E.crewDogs(s);
   const title = purpose === 'case' ? 'Who cases the joint?' : 'Who goes undercover as staff?';
-  // Casing: what's still unknown decides which skills are worth sending.
-  const want = {};
-  for (const [k, v] of Object.entries(s.job.intel)) if (!v) want[INTEL[k].skill] = (want[INTEL[k].skill] || 0) + 1;
-  const finds = Object.keys(want).sort((a, b) => want[b] - want[a]).slice(0, 3);
-  const skills = purpose === 'case' ? [...new Set([...finds, 'sneak'])] : ['disguise', 'charm'];
+  const { want, finds, skills: caseBy } = caseSkills(s);
+  const skills = purpose === 'case' ? caseBy : ['disguise', 'charm'];
   const note = purpose === 'case' ? `Finds ${finds.map((sk) => `${SKILL_INFO[sk].icon}${want[sk]}`).join(' ')} · 🐾🥸 unseen · £40` : '🥸 or 🎩 helps · £100';
   let h = `<h2>${title}</h2><p class="muted">${note}</p><div class="pick-list">`;
   h += crew.map((d) => dogCard(G, d, { act: 'picked', extra: `data-purpose="${purpose}"`, skill: skills })).join('') || '<p>Nobody on the crew yet.</p>';
   h += '</div>';
-  if (purpose === 'case') h += '<button class="btn block ghost" data-act="picked" data-purpose="case" data-id="tipster">💰 Pay a tipster instead · £120</button>';
+  if (purpose === 'case') {
+    h += '<button class="btn block" data-act="recruit">＋ Recruit someone to case it</button>';
+    h += '<button class="btn block ghost" data-act="picked" data-purpose="case" data-id="tipster">💰 Pay a tipster instead · £120</button>';
+  }
   return h;
+}
+
+// Hire someone to case the joint: everyone you could hire now, the best-suited
+// first, judged on what you know of them (unknown skills count for nothing).
+function recruitModal(G) {
+  const s = G.state;
+  const { skills } = caseSkills(s);
+  const pool = [...E.bookDogs(s), ...s.pub.map((id) => s.dogs[id])]
+    .filter((d, i, all) => all.indexOf(d) === i && !E.hireProblem(s, d));
+  const known = (d) => skills.reduce((sum, sk) => sum + (d.known.skills[sk] ? skillOf(d, sk) : 0), 0);
+  pool.sort((a, b) => known(b) - known(a) || hireCost(s, a) - hireCost(s, b));
+  return `<h2>Recruit someone to case it</h2><p class="muted">Best-suited first, from what you know of them.</p>
+    <div class="pick-list">${pool.map((d) => dogCard(G, d, { act: 'recruit-case', fee: true, skill: skills })).join('') || '<p>Nobody about. Ask around at the pub.</p>'}</div>
+    <button class="btn block ghost" data-act="pick" data-purpose="case">← Back</button>`;
 }

@@ -19,7 +19,7 @@ function fateOf(r, id) {
 }
 
 // Beats worth retelling.
-const isMoment = (b) => ['pear', 'caught', 'lost', 'hurt', 'betray'].includes(b.kind) || (b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
+const isMoment = (b) => ['pear', 'caught', 'lost', 'hurt', 'betray', 'rescue'].includes(b.kind) || (b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
 
 export function buildRecap(state) {
   const { job, result: r, after: a, dogs } = state;
