@@ -92,7 +92,14 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Planning in one place, and a word in your ear (latest, 0.22.0)
+## Share cards in the hosted build (latest, 0.22.1)
+
+- **Bug:** crew and career share cards said "Couldn't draw the card." in the hosted build. The artifact runs in a sandboxed iframe with an opaque origin (`window.origin === 'null'`); html2canvas clones the page into a child iframe, which gets its own opaque origin, so reading its document throws a SecurityError. Locally (no sandbox) it worked, so smoke never saw it. Reproduced by loading the game in `<iframe sandbox="allow-scripts">`.
+- **Fix** (`card.js`): in a sandboxed frame, or if html2canvas throws, the card is drawn by `drawDOM`, a small painter that walks the same off-screen card and paints each box (background colour or simple gradient, borders, rounded corners), image, inline SVG and word of text at the position the browser laid it out, at 2x. No iframe, no foreignObject, so nothing to taint. Outside a sandbox html2canvas still draws it. The heist recap card was never affected (plain SVG).
+- **Tests:** smoke 1w loads the game in a sandboxed iframe (opaque origin checked) and, with real taps, shares a crew card and the career card: both draw at 780px wide with no error toast. `tools/serve.mjs` sends `Access-Control-Allow-Origin: *` so modules load in the sandboxed frame.
+- **Not verified:** the hosted build on a real phone (Safari); checked in Chromium only.
+
+## Planning in one place, and a word in your ear (0.22.0)
 
 - **24 more breeds** (53 in all): Schnauzer, Miniature Pinscher, Weimaraner (Ze Germans); Akita, Shar-Pei, Chow Chow (Syndicate); Bichon, Cavalier, Papillon, Borzoi, Shih Tzu (Poodle Set); Saluki (Whippet Wheelmen); Mastiff (agility ≤ 2), Bull Terrier (disguise ≤ 2) (Firm); Westie, Airedale (Terrier Lads); Coonhound, Foxhound (hounds); Basenji, Cocker, Pointer, Sheltie, Komondor (agility ≤ 2), Puli (freelance). Balance (150 careers, smart): F 40% B 17% A 14%, £11.0k, 44 game-overs, the same as 0.21.0.
 - **Playthroughs** (scratch `play2`/`play5`: real taps, several 5-job careers on three seeds, counting tab switches). What sent players round the houses: a locked option on the plan ("Needs Grappling Rope", "Needs intel") meant Plan → Kit/Job/Fixer → Plan; the pub didn't say what the job needed unless you came from a step; old crew in your book were only on the Crew tab; the fixer's Collector had to be booked before the job, on another tab, and players found out in the aftermath; a hazard turned up by casing appeared on the plan unplanned; picking a new approach kept whoever was on the step (Aim 0 on a rope shot: 95% → 38%).

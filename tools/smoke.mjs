@@ -1205,6 +1205,53 @@ console.log('1v. Planning in one place: the prep strip, the job\'s needs in the 
   await ctx.close();
 }
 
+console.log('1w. Share cards inside a sandboxed frame (as hosted): a crew card and the career card draw');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.setContent(`<body style="margin:0"><iframe sandbox="allow-scripts allow-popups" src="${BASE}?hooks=1&seed=7" style="border:0;width:390px;height:844px"></iframe></body>`);
+  let f = null;
+  for (let k = 0; k < 40 && !f; k++) { f = page.frames().find((x) => x.url().startsWith(BASE)); if (!f) await page.waitForTimeout(100); }
+  await f.waitForFunction(() => window.__crimedogBooted);
+  check(await f.evaluate(() => window.origin) === 'null', 'the frame has an opaque origin, like the hosted build');
+  const ftap = async (sel) => {
+    const el = f.locator(sel).first();
+    await el.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    const b = await el.boundingBox();
+    await page.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2);
+    await page.waitForTimeout(200);
+  };
+  const cardShown = async () => {
+    await f.waitForFunction(() => [...document.querySelectorAll('.modal img')].some((i) => i.src.startsWith('blob:') && i.naturalWidth >= 780) || document.querySelector('#toast .t.bad'), null, { timeout: 15000 }).catch(() => {});
+    return f.evaluate(() => {
+      const img = [...document.querySelectorAll('.modal img')].find((i) => i.src.startsWith('blob:') && i.naturalWidth >= 780);
+      return { w: img?.naturalWidth || 0, h: img?.naturalHeight || 0, bad: document.querySelector('#toast .t.bad')?.textContent || '' };
+    });
+  };
+  await ftap('[data-act="new-game"]');
+  for (let k = 0; k < 6 && !(await f.locator('[data-act="start"]').count()); k++) await ftap('[data-act="intro-next"]');
+  await ftap('[data-act="start"]');
+  await ftap('main [data-act="take-offer"]');
+  await ftap('.nav [data-to="pub"]');
+  await ftap('main .dog-card');
+  await ftap('.modal [data-act="share"]');
+  const crew = await cardShown();
+  check(crew.w === 780 && crew.h > 600 && !crew.bad, `a crew card draws in the sandbox (${JSON.stringify(crew)})`);
+  await page.screenshot({ path: 'notes/captures/share-card-sandboxed.png' });
+  await ftap('.modal .close');
+  await f.evaluate(() => { document.getElementById('toast').innerHTML = ''; window.cd.teleport('select'); });
+  await ftap('[data-act="pane"][data-pane="cash"]');
+  if (await f.locator('.modal [data-act="career"]').count()) await ftap('.modal [data-act="career"]');
+  else await f.evaluate(() => { const b = document.createElement('button'); b.dataset.act = 'career'; document.body.appendChild(b); b.click(); b.remove(); });
+  await ftap('.modal [data-act="share-career"]');
+  const career = await cardShown();
+  check(career.w === 780 && career.h > 600 && !career.bad, `the career card draws in the sandbox (${JSON.stringify(career)})`);
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 console.log('1d. Hiring from a planning step returns to that step');
 {
   const ctx = await browser.newContext(phone);

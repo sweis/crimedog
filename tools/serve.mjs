@@ -15,7 +15,8 @@ export function serve(port = 8080) {
     if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
     fs.readFile(p, (err, data) => {
       if (err) { res.writeHead(404); return res.end('not found'); }
-      res.writeHead(200, { 'content-type': TYPES[path.extname(p)] || 'application/octet-stream', 'cache-control': 'no-store' });
+      // CORS lets the game load inside a sandboxed iframe (an opaque origin), as it does when hosted.
+      res.writeHead(200, { 'content-type': TYPES[path.extname(p)] || 'application/octet-stream', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
       res.end(data);
     });
   });
