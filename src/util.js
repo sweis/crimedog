@@ -15,7 +15,12 @@ export const moneyShort = (n) => {
 // A line of details ("Poodle · Charm · Solid"): each piece stays in one piece, so a
 // line breaks between them, never mid-phrase. Parts are HTML; empty ones are dropped.
 export const dots = (...parts) => parts.flat().filter(Boolean).map((p) => `<span class="bit">${p}</span>`).join(' · ');
+// Fill a line's {placeholders} from `vars`. A placeholder with no value becomes
+// `missing` (pass null to leave it as written).
+export const fillIn = (text, vars, missing = '') => String(text).replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? (missing ?? m));
 export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+// Prices and amounts in round numbers: to the nearest £10 (or `step`).
+export const roundTo = (n, step = 10) => Math.round(n / step) * step;
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // A stable pick for flavour text, so it doesn't use up a draw from the game's RNG.
 export const hashOf = (s) => {

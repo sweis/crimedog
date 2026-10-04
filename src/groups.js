@@ -1,7 +1,7 @@
 // The city's outfits: standing, job offers, deals, debts and grudges. Pure
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
-import { clamp, fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
+import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn } from './util.js';
 import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady } from './heists.js';
 import { makeTip } from './inspector.js';
 
@@ -44,7 +44,7 @@ export function hireBlocked(state, dog) {
 }
 export function hireCost(state, dog) {
   const g = state.groups?.[dog.faction];
-  return g && g.standing >= 50 ? Math.max(30, Math.round((dog.fee * 0.8) / 10) * 10) : dog.fee;
+  return g && g.standing >= 50 ? Math.max(30, roundTo(dog.fee * 0.8)) : dog.fee;
 }
 
 function ownedBy(gid) {
@@ -53,7 +53,7 @@ function ownedBy(gid) {
 
 function queueStory(state, gid, kind, vars = {}) {
   const G = GROUPS[gid];
-  const fill = (t) => t.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+  const fill = (t) => fillIn(t, vars);
   const byKind = {
     intro: { title: G.boss, text: G.intro },
     debt: { title: `You owe ${G.short}`, text: fill(G.debtText || '') },
@@ -102,7 +102,7 @@ function groupOffer(state, rng, gid, forced) {
     const wanted = job.loot.filter((l) => G.wants.includes(l.kind));
     const item = (wanted.length ? wanted : job.loot)[0];
     patron.want = item.id;
-    patron.fee = deal === 'marker' || amends ? 0 : Math.round((item.value * (1.25 + Math.max(0, g.standing) / 200)) / 50) * 50;
+    patron.fee = deal === 'marker' || amends ? 0 : roundTo(item.value * (1.25 + Math.max(0, g.standing) / 200), 50);
     if (deal === 'marker' || amends) patron.debtClear = g.debt?.amount || 0;
   } else {
     patron.cut = g.standing >= 50 ? 20 : g.standing >= 20 ? 25 : 30;
@@ -145,7 +145,7 @@ const AMENDS_AT = -20;
 export const canMakeAmends = (state, gid) => state.groups[gid].standing <= AMENDS_AT;
 export function amendsCost(state, gid) {
   const g = state.groups[gid];
-  const debt = g.debt ? Math.round((g.debt.amount * 1.25) / 10) * 10 : 0;
+  const debt = g.debt ? roundTo(g.debt.amount * 1.25) : 0;
   return debt + Math.max(0, -g.standing) * 20;
 }
 export function makeAmends(state, rng, gid, how) {
@@ -249,7 +249,7 @@ export function betweenJobs(state, rng) {
         } else {
           addHeat(state, 15);
         }
-        g.debt.amount = Math.round((g.debt.amount * 1.2) / 10) * 10;
+        g.debt.amount = roundTo(g.debt.amount * 1.2);
         g.debt.patience = 2;
         queueStory(state, gid, 'pressure');
         events.push(G.pressure);

@@ -3,7 +3,7 @@
 // scene on the job board. He also keeps a file on how you work: tricks you
 // lean on get harder, because security has been briefed on them.
 import { APPROACHES, KIT } from './data.js';
-import { money, clamp, addHeat, addRelation, book } from './util.js';
+import { money, clamp, addHeat, addRelation, book, roundTo } from './util.js';
 import { pushScene, answerScene } from './story.js';
 import { displayName, shortName, skillOf } from './dogs.js';
 import { addBond } from './bonds.js';
@@ -188,7 +188,7 @@ const MOVES = {
     heat: 45,
     weight: 2,
     run(state) {
-      const bung = Math.max(100, Math.round((state.cash * 0.1) / 10) * 10);
+      const bung = Math.max(100, roundTo(state.cash * 0.1));
       return {
         title: 'Search Warrant',
         text: 'Six o\'clock in the morning. Boots on the stairs. The Inspector has a warrant for your back room and a very thorough constable.',
@@ -263,7 +263,7 @@ const EFFECTS = {
     return 'The warrant goes missing in the post. Funny, that.';
   },
   searched(state) {
-    const take = Math.round((state.cash * 0.2) / 10) * 10;
+    const take = roundTo(state.cash * 0.2);
     if (take) book(state, 'raids', -take);
     const gone = Object.keys(state.kit).filter((k) => state.kit[k] > 0 && KIT[k] && !KIT[k].special).slice(0, 2);
     for (const k of gone) state.kit[k] = 0;

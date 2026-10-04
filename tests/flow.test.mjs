@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
-import { APPROACHES, KIT } from '../src/data.js';
+import { APPROACHES, KIT, PRICES } from '../src/data.js';
 import { genJob, visibleStages, ownOffer } from '../src/heists.js';
 import { approachAvailable, odds } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
@@ -24,9 +24,9 @@ test('a tipster sells the one thing you want, for a day and a bit more than pot 
   const days = s.job.daysLeft;
   assert.ok(E.tipFor(s, k).ok);
   assert.equal(s.job.intel[k], true);
-  assert.equal(s.cash, cash - E.TIP_FOR);
+  assert.equal(s.cash, cash - PRICES.tipFor);
   assert.equal(s.job.daysLeft, days - 1);
-  assert.ok(E.TIP_FOR > 120, 'dearer than a random tip');
+  assert.ok(PRICES.tipFor > 120, 'dearer than a random tip');
   assert.equal(E.tipFor(s, k).ok, false, 'not twice');
   assert.equal(E.tipFor(s, 'no_such_thing').ok, false);
   s.job.daysLeft = 0;

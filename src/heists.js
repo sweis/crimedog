@@ -1,6 +1,7 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
 import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MASTERS, MASTER_MIN, SIZE_STEPS, MARKS, KIT } from './data.js';
+import { roundTo } from './util.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank', 'Bank Job', 'Heat'],
@@ -293,7 +294,7 @@ export function genJob(state, rng, opts = {}) {
     name,
     kind,
     bulk,
-    value: Math.round((worth * 450 * mult * rng.float(0.75, 1.3)) / 50) * 50,
+    value: roundTo(worth * 450 * mult * rng.float(0.75, 1.3), 50),
   }));
   loot.sort((a, b) => b.value - a.value);
   const star = loot[0];
@@ -351,7 +352,7 @@ export function genJob(state, rng, opts = {}) {
   if (twist === 'rush') daysLeft = 2;
   if (twist === 'bigger') {
     jobBase += 1;
-    for (const l of loot) l.value = Math.round((l.value * 1.4) / 50) * 50;
+    for (const l of loot) l.value = roundTo(l.value * 1.4, 50);
   }
   if (twist === 'rivals') stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, obstacle('obs_rivals', 'rivals', {}, rng));
 

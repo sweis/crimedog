@@ -1,5 +1,5 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
-import { esc } from './util.js';
+import { esc, roundTo } from './util.js';
 import { startingRecord } from './justice.js';
 import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES, NEUTRAL_SKILLS, SIZE_CAPS } from './data.js';
 
@@ -221,7 +221,7 @@ export function feeFor(dog, cheap) {
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
   const R = dog.rarity && RARITY[dog.rarity];
   const base = (30 + power * 18 + (dog.role?.level || 0) * 20 + (dog.relation > 30 ? -20 : 0)) * (R ? (dog.homegrown ? R.homeMult : R.feeMult) : 1);
-  return Math.max(30, Math.round((cheap ? base * 0.6 : base) / 10) * 10);
+  return Math.max(30, roundTo(cheap ? base * 0.6 : base));
 }
 
 // A star passing through town (as opposed to one of your own who made it big).
