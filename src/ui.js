@@ -499,19 +499,24 @@ const fromText = (k) => k.from.map((f) => VENUE_LABELS[f] || JOB_TYPES[f]?.label
 
 function kitScreen(G) {
   const s = G.state;
-  const specials = Object.entries(KIT).filter(([, k]) => k.special);
+  const own = (id) => s.kit[id] || 0;
+  const all = Object.entries(KIT);
+  const row = (id, k, right, extra = '') => `<div class="kit"><div class="ico">${k.icon}</div><div class="grow"><b>${esc(k.name)}</b>${extra}<div class="muted">${esc(k.blurb)}</div></div>${right}</div>`;
+  // For sale: anything you haven't got, and the things that get used up.
+  const forSale = all.filter(([id, k]) => !k.special && (k.consumable || !own(id)));
+  const sale = forSale.map(([id, k]) => row(id, k, `<button class="btn small" data-act="buy" data-kit="${id}" ${s.cash >= k.price ? '' : 'disabled'}>${money(k.price)}</button>`, k.consumable && own(id) ? ` <span class="own">×${own(id)} in the lock-up</span>` : '')).join('');
+  // The lock-up: everything you own, bought or won.
+  const mine = all.filter(([id]) => own(id) > 0);
+  const lockup = mine.map(([id, k]) => row(id, k, '', ` <span class="own">${k.consumable || k.uses ? `×${own(id)}` : k.special ? 'won' : '✓'}</span>`)).join('');
+  const wears = mine.some(([, k]) => !k.consumable && !k.special);
+  // Special kit you haven't won yet, and where to find it.
+  const locked = all.filter(([id, k]) => k.special && !own(id));
   return `<h2>Kit Shop</h2>
-  <section class="card">${Object.entries(KIT).filter(([, k]) => !k.special).map(([id, k]) => {
-    const own = s.kit[id] || 0;
-    const canBuy = s.cash >= k.price && (k.consumable || !own);
-    return `<div class="kit"><div class="ico">${k.icon}</div><div class="grow"><b>${esc(k.name)}</b> ${own ? `<span class="own">✓ ${k.consumable ? `×${own}` : 'owned'}</span>` : ''}<div class="muted">${esc(k.blurb)}</div></div>
-      <button class="btn small" data-act="buy" data-kit="${id}" ${canBuy ? '' : 'disabled'}>${money(k.price)}</button></div>`;
-  }).join('')}</section>
-  <h2 class="mt">Found on Jobs</h2>
-  <section class="card">${specials.map(([id, k]) => {
-    const own = s.kit[id] || 0;
-    return `<div class="kit ${own ? '' : 'locked'}"><div class="ico">${own ? k.icon : '🔒'}</div><div class="grow"><b>${esc(k.name)}</b> ${own ? `<span class="own">✓ ${k.uses ? `×${own}` : 'yours'}</span>` : ''}<div class="muted">${esc(k.blurb)}</div>${own ? '' : `<div class="muted">🎁 ${esc(fromText(k))}</div>`}</div></div>`;
-  }).join('')}</section>`;
+  <section class="card">${sale}</section>
+  <h2 class="mt">In Your Lock-up</h2>
+  <section class="card lockup">${lockup || '<p class="muted">Nothing yet.</p>'}${wears ? '<p class="muted small-note">Gear can break when a step goes wrong, and the Old Bill keep whatever they find on anyone they collar.</p>' : ''}</section>
+  ${locked.length ? `<h2 class="mt">Found on Jobs</h2>
+  <section class="card">${locked.map(([, k]) => `<div class="kit locked"><div class="ico">🔒</div><div class="grow"><b>${esc(k.name)}</b><div class="muted">${esc(k.blurb)}</div><div class="muted">🎁 ${esc(fromText(k))}</div></div></div>`).join('')}</section>` : ''}`;
 }
 
 function fixerScreen(G) {
@@ -807,6 +812,7 @@ function aftermathScreen(G) {
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
   for (const t of a.bonds || []) lines.push(esc(t));
   if (a.prize) lines.push(`🎁 Kept: ${KIT[a.prize].icon} <b>${esc(KIT[a.prize].name)}</b>. ${esc(KIT[a.prize].blurb)}`);
+  if (r.kitLost?.length) lines.push(`🔧 Lost on the job: ${r.kitLost.map((x) => `${KIT[x.kit].icon} <b>${esc(KIT[x.kit].name)}</b> (${x.why === 'broke' ? 'broken' : 'taken as evidence'})`).join(', ')}. The shop has more.`);
   for (const p of a.promoted || []) {
     const d = s.dogs[p.id];
     lines.push(`🌟 <b>${esc(shortName(d))}</b> has made a name for themselves: <span class="rar ${p.to}">${RARITY[p.to].icon} ${RARITY[p.to].label}</span> ✨ ${esc(SIGNATURES[d.signature].name)}`);

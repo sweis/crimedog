@@ -279,6 +279,7 @@ p { margin: 0 0 8px; }
 .plan-step.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { box-shadow: var(--shadow), 0 0 0 3px var(--brass), 0 0 24px rgba(214, 169, 59, .8); } }
 .kit.locked { opacity: .7; }
+.lockup .small-note { font-size: 13px; margin: 8px 0 0; }
 .retire-btn { margin: 4px 0 12px; }
 .retire-note { display: flex; justify-content: space-between; gap: 8px; width: 100%; margin-bottom: 12px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--brass); background: #fbf1d6; color: var(--ink); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
 .retire-note span { white-space: nowrap; }

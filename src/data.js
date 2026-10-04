@@ -352,19 +352,27 @@ export const CODENAMES = ['Mr White', 'Mr Orange', 'Mr Blonde', 'Mr Brown', 'Mr 
 // Kit: bonus = +difficulty relief when the approach lists it; consumable kit is
 // used up when the step runs.
 export const KIT = {
-  lockpicks: { name: 'Lockpicks', price: 80, icon: '🗝️', consumable: false, blurb: '+2 on lock work.' },
-  stethoscope: { name: 'Stethoscope', price: 120, icon: '🩺', consumable: false, blurb: '+2 cracking safes by ear.' },
-  laptop: { name: 'Hacker Laptop', price: 250, icon: '💻', consumable: false, blurb: '+2 on cameras and keypads.' },
-  grapple: { name: 'Grappling Rope', price: 100, icon: '🪝', consumable: false, blurb: 'Needed for skylights and roof escapes.' },
+  lockpicks: { name: 'Lockpicks', price: 80, icon: '🗝️', consumable: false, blurb: '+2 on lock work.', breaks: 'snap off in the lock' },
+  stethoscope: { name: 'Stethoscope', price: 120, icon: '🩺', consumable: false, blurb: '+2 cracking safes by ear.', breaks: 'gets trodden on' },
+  laptop: { name: 'Hacker Laptop', price: 250, icon: '💻', consumable: false, blurb: '+2 on cameras and keypads.', breaks: 'shows a blue screen and a sad face, for good' },
+  grapple: { name: 'Grappling Rope', price: 100, icon: '🪝', consumable: false, blurb: 'Needed for skylights and roof escapes.', breaks: 'frays clean through' },
   uniforms: { name: 'Staff Uniforms', price: 150, icon: '👔', consumable: true, blurb: 'Needed to pose as staff. Used up.' },
-  slingshot: { name: 'Slingshot', price: 60, icon: '🎯', consumable: false, blurb: '+2 popping camera lenses.' },
+  slingshot: { name: 'Slingshot', price: 60, icon: '🎯', consumable: false, blurb: '+2 popping camera lenses.', breaks: 'twangs in half' },
   squeaky: { name: 'Squeaky Toy', price: 20, icon: '🧸', consumable: true, blurb: 'Guards can\'t resist. Used up.' },
-  laserpointer: { name: 'Laser Pointer', price: 40, icon: '🔴', consumable: false, blurb: 'For security cats. Trust us.' },
+  laserpointer: { name: 'Laser Pointer', price: 40, icon: '🔴', consumable: false, blurb: 'For security cats. Trust us.', breaks: 'gets swatted into a drain' },
   tuna: { name: 'Tin of Tuna', price: 15, icon: '🥫', consumable: true, blurb: 'Cat bribe. Used up.' },
-  drill: { name: 'Thermic Drill', price: 300, icon: '🛠️', consumable: false, blurb: 'Through vaults and walls. Very loud.' },
-  van: { name: 'Getaway Van', price: 500, icon: '🚐', consumable: false, blurb: 'Ram raids, +3 carry, +2 getaway. Burned if the alarm goes.' },
-  moped: { name: 'Mopeds', price: 200, icon: '🛵', consumable: false, blurb: 'Nippy alley getaway.' },
+  drill: { name: 'Thermic Drill', price: 300, icon: '🛠️', consumable: false, blurb: 'Through vaults and walls. Very loud.', breaks: 'burns out in a cloud of smoke' },
+  van: { name: 'Getaway Van', price: 500, icon: '🚐', consumable: false, blurb: 'Ram raids, +3 carry, +2 getaway. Burned if the alarm goes.', breaks: 'ends up on its roof' },
+  moped: { name: 'Mopeds', price: 200, icon: '🛵', consumable: false, blurb: 'Nippy alley getaway.', breaks: 'end up in a hedge' },
   bags: { name: 'Big Swag Bags', price: 30, icon: '💰', consumable: true, blurb: '+2 carry. Used up.' },
+  // Gear that makes a whole kind of step a little easier (`effect`, as for special kit).
+  goggles: { name: 'Night-Vision Goggles', price: 180, icon: '🥽', consumable: false, effect: { skill: 'sneak', diff: -1 }, blurb: 'Every sneak step: -1.', breaks: 'get sat on' },
+  gloves: { name: 'Climbing Gloves', price: 90, icon: '🧤', consumable: false, effect: { skill: 'agility', diff: -1 }, blurb: 'Every agility step: -1.', breaks: 'tear on a gutter' },
+  crowbar: { name: 'Crowbar', price: 70, icon: '🪛', consumable: false, effect: { skill: 'muscle', diff: -1 }, blurb: 'Every muscle step: -1.', breaks: 'bends double' },
+  disguisekit: { name: 'Disguise Kit', price: 140, icon: '🎭', consumable: false, effect: { skill: 'disguise', diff: -1 }, blurb: 'Wigs, glasses, a false nose. Every disguise step: -1.', breaks: 'loses its false nose down a drain' },
+  plates: { name: 'Spare Number Plates', price: 120, icon: '🔢', consumable: false, effect: { skill: 'wheels', diff: -1 }, blurb: 'Every wheels step: -1.', breaks: 'fall off at the lights' },
+  walkies: { name: 'Walkie-Talkies', price: 110, icon: '📟', consumable: false, effect: { kind: 'exit', diff: -1 }, blurb: '"Over." Getting out: -1.', breaks: 'go to static' },
+  chocs: { name: 'Box of Chocolates', price: 35, icon: '🍫', consumable: true, effect: { skill: 'charm', diff: -2 }, blurb: 'Charm: -2 on one step. Then they\'re eaten.' },
   // ---- Special kit: never for sale. Won on particular jobs (`from`: venues or kinds of
   // job) and kept for later ones. `effect` makes matching steps easier.
   keycard: { name: 'Master Key Card', icon: '💳', price: 0, special: true, consumable: true, uses: 3, from: ['bank', 'casino', 'hack'], blurb: 'A quiet way in on break-ins. Three swipes.' },

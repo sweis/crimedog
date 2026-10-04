@@ -126,6 +126,12 @@ console.log('1. Cold boot, real touch play-through');
   await tap(page, '.nav [data-to="kit"]');
   await tap(page, '[data-act="buy"][data-kit="lockpicks"]');
   await tap(page, '[data-act="buy"][data-kit="bags"]');
+  const shop = await page.evaluate(() => ({
+    lockup: document.querySelector('main .lockup')?.innerText || '',
+    pickSale: document.querySelectorAll('main [data-act="buy"][data-kit="lockpicks"]').length,
+    bagSale: document.querySelectorAll('main [data-act="buy"][data-kit="bags"]').length,
+  }));
+  check(/Lockpicks/.test(shop.lockup) && /Big Swag Bags/.test(shop.lockup) && shop.pickSale === 0 && shop.bagSale === 1, `bought kit moves to the lock-up; the used-up kind stays on sale (${JSON.stringify(shop).slice(0, 160)})`);
   await shot(page, '07-kit');
   await tap(page, '.nav [data-to="job"]');
   await tap(page, '[data-act="pick"][data-purpose="case"]');

@@ -92,7 +92,16 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## More films: wiretaps, black boxes, little cars, hard-nosed coppers, the usual suspects (latest, 0.19.0)
+## New kit, the lock-up, and gear that wears out (latest, 0.20.0)
+
+- **New kit** (data.js `KIT`), each easing a whole kind of step through `effect` (the same mechanism as special kit; `specialKitFor` already handled any kit with an effect): Night-Vision Goggles (sneak -1, £180), Climbing Gloves (agility -1, £90), Crowbar (muscle -1, £70), Disguise Kit (disguise -1, £140), Spare Number Plates (wheels -1, £120), Walkie-Talkies (getting out -1, £110), Box of Chocolates (charm -2 on one step, eaten, £35).
+- **Kit screen:** For sale (anything not owned, plus the used-up kind with "×N in the lock-up"), then **In Your Lock-up** (everything owned, bought or won, with a note on wear), then **Found on Jobs** (special kit not yet won, and where).
+- **Wear:** in `sim.attempt`, the kit a step uses (needKit, kitBonus, effect gear) is noted against the dog. A fumbled step breaks each piece of bought, non-consumable kit used on it with `KIT_BREAK` 30% (a chaos beat: "🛠️ The thermic drill burns out in a cloud of smoke."); a dog collared loses what they carried with `KIT_EVIDENCE` 50%. Won (special) kit never breaks. Losses go through `useKit`, so `resolveHeist` takes them off; the aftermath lists them ("🔧 Lost on the job: 🗝️ Lockpicks (broken)."). Every buyable non-consumable has a `breaks` line.
+- **How often (smart bot, 200 careers × 12 jobs):** owned kit is lost on 8–13% of the jobs it's owned for (before: only the van burning or a raid), so a piece lasts about ten jobs. Balance (150 careers): grades unchanged; game-overs within the RNG noise band measured in 0.19.0.
+- **Tests:** tests/gear.test.mjs (4). Smoke 1 checks bought kit moves to the lock-up and the used-up kind stays on sale.
+- **Not done:** the balance bot doesn't buy the new gear.
+
+## More films: wiretaps, black boxes, little cars, hard-nosed coppers, the usual suspects (0.19.0)
 
 - **Kibble is for closers:** the game-over line, the Closer's catchphrase, two grade verdicts and a job name (was coffee / biscuits).
 - **Storylines:** drama arcs `tape` (a wiretap: "He'd grass us if he got the chance", and which word it leans on; forget it and the floorboards come up, saxophone in the wreckage) and `box` (a little black box that opens anything; sell it to an outfit, hand it to the man in the grey suit, or keep it: "My voice is my passport. Verify me." and a promotion; only crew with Tech 3+ find one). Inspector moves `lineup` (the usual suspects: up to five regulars in a line-up, "Hand over the keys, you dozy mutt", a night in the same cell, +15 bond each pair) and `strip` (your getaway van taken apart to the last bolt; rebuild for £250 or lose it). The tail scene gains "Lead him a merry dance": a sneak loses him on the train and waves goodbye through the window. Keeping quiet under questioning sometimes becomes a Keyser Collie yarn read off the noticeboard, limp straightening by the corner. The stakeout is now stamping feet in the cold while the manager eats a four-course dinner.

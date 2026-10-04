@@ -138,6 +138,11 @@ function carryCapacity(crew, kit) {
   return c;
 }
 
+// Chance a piece of kit breaks when the step it's used on goes wrong, and that the
+// Old Bill bag it as evidence when whoever was carrying it is collared.
+export const KIT_BREAK = 0.3;
+export const KIT_EVIDENCE = 0.5;
+
 // Stages on the way out, where a fumble gets dogs nicked rather than just noticed.
 const OUT = ['exit', 'getaway'];
 // Fumbling these can cost a dog for good.
@@ -209,6 +214,8 @@ export function simulate(state, job, rng) {
     dropped: [],
     kitLeft: { ...state.kit },
     kitUsed: {},
+    kitLost: [], // { kit, why: 'broke' | 'evidence' }
+    carried: {}, // dog id -> kit they used tonight (bagged as evidence if they're collared)
     luckUsed: new Set(),
     lookoutUsed: false,
     nextBonus: 0,
@@ -242,6 +249,12 @@ export function simulate(state, job, rng) {
   const useKit = (id) => {
     ctx.kitLeft[id]--;
     ctx.kitUsed[id] = (ctx.kitUsed[id] || 0) + 1;
+  };
+  // Bought kit that isn't used up wears out: it can break on a fumbled step, and
+  // whoever gets collared loses what they were carrying.
+  const loseKit = (k, why) => {
+    useKit(k);
+    ctx.kitLost.push({ kit: k, why });
   };
   const lootName = (id) => lootItem(job, id).name;
 
@@ -279,8 +292,13 @@ export function simulate(state, job, rng) {
     const has = (q) => dog.quirks.includes(q);
     if (a.needKit && KIT[a.needKit].consumable) useKit(a.needKit);
     ctx.acted.add(dog.id);
+    // The kit this step is done with: what it needs, what helps it, and gear that eases this kind of step.
+    const gear = [...new Set([a.needKit, a.kitBonus, ...specialKitFor(ctx.kitLeft, job, stage, a)])].filter((k) => k && ctx.kitLeft[k] > 0);
     const o = odds(state, job, stage, approachId, dog, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra: (extra || 0) + (ctx.coppers ? 2 : 0), bonus: ctx.nextBonus });
     ctx.nextBonus = 0;
+    for (const k of gear) if (KIT[k].consumable && KIT[k].effect) useKit(k); // the chocolates get eaten
+    const wears = gear.filter((k) => !KIT[k].consumable && !KIT[k].special);
+    if (wears.length) ctx.carried[dog.id] = [...new Set([...(ctx.carried[dog.id] || []), ...wears])];
     let p = o.p;
     if (tag === 'improv' && dog.role?.kind === 'wildcard') p = clamp(p + 0.05 * dog.role.level, 0.03, 0.97); // made for making it up
     if (tag === 'improv' && has('backup')) { p = clamp(p + 0.15, 0.03, 0.97); learn(dog, 'quirks', 'backup'); }
@@ -342,6 +360,13 @@ export function simulate(state, job, rng) {
       (ctx.practised[dog.id] ||= []).push(a.skill);
     } else ctx.lastFail = { dog, approachId, margin: roll - p };
     beat({ kind: ok ? 'ok' : 'fail', stage: stage.id, dog: dog.id, approach: approachId, tag, p, roll, text, line });
+    if (!ok) {
+      for (const k of wears) {
+        if (!(ctx.kitLeft[k] > 0) || !rng.chance(KIT_BREAK)) continue;
+        loseKit(k, 'broke');
+        beat({ kind: 'chaos', stage: stage.id, dog: dog.id, text: `${KIT[k].icon} The ${KIT[k].name.toLowerCase()} ${KIT[k].breaks}.` });
+      }
+    }
     addAlarm(noise, stage.id);
     return ok;
   };
@@ -421,6 +446,7 @@ export function simulate(state, job, rng) {
       return true;
     }
     ctx.captured.push({ id: dog.id, stage: stageId });
+    for (const k of ctx.carried[dog.id] || []) if (ctx.kitLeft[k] > 0 && rng.chance(KIT_EVIDENCE)) loseKit(k, 'evidence');
     beat({ kind: 'caught', stage: stageId, dog: dog.id, text: `${shortName(dog)} is collared by the Old Bill!`, line: say(dog, 'caught') });
     dropLoot(stageId, 'goes with them into the police van');
     return rescue(dog, stageId);
@@ -796,6 +822,7 @@ export function simulate(state, job, rng) {
     rescues: ctx.rescues,
     crew: crewIds,
     kitUsed: ctx.kitUsed,
+    kitLost: ctx.kitLost,
     learned: ctx.learned,
     practised: ctx.practised,
     heatGain,
@@ -811,7 +838,7 @@ function skillTalent(t, skill) {
 export function blankResult(crew, extra = {}) {
   return {
     beats: [], outcome: 'clean', secured: [], dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
-    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, learned: {}, practised: {}, heatGain: 0,
+    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, kitLost: [], learned: {}, practised: {}, heatGain: 0,
     ...extra,
   };
 }
