@@ -4,7 +4,7 @@ import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence, roundTo, addStat } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO, PRICES, FIXER } from './data.js';
 import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf, sendToFarm } from './dogs.js';
-import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
+import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier, unknownIntel } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { bump } from './career.js';
@@ -460,7 +460,7 @@ function raiseAlert(job, why, n = 1) {
 export function caseOdds(state, d) {
   const job = state.job;
   const intelBoost = hasSpecial(d, 'intel') ? 0.15 : 0;
-  const finds = Object.keys(job.intel).filter((k) => !job.intel[k])
+  const finds = unknownIntel(job)
     .map((k) => ({ k, p: Math.min(0.9, 0.1 + 0.16 * skillOf(d, INTEL[k].skill) + intelBoost) }));
   const cover = Math.max(skillOf(d, 'sneak'), skillOf(d, 'disguise'));
   return { finds, expected: finds.reduce((a, f) => a + f.p, 0), spotted: Math.max(0.03, 0.35 - 0.08 * cover) };
@@ -469,7 +469,7 @@ export function caseOdds(state, d) {
 const CASE_MAX = 3;
 export function caseJoint(state, who) {
   const job = state.job;
-  const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
+  const unknown = unknownIntel(job);
   if (!unknown.length) return fail('You know everything there is to know.');
   const rng = rngOf(state);
   if (who === 'tipster') {

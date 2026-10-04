@@ -1252,6 +1252,29 @@ console.log('1w. Share cards inside a sandboxed frame (as hosted): a crew card a
   await ctx.close();
 }
 
+console.log('1x. Walking away takes two taps; anything in between starts over');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=5`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(5); window.cd.teleport('select'); window.cd.live().story = []; window.cd.teleport('select'); });
+  await tap(page, 'main [data-act="take-offer"]');
+  const rep0 = await page.evaluate(() => window.cd.live().rep);
+  await tap(page, 'main [data-act="walk-away"]');
+  check((await page.locator('main [data-act="walk-away"]').innerText()).includes('Really walk away'), 'the first tap asks');
+  await tap(page, 'main [data-act="time"][data-t="day"]');
+  check(!(await page.locator('main [data-act="walk-away"]').innerText()).includes('Really'), 'another tap in between: it asks again');
+  await tap(page, 'main [data-act="walk-away"]');
+  await tap(page, 'main [data-act="walk-away"]');
+  const after = await page.evaluate(() => ({ phase: window.cd.live().phase, rep: window.cd.live().rep }));
+  check(after.phase === 'select' && after.rep < rep0, `two taps: walked away, rep ${rep0} -> ${after.rep}`);
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 console.log('1d. Hiring from a planning step returns to that step');
 {
   const ctx = await browser.newContext(phone);

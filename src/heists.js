@@ -436,6 +436,9 @@ function isUngated(approachId) {
   return !a.needKit && !a.needIntel && !a.needInsider && !a.needBribe;
 }
 
+// What you don't know yet about a job, in the order it was drawn up.
+export const unknownIntel = (job) => Object.keys(job.intel).filter((k) => !job.intel[k]);
+
 // Put steps just before the goods.
 export function beforeVault(stages, ...steps) {
   stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, ...steps);

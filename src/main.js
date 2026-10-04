@@ -154,6 +154,19 @@ function show(screen) {
   window.scrollTo(0, 0);
 }
 
+// A button that needs a second tap: the first one asks "really?" on the button itself.
+// Tapping anything else in between starts over.
+function confirmTap(el, ask) {
+  if (G.ui.confirming === el.dataset.act) {
+    G.ui.confirming = null;
+    return true;
+  }
+  G.ui.confirming = el.dataset.act;
+  el.textContent = ask;
+  el.classList.add('red');
+  return false;
+}
+
 // Unlocking an option from the plan: do it, then put the option on the plan if it's open now.
 function unlockWith(fn, ...args) {
   G.ui.modal = null;
@@ -274,26 +287,14 @@ const A = {
   'unlock-buy'(el) { unlockWith(E.buy, el.dataset.kit); },
   'unlock-tip'(el) { unlockWith(E.tipFor, el.dataset.k); pencilNew(); },
   'unlock-bribe'() { unlockWith(E.bribeGuard); },
-  // Retiring ends the game, so it takes two taps.
+  // Retiring ends the game, and walking away costs rep, so each takes two taps.
   'retire'(el) {
-    if (!G.ui.confirmRetire) {
-      G.ui.confirmRetire = true;
-      el.textContent = 'Really retire? This ends the game. Tap again.';
-      el.classList.add('red');
-      return;
-    }
-    G.ui.confirmRetire = false;
+    if (!confirmTap(el, 'Really retire? This ends the game. Tap again.')) return;
     G.ui.modal = null;
     run(E.retireNow);
   },
   'walk-away'(el) {
-    if (!G.ui.confirmWalk) {
-      G.ui.confirmWalk = true;
-      el.textContent = 'Really walk away? (-3 rep) Tap again.';
-      el.classList.add('red');
-      return;
-    }
-    G.ui.confirmWalk = false;
+    if (!confirmTap(el, 'Really walk away? (-3 rep) Tap again.')) return;
     run(E.nextJob);
     show('job');
   },
@@ -394,8 +395,7 @@ document.addEventListener('click', (e) => {
   if (el.disabled) return;
   const fn = A[el.dataset.act];
   if (!fn) return;
-  if (el.dataset.act !== 'walk-away') G.ui.confirmWalk = false;
-  if (el.dataset.act !== 'retire') G.ui.confirmRetire = false;
+  if (G.ui.confirming !== el.dataset.act) G.ui.confirming = null;
   try {
     fn(el);
   } catch (err) {

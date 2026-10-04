@@ -2,7 +2,7 @@
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
 import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn, addSabotage } from './util.js';
-import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady } from './heists.js';
+import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady, unknownIntel } from './heists.js';
 import { makeTip } from './inspector.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -107,7 +107,7 @@ function groupOffer(state, rng, gid, forced) {
   } else {
     patron.cut = g.standing >= 50 ? 20 : g.standing >= 20 ? 25 : 30;
     // A tip-off comes with some of their intel.
-    const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
+    const unknown = unknownIntel(job);
     for (const k of rng.sample(unknown, 2)) revealIntel(job, k);
   }
   if (G.serious && deal !== 'marker' && !amends && rng.chance(0.5)) patron.front = 100 * tier + 100;
