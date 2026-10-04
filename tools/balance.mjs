@@ -3,7 +3,7 @@
 import * as E from '../src/engine.js';
 import { APPROACHES, KIT } from '../src/data.js';
 import { visibleStages } from '../src/heists.js';
-import { skillOf, topSkills } from '../src/dogs.js';
+import { skillOf, topSkills, sizeOf } from '../src/dogs.js';
 import { amendsCost } from '../src/groups.js';
 
 export function pickOffer(s, policy) {
@@ -35,6 +35,12 @@ export function smartJob(s) {
     const pool = [...E.bookDogs(s), ...s.pub.map((id) => s.dogs[id])].filter((d) => !E.hireProblem(s, d) && d.known.skills[st.needs.skill]);
     const best = pool.sort((a, b) => skillOf(b, st.needs.skill) - skillOf(a, st.needs.skill))[0];
     if (best && skillOf(best, st.needs.skill) >= st.needs.min && !E.crewDogs(s).some((d) => skillOf(d, st.needs.skill) >= st.needs.min)) E.hire(s, best.id);
+  }
+  // A step for someone small (or big): get someone that size.
+  const sized = job.stages.find((x) => x.needsSize && !x.hidden);
+  if (sized && !E.crewDogs(s).some((d) => sizeOf(d) === sized.needsSize)) {
+    const fit = [...E.bookDogs(s), ...s.pub.map((id) => s.dogs[id])].find((d) => sizeOf(d) === sized.needsSize && !E.hireProblem(s, d) && d.fee < s.cash - 300);
+    if (fit) E.hire(s, fit.id);
   }
   // Old friends first
   for (const d of E.bookDogs(s)) if (d.status === 'free' && d.relation >= 0 && !(d.known.undercover && d.undercover) && s.crew.length < 3) E.hire(s, d.id);

@@ -5,6 +5,7 @@ import * as E from '../src/engine.js';
 import { generosityOf, hardnessOf, generosityBonus, addHardness, crewFeeling } from '../src/repute.js';
 import { simulate } from '../src/sim.js';
 import { makeRng } from '../src/rng.js';
+import { addRep } from '../src/util.js';
 import { takeJob, fakeHeist } from './helpers.mjs';
 
 // One job, paid out at `pct`.
@@ -89,4 +90,36 @@ test('the farm hardens you; a brief for someone in the pound softens you', () =>
   p.sentence = 3;
   E.lawyer(t, p.id);
   assert.ok(hardnessOf(t) < 0 && generosityOf(t) > 50);
+});
+
+test('the bigger your name, the harder it grows: gains taper from 40 to nothing at the top; losses hit in full', async () => {
+  const { repGain } = await import('../src/util.js');
+  assert.equal(repGain(20, 9), 9);
+  assert.equal(repGain(39, 9), 9);
+  assert.ok(repGain(60, 9) < 9 && repGain(80, 9) < repGain(60, 9) && repGain(95, 9) <= 1);
+  assert.equal(repGain(100, 14), 0);
+  assert.equal(repGain(90, -4), -4);
+});
+
+test('a big name brings expectations: from 50 every job is marked down, so a so-so one can cost you', () => {
+  assert.equal(E.repExpected(30), 0);
+  assert.equal(E.repExpected(50), 1);
+  assert.equal(E.repExpected(70), 2);
+  assert.equal(E.repExpected(90), 3);
+  // Straight A's settle short of the top on the record alone; it takes S's (or a generous cut) to get there.
+  const settle = (grade) => {
+    const s = { rep: 25, repParts: {} };
+    for (let j = 0; j < 60; j++) addRep(s, { S: 14, A: 9, B: 6, C: 3 }[grade] - E.repExpected(s.rep));
+    return s.rep;
+  };
+  assert.ok(settle('A') < 95 && settle('A') >= 80, `${settle('A')}`);
+  assert.ok(settle('C') <= 70 && settle('C') < settle('A'), `${settle('C')}`);
+  assert.ok(settle('S') > settle('A'));
+});
+
+test('masters answer more readily the bigger your name: a quarter at 50, a half at the top', () => {
+  assert.equal(E.masterChance(50), 0.25);
+  assert.equal(E.masterChance(100), 0.5);
+  assert.ok(E.masterChance(75) > 0.25 && E.masterChance(75) < 0.5);
+  assert.equal(E.masterChance(20), 0.25);
 });

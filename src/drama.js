@@ -4,7 +4,7 @@
 // spill into the next job: a dog fired up or distracted (edge), sitting it out
 // (away), or bringing trouble that turns up on the night (see sim.js).
 import { GROUPS, SIGNATURES, SKILL_INFO, SKILLS, RARITY } from './data.js';
-import { shortName, displayName, genDog, promote } from './dogs.js';
+import { shortName, displayName, genDog, promote, skillOf } from './dogs.js';
 import { clamp, money, fail, done, addHeat, addRelation, book } from './util.js';
 import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
@@ -69,7 +69,7 @@ export const ARCS = {
         choices: [{ label: 'Right.' }],
       },
       desperate: {
-        text: '{d} is desperate. {G} want {amt2}, and they\'ve stopped asking nicely.',
+        text: '{d} is desperate: {G} want {amt2}, and they\'ve stopped asking nicely.',
         choices: [
           { label: 'Pay it', cost: 'amt2', fx: { relation: 10, standing: 3 }, say: '{d} breathes again.' },
           { label: 'No', next: [['runner', 0.5], ['grass', 0.5]], wait: 0 },
@@ -197,6 +197,57 @@ export const ARCS = {
     },
   },
 
+  // A tape, a bench, one line, and which word it leans on.
+  tape: {
+    title: 'The Tape',
+    eligible: (d) => d.jobs >= 2,
+    vars: (d, rng) => ({ g: rng.pick(Object.keys(GROUPS)), amt: 150 }),
+    start: 'start',
+    nodes: {
+      start: {
+        text: '{d} has a tape: two of {G}\'s lot on a bench in the market, and one line clear as a bell. "He\'d grass us if he got the chance." {d} has played it forty times. Who\'s "he"?',
+        choices: [
+          { label: 'Pay {d} to clean it up', cost: 'amt', fx: { relation: 5 }, next: 'emphasis', wait: 0 },
+          { label: 'Forget the tape', fx: { edge: -1 }, say: '{d} can\'t forget it. They play it in their sleep.', next: 'floorboards' },
+        ],
+      },
+      emphasis: {
+        fx: { standing: 5, edge: 1 },
+        text: '{d} has cleaned up the tape. It isn\'t "He\'d grass us if he got the chance." It\'s "He\'d grass US if he got the chance." They\'re scared of you, Guv, and {G} are minding their manners.',
+        choices: [{ label: 'As they should.' }],
+      },
+      floorboards: {
+        fx: { relation: 5 },
+        text: '{d} is sure someone\'s bugging them back. They\'ve had the floorboards up, the plaster off and the telephone in pieces. Nothing. They\'re sitting in the wreckage, playing the saxophone.',
+        choices: [{ label: 'Poor sod.' }],
+      },
+    },
+  },
+
+  // A little black box that opens anything, and a man in a grey suit who wants it back.
+  box: {
+    title: 'No More Secrets',
+    eligible: (d) => d.jobs >= 2 && skillOf(d, 'tech') >= 3, // it takes a hacker to know what they've found
+    vars: (d, rng) => ({ g: rng.pick(['family', 'syndicate', 'ze']), amt: 600 + 100 * rng.int(0, 4) }),
+    start: 'start',
+    nodes: {
+      start: {
+        text: '{d} has come home from a job with a little black box. Plug it in and it opens anything: every lock, every bank, every password in town. "No more secrets," says {d}. A man in a grey suit has started drinking at the Dog & Duck.',
+        choices: [
+          { label: 'Sell it to {G}', fx: { cash: 'amt', standing: 5, heat: 6 }, say: '{boss} pays {amt} and doesn\'t ask. The man in the grey suit finishes his drink and leaves. Somehow that\'s worse.' },
+          { label: 'Give it to the man in the grey suit', fx: { heat: -8, relation: -5 }, say: 'He takes it, says thank you, and your file at the station goes missing. {d} sulks. They liked that box.' },
+          { label: 'Keep it', fx: { heat: 4, skill: 1 }, say: '{d} stays up all night with it.', next: 'voice' },
+        ],
+      },
+      voice: {
+        fx: { promote: true },
+        text: '{d} has been taking the bank manager\'s secretary to dinner, and taping him word by word. Stitched together it says: "Hello. My voice is my passport. Verify me." It works. Word\'s out: {d} is {rank} now.',
+        maxed: '{d} has been taking the bank manager\'s secretary to dinner, and taping him word by word. Stitched together it says: "Hello. My voice is my passport. Verify me." It works. Nobody knows where {d} keeps the box.',
+        choices: [{ label: 'Verify them.' }],
+      },
+    },
+  },
+
   watched: {
     title: 'Heat on the Street',
     eligible: (d, state) => d.jobs >= 1 && state.heat >= 15,
@@ -266,6 +317,7 @@ function applyFx(state, arc, fx = {}, rng) {
   if (fx.greed) d.greed = clamp(d.greed + fx.greed, 0, 100);
   if (fx.standing && arc.vars.g) adjust(state, arc.vars.g, fx.standing);
   if (fx.heat) addHeat(state, fx.heat);
+  if (fx.cash) book(state, 'drama', cost(arc, fx.cash));
   if (fx.skill) {
     const sk = bestSkill(d);
     d.skills[sk] = Math.min(5, d.skills[sk] + fx.skill);

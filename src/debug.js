@@ -158,7 +158,7 @@ export function installDebug(G) {
         return d.id;
       }
       if (kind === 'arc') {
-        // A story for someone you know: spawn('arc', 'debt' | 'family' | 'partner' | 'mentor' | 'watched')
+        // A story for someone you know: spawn('arc', 'debt' | 'family' | 'partner' | 'mentor' | 'tape' | 'box' | 'watched')
         const d = Object.values(s.dogs).find((x) => x.met && x.status === 'free');
         if (!d) return null;
         const arc = startArc(s, at || 'debt', d.id, E.rngOf(s));
@@ -166,7 +166,7 @@ export function installDebug(G) {
         return arc.id;
       }
       if (kind === 'move') {
-        // The Inspector makes a move: spawn('move', 'plant' | 'stakeout' | 'warn' | 'tail' | 'questioning' | 'sting' | 'flip' | 'raid')
+        // The Inspector makes a move: spawn('move', 'plant' | 'stakeout' | 'warn' | 'tail' | 'questioning' | 'lineup' | 'strip' | 'sting' | 'flip' | 'raid')
         const st = inspectorMoves(s, E.rngOf(s), { genJob, force: at || 'plant' });
         G.commit();
         return st?.move || at;

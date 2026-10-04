@@ -4,7 +4,7 @@
 // visit and send them to the farm (hard), show mercy (soft), or let it go.
 // While they're loose they make trouble: talking to the Inspector, tipping off
 // security. Scene data lives on the scene, so it survives a save.
-import { fail, done, money, addHeat, addRep, addRelation, book, inSentence } from './util.js';
+import { fail, done, money, addHeat, addRep, repNote, addRelation, book, inSentence } from './util.js';
 import { displayName, shortName, skillOf } from './dogs.js';
 import { addHardness } from './repute.js';
 import { pushScene, answerScene } from './story.js';
@@ -122,10 +122,10 @@ const EFFECTS = {
     d.farmedBy = 'you';
     state.stats.farmed = (state.stats.farmed || 0) + 1;
     addHardness(state, 12);
-    addRep(state, 2);
+    const up = addRep(state, 2);
     const back = Math.round((r.value * 0.5) / 10) * 10;
     book(state, 'recovered', back);
-    return `You pay ${shortName(d)} a visit. They hand over what's left (${money(back)}) and go to live on a farm. Nobody will cross you in a hurry. (+2 rep)`;
+    return `You pay ${shortName(d)} a visit. They hand over what's left (${money(back)}) and go to live on a farm. Nobody will cross you in a hurry.${repNote(up)}`;
   },
   mercy(state, r, d) {
     r.stage = 'done';

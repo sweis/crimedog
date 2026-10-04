@@ -100,7 +100,8 @@ test('his file: the same trick, seen job after job, gets harder', () => {
 
 test('a setup: casing can spot it, walking away from it is no shame', () => {
   let spotted = 0;
-  for (let seed = 1; seed <= 20; seed++) {
+  const N = 60;
+  for (let seed = 1; seed <= N; seed++) {
     const s = E.newGame(seed);
     s.cash = 5000;
     s.heat = 30;
@@ -118,7 +119,7 @@ test('a setup: casing can spot it, walking away from it is no shame', () => {
       assert.equal(s.rep, rep, 'smelled a rat: no rep lost');
     }
   }
-  assert.ok(spotted >= 10, `setups spotted ${spotted}/20`);
+  assert.ok(spotted >= N / 2, `setups spotted ${spotted}/${N}`); // about 64%
 });
 
 test('a setup reached on the night ends with the police and no loot', () => {

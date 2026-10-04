@@ -2,6 +2,8 @@
 import * as E from './engine.js';
 import { render, currentScreen, hiringFor, profileHTML, careerHTML } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
+import { approachAvailable } from './sim.js';
+import { visibleStages } from './heists.js';
 import { cardPNG, careerPNG, recapPNG, shareBlob } from './card.js';
 
 const SAVE_KEY = 'crimedog.save.v2';
@@ -18,6 +20,13 @@ const G = {
 };
 
 // ------------------------------------------------------------------ persistence
+// First-visit tips, once per device; they still work (for the session) without storage.
+const TIPS_KEY = 'crimedog.tips';
+G.ui.tipsSeen = (() => { try { return JSON.parse(localStorage.getItem(TIPS_KEY) || '[]'); } catch { return []; } })();
+G.seeTip = (id) => {
+  if (!G.ui.tipsSeen.includes(id)) G.ui.tipsSeen.push(id);
+  try { localStorage.setItem(TIPS_KEY, JSON.stringify(G.ui.tipsSeen)); } catch { /* private mode */ }
+};
 let saveTimer = null;
 G.hasSave = () => {
   try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; }
@@ -130,12 +139,55 @@ function show(screen) {
   G.ui.screen = screen;
   G.ui.modal = null;
   G.ui.hireFor = null;
+  G.ui.unlockFor = null;
   G.commit();
   window.scrollTo(0, 0);
 }
 
+// Unlocking an option from the plan: do it, then put the option on the plan if it's open now.
+function unlockWith(fn, ...args) {
+  G.ui.modal = null;
+  run(fn, ...args);
+  useUnlocked();
+}
+function useUnlocked() {
+  const u = G.ui.unlockFor;
+  G.ui.unlockFor = null;
+  const s = G.state;
+  if (!u || s?.phase !== 'plan' || !approachAvailable(s, s.job, u.ap).ok) return;
+  if (E.setPlan(s, u.stage, { approach: u.ap, dog: E.bestDogFor(s, u.stage, u.ap) || s.crew[0] }).ok) {
+    G.commit();
+    const el = document.querySelector(`.plan-step[data-stage="${u.stage}"]`);
+    el?.classList.add('flash');
+  }
+}
+
+// First look at the plan: have the crew pencil one in (around anything you've
+// already set), so there's something to tweak.
+function firstLook() {
+  const s = G.state;
+  if (s?.phase !== 'plan' || !s.crew.length || s.job.pencilled) return;
+  s.job.pencilled = true;
+  E.autoPlan(s);
+  toast('The crew pencilled in a plan. Tweak it.');
+}
+
+// Intel can turn up a step nobody knew about (a cat, a stakeout): once the crew
+// have pencilled in a plan, they pencil in the new step too.
+function pencilNew() {
+  const s = G.state;
+  if (s?.phase !== 'plan' || !s.job.pencilled) return;
+  const gaps = visibleStages(s.job).filter((st) => !s.job.plan[st.id]?.dog);
+  if (!gaps.length) return;
+  E.autoPlan(s);
+  const filled = gaps.filter((st) => s.job.plan[st.id]?.dog);
+  if (filled.length) toast(`New on the plan: ${filled.map((st) => `${st.icon} ${st.label}`).join(', ')}.`);
+  G.commit();
+}
+
 // Back to the plan, scrolled to (and briefly highlighting) the step we hired for.
 function returnToPlan(stageId) {
+  firstLook();
   show('plan');
   const el = stageId && document.querySelector(`.plan-step[data-stage="${stageId}"]`);
   if (el) {
@@ -169,12 +221,7 @@ const SIMPLE = {
 const A = {
   'go'(el) {
     G.clearToasts();
-    // First look at the plan: have the crew pencil one in, so there's something to tweak.
-    const s = G.state;
-    if (el.dataset.to === 'plan' && s?.phase === 'plan' && s.crew.length && !Object.keys(s.job.plan).length) {
-      E.autoPlan(s);
-      toast('The crew pencilled in a plan. Tweak it.');
-    }
+    if (el.dataset.to === 'plan') firstLook();
     show(el.dataset.to);
   },
   'new-game'() {
@@ -195,6 +242,7 @@ const A = {
     toast(r.msg, !r.ok);
     show('job');
   },
+  'tip-ok'(el) { G.seeTip(el.dataset.tip); G.render(); },
   'story-ok'() { E.dismissStory(G.state); G.commit(); },
   'drama'(el) { run(E.chooseStory, Number(el.dataset.i)); },
   'pay-hospital'(el) { run(E.payHospitalBill, el.dataset.id); },
@@ -203,8 +251,19 @@ const A = {
   'calling-card'() { run(E.toggleCallingCard); },
   'picked'(el) {
     G.ui.modal = null;
-    run(el.dataset.purpose === 'case' ? E.caseJoint : E.plantInsider, el.dataset.id);
+    const r = run(el.dataset.purpose === 'case' ? E.caseJoint : E.plantInsider, el.dataset.id);
+    if (r.ok) pencilNew();
+    useUnlocked();
   },
+  // A locked option on the plan: a sheet with the way to unlock it.
+  'unlock'(el) {
+    G.ui.unlockFor = { stage: el.dataset.stage, ap: el.dataset.ap };
+    G.ui.modal = { type: 'unlock', ...G.ui.unlockFor };
+    G.render();
+  },
+  'unlock-buy'(el) { unlockWith(E.buy, el.dataset.kit); },
+  'unlock-tip'(el) { unlockWith(E.tipFor, el.dataset.k); pencilNew(); },
+  'unlock-bribe'() { unlockWith(E.bribeGuard); },
   // Retiring ends the game, so it takes two taps.
   'retire'(el) {
     if (!G.ui.confirmRetire) {
@@ -229,7 +288,7 @@ const A = {
     show('job');
   },
   'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.render(); },
-  'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.render(); },
+  'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.ui.unlockFor = null; G.render(); },
   'hire'(el) {
     const id = el.dataset.id;
     const hf = hiringFor(G);
@@ -285,10 +344,10 @@ const A = {
     const cap = el.closest('.chart')?.querySelector('.chart-tip');
     if (cap) cap.textContent = el.dataset.text;
   },
+  // A new approach goes to whoever looks best at it; tap a face to change that.
   'plan-ap'(el) {
     const st = el.dataset.stage;
-    const cur = G.state.job.plan[st] || {};
-    run(E.setPlan, st, { approach: el.dataset.ap, dog: cur.dog || G.state.crew[0] });
+    run(E.setPlan, st, { approach: el.dataset.ap, dog: E.bestDogFor(G.state, st, el.dataset.ap) || G.state.crew[0] });
   },
   'plan-dog'(el) { run(E.setPlan, el.dataset.stage, { dog: el.dataset.id }); },
   'pull'() {

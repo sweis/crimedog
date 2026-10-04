@@ -26,6 +26,7 @@ function onGrand(seed) {
 function dogAt(s, level, rng = E.rngOf(s)) {
   const d = genDog(s, rng, {});
   d.talents = [];
+  d.breed = 'poodle'; // no breed caps in the way
   for (const k of SKILLS) { d.skills[k] = level; d.known.skills[k] = true; }
   Object.assign(d, { met: true, relation: 20 });
   s.dogs[d.id] = d;
@@ -156,4 +157,19 @@ test('the job board: no four-star jobs until you\'ve a name, then now and then, 
   assert.equal(early, 0);
   assert.ok(later >= 10 && later <= 40, `${later}/80 boards`);
   assert.equal(kept, later);
+});
+
+test('the bigger your name, the likelier a master answers when you ask around', () => {
+  const answered = (rep) => {
+    let n = 0;
+    for (let seed = 1; seed <= 120; seed++) {
+      const s = onGrand(seed);
+      s.rep = rep;
+      if (/turns up/.test(E.askAround(s).msg)) n++;
+    }
+    return n;
+  };
+  const low = answered(50);
+  const high = answered(100);
+  assert.ok(high > low * 1.4, `${low} at 50 rep, ${high} at 100`);
 });

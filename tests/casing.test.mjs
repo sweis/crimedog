@@ -15,6 +15,7 @@ function caseWith(skill, seeds = 150) {
     s.cash = 5000;
     const d = s.dogs[s.pub[0]];
     E.hire(s, d.id);
+    d.breed = 'poodle'; // no breed caps in the way
     for (const k of SKILLS) d.skills[k] = 1;
     d.skills[skill] = 5;
     d.talents = [];

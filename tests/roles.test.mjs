@@ -36,8 +36,8 @@ test('about one in five dogs is a leader or a wildcard', () => {
 test('a leader steadies everyone on every step, without a step of their own', () => {
   const s = crewOf3(4);
   const [a, , c] = s.crew.map((id) => s.dogs[id]);
-  const st = visibleStages(s.job)[0];
-  const ap = st.options[0];
+  // A step in the normal range, away from the floor and the ceiling.
+  const [st, ap] = visibleStages(s.job).flatMap((x) => x.options.map((o) => [x, o])).find(([x, o]) => { const p = odds(s, s.job, x, o, a).p; return p > 0.1 && p < 0.85; });
   const before = odds(s, s.job, st, ap, a).p;
   c.role = { kind: 'leader', level: 3 };
   const after = odds(s, s.job, st, ap, a).p;
@@ -45,9 +45,12 @@ test('a leader steadies everyone on every step, without a step of their own', ()
 });
 
 test('a leader keeps the crew together: fewer runners and fewer talkers', () => {
+  // Runners only happen once the goods are in hand, and a leader gets more crews that
+  // far, so count them per crew that reached the goods.
   const tally = (withLeader) => {
     let runners = 0;
     let talked = 0;
+    let reached = 0;
     for (let k = 1; k <= 150; k++) {
       const s = crewOf3(k);
       const crew = s.crew.map((id) => s.dogs[id]);
@@ -56,12 +59,13 @@ test('a leader keeps the crew together: fewer runners and fewer talkers', () => 
       const r = simulate(s, s.job, makeRng({ s: k }));
       runners += r.runners.length;
       talked += r.captured.filter((c) => c.talked).length;
+      if (r.beats.some((b) => b.stage === 'vault' && b.kind === 'ok')) reached++;
     }
-    return { runners, talked };
+    return { runners, talked, rate: runners / Math.max(1, reached) };
   };
   const without = tally(false);
   const withL = tally(true);
-  assert.ok(withL.runners < without.runners, `runners ${without.runners} -> ${withL.runners}`);
+  assert.ok(withL.rate < without.rate * 0.85, `runners per crew at the goods ${without.rate.toFixed(2)} -> ${withL.rate.toFixed(2)}`);
   assert.ok(withL.talked <= without.talked, `talked ${without.talked} -> ${withL.talked}`);
 });
 

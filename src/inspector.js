@@ -5,7 +5,8 @@
 import { APPROACHES, KIT } from './data.js';
 import { money, clamp, addHeat, addRelation, book } from './util.js';
 import { pushScene, answerScene } from './story.js';
-import { displayName, shortName } from './dogs.js';
+import { displayName, shortName, skillOf } from './dogs.js';
+import { addBond } from './bonds.js';
 import { ownOffer } from './heists.js';
 
 export const INSPECTOR = {
@@ -44,6 +45,7 @@ export function moFile(state) {
 export const MOVE_LABELS = {
   plant: '👮 Planted a copper in the pub', stakeout: '🚓 Staked out a job', warn: '📢 Warned security across town',
   tail: '🚶 Had one of your crew followed', questioning: '💡 Pulled one of your crew in', flip: '🐀 Turned one of your regulars', raid: '🚪 Raided your back room',
+  lineup: '🧍 Put your regulars in a line-up', strip: '🔧 Took your getaway van apart',
 };
 
 // ------------------------------------------------------------------ moves between jobs
@@ -76,7 +78,7 @@ const MOVES = {
       job.watched = true;
       return {
         title: 'The Unmarked Car',
-        text: `There's a car parked across from ${job.venueName}. Same car, same two blokes, same flask of tea, all day. The Inspector's watching it, ${job.stakeoutTime === 'night' ? 'nights' : 'days'} especially.`,
+        text: `There's a car parked across from ${job.venueName}. Same car, same two blokes, same flask of tea, stamping their feet in the cold while the manager eats a four-course dinner in the window. The Inspector's watching it, ${job.stakeoutTime === 'night' ? 'nights' : 'days'} especially.`,
         choices: [{ label: 'Keep it in mind.' }],
       };
     },
@@ -103,7 +105,7 @@ const MOVES = {
         title: 'Followed',
         dog: d.id,
         text: `${displayName(d)} says a man in a mac has followed them home three nights running. "Probably nothing, Guv." It isn't nothing.`,
-        choices: [{ label: `Put ${shortName(d)} up somewhere quiet`, cost: 150, effect: 'hideout' }, { label: 'They\'ll shake him off', effect: 'tailed' }],
+        choices: [{ label: `Put ${shortName(d)} up somewhere quiet`, cost: 150, effect: 'hideout' }, { label: 'Lead him a merry dance', effect: 'slip' }, { label: 'They\'ll shake him off', effect: 'tailed' }],
       };
     },
   },
@@ -152,6 +154,36 @@ const MOVES = {
       };
     },
   },
+  // The usual suspects: five of your regulars, one line-up, one long night in the same cell.
+  lineup: {
+    heat: 15,
+    weight: 2,
+    run(state, rng) {
+      const ds = rng.sample(regulars(state), 5);
+      if (ds.length < 3) return null;
+      for (let i = 0; i < ds.length; i++) for (let j = i + 1; j < ds.length; j++) addBond(state, ds[i].id, ds[j].id, 15);
+      const names = ds.map((d) => shortName(d));
+      return {
+        title: 'The Usual Suspects',
+        dogs: ds.map((d) => d.id),
+        text: `The Inspector has hauled in the usual suspects: ${names.slice(0, -1).join(', ')} and ${names.at(-1)}. A line-up. One at a time they step forward and say "Hand over the keys, you dozy mutt." Not one of them gets through it without laughing. He's got nothing on them, and they've spent a night in the same cell. They're thick as thieves now.`,
+        choices: [{ label: 'Stand them a round', cost: 60, effect: 'round' }, { label: 'Good.' }],
+      };
+    },
+  },
+  // Your getaway van, taken apart to the last bolt in the police garage.
+  strip: {
+    heat: 25,
+    weight: 2,
+    run(state) {
+      if (!(state.kit.van > 0)) return null;
+      return {
+        title: 'Down to the Last Bolt',
+        text: 'The Inspector\'s lads have towed your getaway van to the police garage and taken it apart looking for the swag. Seats out, panels off, the tyres in a pile, a constable inside the petrol tank. They found nothing. They haven\'t put it back together.',
+        choices: [{ label: 'Pay a mechanic to rebuild it', cost: 250, effect: 'rebuild' }, { label: 'Scrap it', effect: 'scrapped' }],
+      };
+    },
+  },
   raid: {
     heat: 45,
     weight: 2,
@@ -172,6 +204,27 @@ const EFFECTS = {
     const d = state.dogs[st.dog];
     addRelation(d, 6);
     return `${shortName(d)} lies low in a B&B in Snufflebury. The tail loses interest.`;
+  },
+  // On and off the train until the doors close on him.
+  slip(state, st, rng) {
+    const d = state.dogs[st.dog];
+    if (rng.chance(clamp(0.35 + 0.08 * skillOf(d, 'sneak'), 0.35, 0.85))) {
+      addRelation(d, 3);
+      addHeat(state, -3);
+      return `${shortName(d)} gets on the train. The man in the mac gets on. ${shortName(d)} gets off. He gets off. ${shortName(d)} hops back on as the doors close, and waves goodbye through the window.`;
+    }
+    return `${shortName(d)} leads him all over town. He's still there at the end of it, eating a hot dog. ${EFFECTS.tailed(state, st)}`;
+  },
+  round(state, st) {
+    for (const id of st.dogs || []) if (state.dogs[id]) addRelation(state.dogs[id], 5);
+    return 'They drink to the Inspector\'s health. Loudly.';
+  },
+  rebuild() {
+    return 'The mechanic puts it back together. There are three bolts left over. It\'s probably fine.';
+  },
+  scrapped(state) {
+    state.kit.van = 0;
+    return 'Your getaway van is a pile of bits in the police garage. You\'ll need a new one.';
   },
   tailed(state, st) {
     const d = state.dogs[st.dog];
@@ -195,6 +248,7 @@ const EFFECTS = {
       return `${shortName(d)} cracks after an hour. The Inspector's file gets thicker. (+10 heat)`;
     }
     addRelation(d, 8);
+    if (rng.chance(0.4)) return `${shortName(d)} spins the Inspector a yarn for six hours about a fearsome boss called Keyser Collie, every name in it lifted off the noticeboard behind his head. They walk out with a limp. By the corner, the limp's gone.`;
     return `${shortName(d)} says nothing for six hours, then asks for a biscuit. Solid.`;
   },
   unmask(state, st, rng) {

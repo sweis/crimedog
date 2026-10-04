@@ -1,9 +1,9 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, addRelation, book, pickBy, inSentence } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
@@ -117,8 +117,10 @@ export function refreshPub(state, rng = rngOf(state)) {
     const primary = rng.weighted(SKILLS.map((sk) => [sk, (need.has(sk) ? 1.5 : 1) / ((1 + 4 * (have[sk] || 0)) ** 2 * (1 + 2 * ((state.faces[sk] || 0) - least)))]));
     have[primary] = (have[primary] || 0) + 1;
     state.faces[primary] = (state.faces[primary] || 0) + 1;
-    // Usually a breed known for it (poodles and pugs for disguise, hounds for noses...).
-    const breed = rng.chance(0.7) ? rng.pick(Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary))) : undefined;
+    // Usually a breed known for it (poodles and pugs for disguise, hounds for noses...),
+    // and never one that can't do it. Aim, tech, wheels and locks are anybody's.
+    const known = Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary));
+    const breed = known.length && rng.chance(0.7) ? rng.pick(known) : undefined;
     return { primary, breed };
   };
   // The Inspector plants coppers once he's heard of you; after his first move, one is guaranteed.
@@ -155,6 +157,13 @@ const pubQuality = (state, tier) => Math.floor(state.rep / 30) + Math.min(3, tie
 function jobArrivals(state, rng, quality) {
   const pub = state.pub;
   masterArrives(state, rng);
+  // A step that wants someone small (or big): there's always someone that size about.
+  const sized = state.job?.stages.find((st) => st.needsSize);
+  if (sized && ![...pub, ...state.crew].some((id) => sizeOf(state.dogs[id]) === sized.needsSize)) {
+    const d = genDog(state, rng, { quality, size: sized.needsSize });
+    state.dogs[d.id] = d;
+    pub.push(d.id);
+  }
   // A job with a specialist step always has someone in the pub who's up to it (at a price).
   const sp = state.job?.stages.find((st) => st.needs && !st.master);
   if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
@@ -207,6 +216,10 @@ function masterArrives(state, rng) {
   job.masterStar = d.id;
   state.starRolled = state.townKey; // the job's star, instead of a chance one
 }
+
+// Chance a master answers when you ask around for a four-star job: a quarter at 50
+// rep (when those jobs start), rising to a half at the top.
+export const masterChance = (rep) => 0.25 + Math.max(0, rep - 50) / 200;
 
 // The job's master steps nobody among these dogs is known to be up to.
 export function mastersMissing(state, dogs) {
@@ -342,7 +355,7 @@ export function askAround(state) {
   // Word of a four-star job gets round: now and then a master turns up for a step nobody's covering.
   const gaps = mastersMissing(state, [...crewDogs(state), ...state.pub.map((id) => state.dogs[id])]);
   let heard = '';
-  if (gaps.length && rng.chance(0.25)) {
+  if (gaps.length && rng.chance(masterChance(state.rep))) {
     const sk = rng.pick(gaps);
     const d = master(state, rng, sk);
     state.pub.unshift(d.id);
@@ -493,6 +506,17 @@ export function caseJoint(state, who) {
   return done(msg, { revealed: got, spotted });
 }
 
+// A tipster who knows the one thing you're after. Dearer than pot luck.
+export const TIP_FOR = 160;
+export function tipFor(state, k) {
+  const job = state.job;
+  if (!(k in job.intel)) return fail('Nobody knows anything about that here.');
+  if (job.intel[k]) return fail('You already know that.');
+  const unpaid = payForDay(state, TIP_FOR, 'intel', `The tipster wants £${TIP_FOR}.`);
+  if (unpaid) return unpaid;
+  revealIntel(job, k);
+  return done(`A tipster sells you: ${intelLabel(job, k)}.`, { revealed: [k] });
+}
 
 export function surveil(state, id) {
   const d = state.dogs[id];
@@ -613,8 +637,11 @@ export function setPlan(state, stageId, patch) {
   if (next.dog && !state.crew.includes(next.dog)) return fail('Not on the crew.');
   // A signature move goes to its owner.
   if (next.approach && next.dog && !canDo(state.dogs[next.dog], next.approach)) {
-    if (!patch.approach) return fail(`Only ${SIGNATURES[APPROACHES[next.approach].signature].name} can pull that off.`);
-    next.dog = crew.find((d) => canDo(d, next.approach)).id;
+    const a = APPROACHES[next.approach];
+    if (!patch.approach) return fail(a.size ? `That needs someone ${a.size === 'small' ? 'small' : 'big'}.` : `Only ${SIGNATURES[a.signature].name} can pull that off.`);
+    const who = crew.find((d) => canDo(d, next.approach));
+    if (!who) return fail(a.size ? `Nobody on the crew is ${a.size === 'small' ? 'small enough' : 'big enough'}.` : 'Nobody on the crew can.');
+    next.dog = who.id;
   }
   state.job.plan[stageId] = next;
   return done('Plan updated.');
@@ -642,6 +669,23 @@ export function assignToStage(state, stageId, dogId) {
   }
   job.plan[stageId] = { approach, dog: dogId };
   return done(`${shortName(d)} is on ${stage.label}.`);
+}
+
+// Who on the crew looks best for an approach, on what you know of them
+// (an unknown skill counts for half).
+export function bestDogFor(state, stageId, ap) {
+  const job = state.job;
+  const stage = job.stages.find((s) => s.id === stageId);
+  const crew = crewDogs(state);
+  let best = null;
+  for (const d of crew) {
+    if (!canDo(d, ap)) continue;
+    const known = d.known.skills[APPROACHES[ap].skill];
+    const o = odds(state, job, stage, ap, d, { crew });
+    const score = known ? o.p : o.p * 0.5 + 0.1;
+    if (!best || score > best.score) best = { d, score };
+  }
+  return best?.d.id || null;
 }
 
 // Fill any gaps in the plan with the best-looking choice using *known* info,
@@ -673,17 +717,26 @@ export function planProblems(state) {
   const job = state.job;
   const probs = [];
   if (!state.crew.length) probs.push('No crew.');
-  const need = {};
   for (const stage of visibleStages(job)) {
     const p = job.plan[stage.id];
     if (!p || !p.approach || !p.dog) { probs.push(`${stage.label}: nothing planned.`); continue; }
     const av = approachAvailable(state, job, p.approach);
     if (!av.ok) probs.push(`${stage.label}: ${av.reason}.`);
-    const nk = APPROACHES[p.approach].needKit;
+  }
+  for (const [k, n] of Object.entries(kitShort(state))) probs.push(`Plan uses ${n + (state.kit[k] || 0)}× ${KIT[k].name}, you have ${state.kit[k] || 0}.`);
+  return probs;
+}
+
+// Consumables the plan uses more of than you've got: { kitId: how many more }.
+export function kitShort(state) {
+  const need = {};
+  for (const stage of visibleStages(state.job)) {
+    const nk = APPROACHES[state.job.plan[stage.id]?.approach]?.needKit;
     if (nk && KIT[nk].consumable) need[nk] = (need[nk] || 0) + 1;
   }
-  for (const [k, n] of Object.entries(need)) if ((state.kit[k] || 0) < n) probs.push(`Plan uses ${n}× ${KIT[k].name}, you have ${state.kit[k] || 0}.`);
-  return probs;
+  const short = {};
+  for (const [k, n] of Object.entries(need)) if ((state.kit[k] || 0) < n) short[k] = n - (state.kit[k] || 0);
+  return short;
 }
 
 export function pullJob(state, opts = {}) {
@@ -934,15 +987,18 @@ export function gradeJob(state) {
 }
 
 const REP_FOR = { S: 14, A: 9, B: 6, C: 3, D: -1, F: -4 };
+// A big name brings expectations: from 50, every job is marked down a point, from 70 two,
+// from 85 three. A legend who turns in a C job loses face.
+export const repExpected = (rep) => (rep >= 85 ? 3 : rep >= 70 ? 2 : rep >= 50 ? 1 : 0);
 function finishGrade(state) {
   const a = state.after;
   const g = gradeJob(state);
   a.grade = g;
-  let rep = REP_FOR[g.letter];
+  a.expected = repExpected(state.rep);
+  let rep = REP_FOR[g.letter] - a.expected;
   if (state.result.runners.length) rep -= 2;
   if (state.job.tier >= 4 && a.securedValue) rep += 6; // the whole town hears about a four-star job
-  a.repDelta = rep;
-  addRep(state, rep);
+  a.repDelta = addRep(state, rep);
   a.relations = settleGroups(state);
   state.stats.jobs += 1;
   if (g.letter === 'S') state.stats.perfect += 1;
@@ -1014,10 +1070,10 @@ export function farm(state, id) {
   if (d.undercover) {
     // Word gets round that you dealt with a copper. The underworld approves.
     d.known.undercover = true;
-    addRep(state, 6);
+    const up = addRep(state, 6);
     nudgeKnownDogs(state, 3, id);
     news(state, `${displayName(d)} was a copper. Was. They've gone to live on a farm.`);
-    return done(`A copper on the farm. Respect. (+6 rep)`);
+    return done(`A copper on the farm. Respect.${repNote(up)}`);
   }
   addRep(state, -8);
   nudgeKnownDogs(state, -8, id);
@@ -1112,7 +1168,7 @@ export function checkGameOver(state) {
 
 export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
-  nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Coffee\'s for closers, and you\'re not getting any.' },
+  nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Kibble is for closers, and you\'re not getting any.' },
   retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
   broke: { title: 'Skint', text: 'Not a penny to your name and not a soul to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
 };

@@ -30,13 +30,20 @@ export const done = (msg, extra) => ({ ok: true, msg, ...extra });
 
 // The game's meters, kept in range.
 export const addHeat = (state, n) => { state.heat = clamp(state.heat + n, 0, 100); };
+// The bigger your name, the harder it is to impress anyone: from 40 up, what a good job
+// adds to your record shrinks as it climbs, to nothing at the top. Losses hit in full.
+export const repGain = (rep, n) => (n > 0 ? Math.round(n * (rep < 40 ? 1 : Math.max(0, (100 - rep) / 60) ** 1.5)) : n);
 // Reputation changes are tagged with which side of it they came from (see repute.js).
+// Returns the change actually made.
 export const addRep = (state, n, part = 'record') => {
   const before = state.rep;
-  state.rep = clamp(state.rep + n, 0, 100);
+  state.rep = clamp(state.rep + (part === 'record' ? repGain(before, n) : n), 0, 100);
   const parts = (state.repParts ||= {});
   parts[part] = (parts[part] || 0) + (state.rep - before);
+  return state.rep - before;
 };
+// " (+4 rep)", for the end of a line that says what happened.
+export const repNote = (d) => (d ? ` (${d > 0 ? '+' : '-'}${Math.abs(d)} rep)` : '');
 export const addRelation = (dog, n) => { dog.relation = clamp(dog.relation + n, -100, 100); };
 
 // Every change to the cash goes through here, tagged with what it was for, so the
