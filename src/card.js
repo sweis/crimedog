@@ -123,18 +123,194 @@ function loadHtml2canvas() {
 }
 
 // Picture the profile card exactly as it looks in the game: render the same
-// HTML off-screen at phone width, then capture it at 2x.
+// HTML off-screen at phone width, then capture it at 2x. html2canvas copies the
+// page into an iframe it can't reach inside a sandboxed frame (a hosted build),
+// so there the card is drawn straight from the page instead.
 async function htmlPNG(html) {
   const el = document.createElement('div');
   el.className = 'modal share-card';
   el.innerHTML = `${html}<div class="share-mark"><b>CRIMEDOG</b> · A heist game. For dogs.</div>`;
   document.body.appendChild(el);
   try {
-    const [render] = await Promise.all([loadHtml2canvas(), document.fonts?.ready]);
-    return await canvasPNG(await render(el, { scale: 2, backgroundColor: null, logging: false, useCORS: true }));
+    await document.fonts?.ready;
+    if (!sandboxed()) {
+      try {
+        const render = await loadHtml2canvas();
+        return await canvasPNG(await render(el, { scale: 2, backgroundColor: null, logging: false, useCORS: true }));
+      } catch (e) {
+        console.warn('html2canvas failed; drawing the card directly', e);
+      }
+    }
+    return await canvasPNG(await drawDOM(el, 2));
   } finally {
     el.remove();
   }
+}
+
+// An opaque origin (a sandboxed iframe) can't reach into iframes it makes.
+const sandboxed = () => window.origin === 'null';
+
+// ------------------------------------------------------------------ drawing the page
+// A small DOM-to-canvas painter for the share cards: boxes (background colour or
+// a simple gradient, borders, rounded corners), images, inline SVG and text, each
+// at the place the browser laid it out. No shadows, no background images.
+export async function drawDOM(root, scale = 2) {
+  const box = root.getBoundingClientRect();
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.ceil(box.width * scale);
+  canvas.height = Math.ceil(box.height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.translate(-box.left, -box.top);
+  const pics = await loadPictures(root);
+  paint(ctx, root, pics);
+  return canvas;
+}
+
+// Every <img> and inline <svg> in the card, as a loaded image.
+async function loadPictures(root) {
+  const pics = new Map();
+  const load = (node, src, revoke) => new Promise((res) => {
+    const img = new Image();
+    img.onload = () => { pics.set(node, img); res(); };
+    img.onerror = () => res();
+    img.src = src;
+  }).finally(() => revoke && URL.revokeObjectURL(src));
+  const jobs = [];
+  for (const img of root.querySelectorAll('img')) jobs.push(load(img, img.currentSrc || img.src));
+  for (const svg of root.querySelectorAll('svg')) {
+    if (svg.parentElement.closest('svg')) continue;
+    const r = svg.getBoundingClientRect();
+    const copy = svg.cloneNode(true);
+    copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    copy.setAttribute('width', r.width);
+    copy.setAttribute('height', r.height);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(copy)], { type: 'image/svg+xml' }));
+    jobs.push(load(svg, url, true));
+  }
+  await Promise.all(jobs);
+  return pics;
+}
+
+const px = (v) => parseFloat(v) || 0;
+const visibleColour = (c) => c && c !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(c);
+
+function roundRect(ctx, r, rad) {
+  const k = Math.max(0, Math.min(rad, r.width / 2, r.height / 2));
+  ctx.beginPath();
+  ctx.moveTo(r.left + k, r.top);
+  ctx.arcTo(r.right, r.top, r.right, r.bottom, k);
+  ctx.arcTo(r.right, r.bottom, r.left, r.bottom, k);
+  ctx.arcTo(r.left, r.bottom, r.left, r.top, k);
+  ctx.arcTo(r.left, r.top, r.right, r.top, k);
+  ctx.closePath();
+}
+
+function radiusOf(cs, r) {
+  const v = cs.borderTopLeftRadius;
+  return v.endsWith('%') ? (px(v) / 100) * Math.min(r.width, r.height) : px(v);
+}
+
+// The colours of a linear-gradient, top to bottom (or left to right at 90deg).
+function gradientFill(ctx, r, image) {
+  const m = image.match(/linear-gradient\(([^]*)\)/);
+  if (!m) return null;
+  const colours = m[1].match(/rgba?\([^)]*\)|#[0-9a-f]{3,8}/gi);
+  if (!colours?.length) return null;
+  const across = /^\s*(90deg|to right)/.test(m[1]);
+  const g = across ? ctx.createLinearGradient(r.left, 0, r.right, 0) : ctx.createLinearGradient(0, r.top, 0, r.bottom);
+  colours.forEach((c, i) => g.addColorStop(colours.length === 1 ? 0 : i / (colours.length - 1), c));
+  return g;
+}
+
+function paintBox(ctx, el, cs) {
+  const r = el.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const rad = radiusOf(cs, r);
+  const fill = (visibleColour(cs.backgroundColor) && cs.backgroundColor) || null;
+  const grad = cs.backgroundImage !== 'none' ? gradientFill(ctx, r, cs.backgroundImage) : null;
+  if (fill || grad) {
+    roundRect(ctx, r, rad);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (grad) { ctx.fillStyle = grad; ctx.fill(); }
+  }
+  const sides = ['Top', 'Right', 'Bottom', 'Left'].map((s) => ({ s, w: px(cs[`border${s}Width`]), c: cs[`border${s}Color`], st: cs[`border${s}Style`] }));
+  const shown = sides.filter((b) => b.w > 0 && b.st !== 'none' && b.st !== 'hidden' && visibleColour(b.c));
+  if (!shown.length) return;
+  const dash = (b) => ctx.setLineDash(b.st === 'dashed' ? [b.w * 3, b.w * 2] : b.st === 'dotted' ? [b.w, b.w] : []);
+  if (shown.length === 4 && shown.every((b) => b.w === shown[0].w && b.c === shown[0].c)) {
+    const b = shown[0];
+    const inset = { left: r.left + b.w / 2, top: r.top + b.w / 2, right: r.right - b.w / 2, bottom: r.bottom - b.w / 2 };
+    inset.width = inset.right - inset.left;
+    inset.height = inset.bottom - inset.top;
+    roundRect(ctx, inset, Math.max(0, rad - b.w / 2));
+    ctx.strokeStyle = b.c; ctx.lineWidth = b.w; dash(b); ctx.stroke();
+  } else {
+    for (const b of shown) {
+      ctx.beginPath();
+      const h = b.w / 2;
+      if (b.s === 'Top') { ctx.moveTo(r.left, r.top + h); ctx.lineTo(r.right, r.top + h); }
+      if (b.s === 'Bottom') { ctx.moveTo(r.left, r.bottom - h); ctx.lineTo(r.right, r.bottom - h); }
+      if (b.s === 'Left') { ctx.moveTo(r.left + h, r.top); ctx.lineTo(r.left + h, r.bottom); }
+      if (b.s === 'Right') { ctx.moveTo(r.right - h, r.top); ctx.lineTo(r.right - h, r.bottom); }
+      ctx.strokeStyle = b.c; ctx.lineWidth = b.w; dash(b); ctx.stroke();
+    }
+  }
+  ctx.setLineDash([]);
+}
+
+function paintPicture(ctx, el, cs, img) {
+  const r = el.getBoundingClientRect();
+  const bw = px(cs.borderTopWidth);
+  const inner = { left: r.left + bw, top: r.top + bw, right: r.right - bw, bottom: r.bottom - bw, width: r.width - 2 * bw, height: r.height - 2 * bw };
+  ctx.save();
+  roundRect(ctx, inner, Math.max(0, radiusOf(cs, r) - bw));
+  ctx.clip();
+  ctx.drawImage(img, inner.left, inner.top, inner.width, inner.height);
+  ctx.restore();
+}
+
+const TRANSFORM = { uppercase: (t) => t.toUpperCase(), lowercase: (t) => t.toLowerCase(), capitalize: (t) => t.replace(/\b\p{L}/gu, (c) => c.toUpperCase()) };
+
+// Text, a word at a time, wherever the browser put each word.
+function paintText(ctx, node, cs) {
+  const text = node.textContent;
+  if (!text.trim()) return;
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  ctx.fillStyle = cs.color;
+  ctx.textBaseline = 'alphabetic';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing;
+  const shape = TRANSFORM[cs.textTransform] || ((t) => t);
+  const range = document.createRange();
+  for (const m of text.matchAll(/\S+/g)) {
+    range.setStart(node, m.index);
+    range.setEnd(node, m.index + m[0].length);
+    const rects = range.getClientRects();
+    if (!rects.length) continue;
+    const r = rects[0];
+    const word = shape(m[0]);
+    const mt = ctx.measureText(word);
+    const asc = mt.fontBoundingBoxAscent ?? px(cs.fontSize) * 0.8;
+    const desc = mt.fontBoundingBoxDescent ?? px(cs.fontSize) * 0.2;
+    ctx.fillText(word, r.left, r.top + (r.height + asc - desc) / 2);
+  }
+}
+
+function paint(ctx, el, pics) {
+  const cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+  ctx.save();
+  ctx.globalAlpha *= Number(cs.opacity);
+  paintBox(ctx, el, cs);
+  const pic = pics.get(el);
+  if (pic) paintPicture(ctx, el, cs, pic);
+  else if (el.tagName.toLowerCase() !== 'svg') {
+    for (const child of el.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) paintText(ctx, child, cs);
+      else if (child.nodeType === Node.ELEMENT_NODE) paint(ctx, child, pics);
+    }
+  }
+  ctx.restore();
 }
 
 // A crew member's card: the image plus what to call it when shared.
