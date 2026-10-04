@@ -13,7 +13,7 @@
 ## Architecture
 | File | What |
 |---|---|
-| `src/data.js` | All content: 10 skills, 100 talents, 23 quirks, 22 breeds / 9 factions, 5 groups, voices, names, catchphrases, kit, approaches, venues, loot, intel, fences |
+| `src/data.js` | All content: 10 skills, 100 talents, 23 quirks, 53 breeds / 9 factions, 5 groups, voices, names, catchphrases, kit, approaches, venues, loot, intel, fences |
 | `src/dogs.js` | Dog generation, derived skills, procedural SVG portraits |
 | `src/heists.js` | Job generation: venue → ordered stages (entry, obstacles, hidden hazards, vault, exit, getaway), each with 3–5 approaches |
 | `src/sim.js` | Pure heist resolution → list of beats + outcome (pear-shaped improvisation, chaos, alarms, captures, betrayals, undercover coppers, interrogation) |
@@ -92,7 +92,24 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Breeds and sizes (latest, 0.21.0)
+## Planning in one place, and a word in your ear (latest, 0.22.0)
+
+- **24 more breeds** (53 in all): Schnauzer, Miniature Pinscher, Weimaraner (Ze Germans); Akita, Shar-Pei, Chow Chow (Syndicate); Bichon, Cavalier, Papillon, Borzoi, Shih Tzu (Poodle Set); Saluki (Whippet Wheelmen); Mastiff (agility ≤ 2), Bull Terrier (disguise ≤ 2) (Firm); Westie, Airedale (Terrier Lads); Coonhound, Foxhound (hounds); Basenji, Cocker, Pointer, Sheltie, Komondor (agility ≤ 2), Puli (freelance). Balance (150 careers, smart): F 40% B 17% A 14%, £11.0k, 44 game-overs, the same as 0.21.0.
+- **Playthroughs** (scratch `play2`/`play5`: real taps, several 5-job careers on three seeds, counting tab switches). What sent players round the houses: a locked option on the plan ("Needs Grappling Rope", "Needs intel") meant Plan → Kit/Job/Fixer → Plan; the pub didn't say what the job needed unless you came from a step; old crew in your book were only on the Crew tab; the fixer's Collector had to be booked before the job, on another tab, and players found out in the aftermath; a hazard turned up by casing appeared on the plan unplanned; picking a new approach kept whoever was on the step (Aim 0 on a rope shot: 95% → 38%).
+- **Fixes:**
+  - *Unlock from the plan:* locked options are dashed, not disabled; tapping one opens a sheet with the fix right there: buy the kit and use it, case the joint (with the crew's best chance of turning that intel up), a tipster who sells exactly that intel (`engine.tipFor`, £160, a day; pot luck is still £120), plant an inside dog, or bribe a guard. On success the option goes on the plan with the best person on it. "Needs intel" now names the intel.
+  - *Prep strip* in the sticky top bar while planning (Job, Pub, Crew, Kit, Fixer, Plan): 🐾 Crew n, 🔎 Intel k/n (opens the casing picker), 📋 Plan k/n, 📅 days left; green when done, brass when partway. Toasts sit below it.
+  - *The pub while planning* lists every step with its skills and your best known odds; tap a step to hire for it (hire-for with no approach chosen now looks for any of the step's skills). Free regulars from your book are listed above the strangers.
+  - *Kit shop* marks what's useful on this job ("This job: opens 3 options", "helps on 2 steps").
+  - *Plan:* choosing an approach puts the best-suited crew member on it (`engine.bestDogFor`, known skills, unknowns at half); the first look at the plan always pencils one in, even if you came back from hiring for a step; casing that turns up a new step pencils it in; "Loose ends" offers to buy the consumables the plan is short of (`engine.kitShort`); "Before you go" has the Collector, safehouse and fake IDs as chips.
+- **Easier to learn, no easier to win:**
+  - *🎲 Every step to plan:* the odds of the whole plan coming off (product of known step odds), the weakest link, and "?? (n steps you can't call yet)" when skills are unknown. Teaches that every weak step multiplies the risk.
+  - *A word in your ear:* one short tip the first time you see the board, the job, the pub, the plan and the aftermath, dismissed with "Got it" and remembered per device (`localStorage['crimedog.tips']`, try/catch; without storage they still dismiss for the session).
+  - First-job grades (400 careers, careful bot): B+ 56%, F 23%; reckless F 50%. Left as is.
+- **Tests:** tests/flow.test.mjs (4: targeted tipster, named intel lock, consumable shortfall, best person for an approach). Smoke 1v (real taps: tip shown, dismissed and remembered; the strip; the pub's step list hires for a step; first-look pencil; kit marked for the job; a locked option unlocked from the plan with the best person on it). Smoke's setup-spotting check now uses the targeted tipster (four random tips could miss it).
+- **Not verified:** real phones; a human's first five minutes with the tips.
+
+## Breeds and sizes (0.21.0)
 
 - **Breeds** (data.js `BREEDS`) now carry a kennel-club `group` (Sporting, Hound, Working, Terrier, Toy, Non-Sporting, Herding; `BREED_GROUPS`), a `size` (small/medium/large; `SIZES`), a `note`, `bias` (leanings) drawn only from the skills that come with the body (sneak, muscle, charm, disguise, agility, nose), and optional `caps`. Aim, tech, wheels and locks are `NEUTRAL_SKILLS`: no breed leans to them and every breed can reach 8+. Seven new breeds: Rottweiler, Boxer, Pomeranian, Yorkie, Golden Retriever, Husky, Saint Bernard (29 in all; every group has 2+, every size 8+).
 - **Caps** (`capOf` in dogs.js, applied in `skillOf`, so talents, promotions and old saves all respect them): small → muscle ≤ 2; large → sneak ≤ 3; Dalmatian disguise ≤ 1, Husky disguise ≤ 2; Bulldog, Pug, Basset, Saint Bernard agility ≤ 2. The profile strikes out pips past the cap ("max N" when the skill is unknown) and gives "Breed · Group · Size" (the breed's note is its tooltip).

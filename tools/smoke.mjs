@@ -678,7 +678,7 @@ console.log('1n. The Inspector: his scene, a setup, his file; the new kinds of j
     const E = await import('/src/engine.js');
     const s = window.cd.live();
     s.cash += 1000;
-    for (let k = 0; k < 4 && !s.job.intel.tipster; k++) E.caseJoint(s, 'tipster');
+    E.tipFor(s, 'tipster'); // a tipster who knows the one thing you're after
     window.cd.teleport('job');
   });
   const chips = await page.locator('main .job-card').innerText();
@@ -1132,6 +1132,75 @@ console.log('1u. Breeds and sizes: a step for someone small, from the board to t
   await page.locator(`.plan-step[data-stage="${info.step}"]`).evaluate((e) => e.scrollIntoView({ block: 'start' }));
   await page.evaluate(() => { scrollBy(0, -70); document.getElementById('toast').innerHTML = ''; });
   await shot(page, 'size-step-plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+console.log('1v. Planning in one place: the prep strip, the job\'s needs in the pub, unlocking an option from the plan, first-visit tips');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=3`);
+  await page.evaluate(() => localStorage.clear());
+  await page.goto(`${BASE}?hooks=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  // A rooftop job: its rope options are locked until you own a rope.
+  const id = await page.evaluate(async () => {
+    const H = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.setSeed(3);
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.cash = 5000;
+    s.story = [];
+    s.kit.grapple = 0;
+    const job = H.genJob(s, makeRng({ s: 9 }), { type: 'roof', tier: 1 });
+    s.offers.unshift(H.ownOffer(job));
+    window.cd.teleport('select');
+    return job.id;
+  });
+  check(await page.locator('main .tip [data-act="tip-ok"]').count() === 1, 'a word in your ear on the job board, first time');
+  await tap(page, 'main .tip [data-act="tip-ok"]');
+  check(await page.locator('main .tip').count() === 0, 'gone once you\'ve got it');
+  check(await page.evaluate(() => JSON.parse(localStorage.getItem('crimedog.tips') || '[]').includes('select')), 'and remembered');
+  await tap(page, `main .offer[data-offer="${id}"] [data-act="take-offer"]`);
+  const strip = await page.locator('header .prep').innerText();
+  check(/Crew\s*0/.test(strip) && /Intel\s*0\/\d/.test(strip), `the top bar shows crew, intel and plan while planning (${strip.replace(/\n/g, ' ')})`);
+  check(await page.locator('main .tip').count() === 1, 'a tip on the job, first time');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  await shot(page, 'prep-strip-job');
+  await tap(page, 'header .prep [data-to="pub"]');
+  const stages = await page.evaluate(() => window.cd.live().job.stages.filter((x) => !x.hidden).length);
+  check(await page.locator('main .cover-card .cover').count() === stages, `the pub lists every step the job needs (${stages})`);
+  await tap(page, 'main .cover >> nth=2');
+  check(await page.locator('main .hire-banner').count() === 1, 'a step in the pub hires for that step');
+  await tap(page, 'main .dog-card');
+  await tap(page, '.modal [data-act="hire"]');
+  await page.waitForTimeout(300);
+  check(await page.locator('main[data-screen="plan"]').count() === 1, 'hired, and back on the plan');
+  const pencilled = await page.evaluate(() => { const s = window.cd.live(); return s.job.stages.filter((x) => !x.hidden && s.job.plan[x.id]?.dog).length; });
+  check(pencilled === stages, `first look at the plan: the crew pencil in the rest (${pencilled}/${stages})`);
+  await tap(page, '.nav [data-to="kit"]');
+  const forJob = await page.locator('main .kit .for-job').allInnerTexts();
+  check(forJob.some((t) => /This job: opens/.test(t)) && forJob.some((t) => /helps on/.test(t)), `the kit shop says what's useful on this job (${forJob.slice(0, 3).join(' | ')})`);
+  await page.locator('main .kit.useful').first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  await shot(page, 'kit-for-job');
+  await tap(page, 'header .prep [data-to="plan"]');
+  const lockedSel = 'main .opt.locked[data-ap]';
+  const locked = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => ({ ap: e.dataset.ap, stage: e.dataset.stage, rope: /Grappling Rope/.test(e.innerText) })), lockedSel);
+  const rope = locked.find((x) => x.rope) || locked[0];
+  check(!!rope, `the plan has a locked option (${locked.map((x) => x.ap).join(', ')})`);
+  await tap(page, `main .opt.locked[data-ap="${rope.ap}"][data-stage="${rope.stage}"]`);
+  check(await page.locator('.modal [data-act="unlock-buy"], .modal [data-act="unlock-tip"], .modal [data-act="pick"]').count() >= 1, 'tapping it says how to unlock it, with the button right there');
+  await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
+  await shot(page, 'unlock-sheet');
+  const before = await page.evaluate(() => window.cd.live().cash);
+  await tap(page, '.modal [data-act="unlock-buy"], .modal [data-act="unlock-tip"]');
+  const after = await page.evaluate(async (r) => { const E = await import('/src/engine.js'); const s = window.cd.live(); return { cash: s.cash, plan: s.job.plan[r.stage], best: E.bestDogFor(s, r.stage, r.ap), modal: !!document.querySelector('.modal') }; }, rope);
+  check(after.cash < before && after.plan?.approach === rope.ap && after.plan.dog === after.best && !after.modal, `unlocked, on the plan, with the best person on it (${JSON.stringify(after)})`);
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

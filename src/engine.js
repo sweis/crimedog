@@ -506,6 +506,17 @@ export function caseJoint(state, who) {
   return done(msg, { revealed: got, spotted });
 }
 
+// A tipster who knows the one thing you're after. Dearer than pot luck.
+export const TIP_FOR = 160;
+export function tipFor(state, k) {
+  const job = state.job;
+  if (!(k in job.intel)) return fail('Nobody knows anything about that here.');
+  if (job.intel[k]) return fail('You already know that.');
+  const unpaid = payForDay(state, TIP_FOR, 'intel', `The tipster wants £${TIP_FOR}.`);
+  if (unpaid) return unpaid;
+  revealIntel(job, k);
+  return done(`A tipster sells you: ${intelLabel(job, k)}.`, { revealed: [k] });
+}
 
 export function surveil(state, id) {
   const d = state.dogs[id];
@@ -660,6 +671,23 @@ export function assignToStage(state, stageId, dogId) {
   return done(`${shortName(d)} is on ${stage.label}.`);
 }
 
+// Who on the crew looks best for an approach, on what you know of them
+// (an unknown skill counts for half).
+export function bestDogFor(state, stageId, ap) {
+  const job = state.job;
+  const stage = job.stages.find((s) => s.id === stageId);
+  const crew = crewDogs(state);
+  let best = null;
+  for (const d of crew) {
+    if (!canDo(d, ap)) continue;
+    const known = d.known.skills[APPROACHES[ap].skill];
+    const o = odds(state, job, stage, ap, d, { crew });
+    const score = known ? o.p : o.p * 0.5 + 0.1;
+    if (!best || score > best.score) best = { d, score };
+  }
+  return best?.d.id || null;
+}
+
 // Fill any gaps in the plan with the best-looking choice using *known* info,
 // falling back to anyone for unknowns.
 export function autoPlan(state) {
@@ -689,17 +717,26 @@ export function planProblems(state) {
   const job = state.job;
   const probs = [];
   if (!state.crew.length) probs.push('No crew.');
-  const need = {};
   for (const stage of visibleStages(job)) {
     const p = job.plan[stage.id];
     if (!p || !p.approach || !p.dog) { probs.push(`${stage.label}: nothing planned.`); continue; }
     const av = approachAvailable(state, job, p.approach);
     if (!av.ok) probs.push(`${stage.label}: ${av.reason}.`);
-    const nk = APPROACHES[p.approach].needKit;
+  }
+  for (const [k, n] of Object.entries(kitShort(state))) probs.push(`Plan uses ${n + (state.kit[k] || 0)}× ${KIT[k].name}, you have ${state.kit[k] || 0}.`);
+  return probs;
+}
+
+// Consumables the plan uses more of than you've got: { kitId: how many more }.
+export function kitShort(state) {
+  const need = {};
+  for (const stage of visibleStages(state.job)) {
+    const nk = APPROACHES[state.job.plan[stage.id]?.approach]?.needKit;
     if (nk && KIT[nk].consumable) need[nk] = (need[nk] || 0) + 1;
   }
-  for (const [k, n] of Object.entries(need)) if ((state.kit[k] || 0) < n) probs.push(`Plan uses ${n}× ${KIT[k].name}, you have ${state.kit[k] || 0}.`);
-  return probs;
+  const short = {};
+  for (const [k, n] of Object.entries(need)) if ((state.kit[k] || 0) < n) short[k] = n - (state.kit[k] || 0);
+  return short;
 }
 
 export function pullJob(state, opts = {}) {

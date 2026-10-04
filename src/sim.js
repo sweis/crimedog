@@ -1,6 +1,6 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
-import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES } from './data.js';
+import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES, INTEL } from './data.js';
 import { skillOf, hasSpecial, shortName, roleLevel, sizeOf } from './dogs.js';
 import { clamp, hashOf, inSentence } from './util.js';
 import { bondOf, chemistry } from './bonds.js';
@@ -41,7 +41,7 @@ export function approachAvailable(state, job, approachId, kitLeft, crew = hiredD
   const kit = kitLeft || state.kit;
   if (a.signature && !crew.some((d) => d.signature === a.signature)) return { ok: false, reason: `Needs ${SIGNATURES[a.signature].name}` };
   if (a.needKit && !(kit[a.needKit] > 0)) return { ok: false, reason: `Needs ${KIT[a.needKit].name}` };
-  if (a.needIntel && !job.intel[a.needIntel]) return { ok: false, reason: 'Needs intel' };
+  if (a.needIntel && !job.intel[a.needIntel]) return { ok: false, reason: `Needs the ${INTEL[a.needIntel].label}` };
   if (a.needInsider && !job.insider) return { ok: false, reason: 'Needs an inside dog' };
   if (a.needBribe && !job.bribed) return { ok: false, reason: 'Needs a bribed guard' };
   return { ok: true };

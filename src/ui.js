@@ -63,13 +63,15 @@ export function render(G) {
   const body = SCREEN_RENDER[screen](G);
   const showTop = !['title', 'intro', 'heist'].includes(screen);
   const showNav = G.state && ['plan', 'select'].includes(G.state.phase) && !['title', 'intro'].includes(screen);
-  app.innerHTML = (showTop ? topbar(G) : '') + `<main data-screen="${screen}">${body}</main>` + (showNav ? nav(G, screen) : '');
+  const prep = G.state?.phase === 'plan' && PREP_ON.includes(screen) ? prepStrip(G, screen) : '';
+  document.body.classList.toggle('prepping', !!prep);
+  app.innerHTML = (showTop ? topbar(G, prep) : '') + `<main data-screen="${screen}">${tipFor(G, screen)}${body}</main>` + (showNav ? nav(G, screen) : '');
   app.dataset.screen = screen;
   renderModal(G);
   G.stats.renders++;
 }
 
-function topbar(G) {
+function topbar(G, prep = '') {
   const s = G.state;
   // Each stat opens a pane with the story behind the number.
   return `<header class="topbar"><div class="topbar-row"><div class="logo"><span class="full">CRIMEDOG</span><span class="short">🐕</span></div><div class="stats">
@@ -78,7 +80,39 @@ function topbar(G) {
     <button class="stat ${s.heat >= 60 ? 'hot' : ''}" data-act="pane" data-pane="heat" aria-label="The Inspector's heat">🕵️ <b>${s.heat}</b></button>
     <button class="stat" data-act="pane" data-pane="day" aria-label="Day ${s.day}: the day book">📅 <b>${s.day}</b></button>
     <button class="stat help-btn" data-act="help" aria-label="How to play">?</button>
-  </div></div><div class="heatbar" title="The Inspector: ${esc(E.inspectorLabel(s.heat))}"><i style="width:${s.heat}%"></i></div></header>`;
+  </div></div><div class="heatbar" title="The Inspector: ${esc(E.inspectorLabel(s.heat))}"><i style="width:${s.heat}%"></i></div>${prep}</header>`;
+}
+
+// A word in your ear, the first time you see each part of the game.
+const TIPS = {
+  select: 'Pick a job. The stars say how hard; the chips say what it\'ll take. The big outfits come knocking once you\'ve a name.',
+  job: 'Up top: crew, intel, plan. 🔎 Case the joint, 🐾 hire at the pub, 📋 plan it. Casing takes a day, and the days run out.',
+  pub: 'Tap a step to see who\'d suit it. A stranger\'s skills stay a ? until they\'ve worked for you, or been tailed.',
+  plan: 'Tap an option, then a face. Faded, dashed ones are locked: tap to see how to open them. ??% is a skill you haven\'t seen yet.',
+  aftermath: 'Fence the goods, then pay the crew. A fair cut keeps them loyal; stiff them and word gets round.',
+};
+function tipFor(G, screen) {
+  const key = screen === 'aftermath' && G.state?.after?.step === 'grade' ? null : screen;
+  if (!G.state || !TIPS[key] || G.ui.tipsSeen?.includes(key) || G.ui.modal) return '';
+  return `<div class="tip" role="note"><span class="ico">👂</span><div class="grow"><b>A word in your ear</b><div>${esc(TIPS[key])}</div></div><button class="btn small ghost" data-act="tip-ok" data-tip="${key}">Got it</button></div>`;
+}
+
+// Getting ready for a job, at a glance and a tap away: the crew, the intel, the plan.
+const PREP_ON = ['job', 'pub', 'crew', 'kit', 'fixer', 'plan'];
+function prepStrip(G, screen) {
+  const s = G.state;
+  const job = s.job;
+  const intel = Object.values(job.intel);
+  const stages = visibleStages(job);
+  const planned = stages.filter((st) => job.plan[st.id]?.approach && job.plan[st.id]?.dog).length;
+  const ready = s.crew.length && !E.planProblems(s).length;
+  const item = (cls, act, label, on) => `<button class="${cls} ${on ? 'here' : ''}" ${act}>${label}</button>`;
+  return `<div class="prep" role="group" aria-label="Getting ready">
+    ${item(s.crew.length ? 'done' : 'todo', 'data-act="go" data-to="pub"', `🐾 Crew <b>${s.crew.length}</b>`, screen === 'pub')}
+    ${item(intel.every(Boolean) ? 'done' : intel.some(Boolean) ? 'part' : 'todo', `data-act="pick" data-purpose="case" ${job.daysLeft ? '' : 'disabled'}`, `🔎 Intel <b>${intel.filter(Boolean).length}/${intel.length}</b>`)}
+    ${item(ready ? 'done' : planned ? 'part' : 'todo', 'data-act="go" data-to="plan"', `📋 Plan <b>${s.crew.length ? `${planned}/${stages.length}` : '–'}</b>`, screen === 'plan')}
+    <span class="days-left" title="Days left before the job">📅 <b>${job.daysLeft}</b></span>
+  </div>`;
 }
 
 function nav(G, screen) {
@@ -459,11 +493,12 @@ function pubScreen(G) {
   if (hf) {
     // Best known fit for the step first; unknowns after.
     const size = hf.stage.needsSize;
-    const fit = (d) => (size ? (sizeOf(d) === size ? 1 : -1) : hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1); // unknowns sort last
+    const fit = (d) => (size ? (sizeOf(d) === size ? 1 : -1) : Math.max(-1, ...hf.skills.map((sk) => (d.known.skills[sk] ? skillOf(d, sk) : -1)))); // unknowns sort last
     const sort = (list) => list.slice().sort((a, b) => fit(b) - fit(a));
     const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id) && !outOfTown(s, d));
-    const need = size ? `Needs someone <b>${size === 'small' ? 'small' : 'big'}</b>` : hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}${hf.stage.needs ? ` ${hf.stage.needs.min}+` : ''}</b>` : 'Anyone will do';
-    const opts = { fee: true, skill: size ? null : hf.skill };
+    const need = size ? `Needs someone <b>${size === 'small' ? 'small' : 'big'}</b>` : hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}${hf.stage.needs ? ` ${hf.stage.needs.min}+` : ''}</b>`
+      : hf.skills.length ? `Any of ${hf.skills.map((sk) => `${SKILL_INFO[sk].icon} <b>${SKILL_INFO[sk].label}</b>`).join(', ')}` : 'Anyone will do';
+    const opts = { fee: true, skill: size ? null : hf.skill || hf.skills };
     return `<section class="card dark hire-banner"><div class="muted">Hiring for step ${hf.n}</div><h2>${hf.stage.icon} ${esc(hf.stage.label)}</h2>
       <p>${need}</p>
       <button class="btn ghost small" data-act="hire-back">← Back to the plan</button></section>
@@ -472,7 +507,11 @@ function pubScreen(G) {
       ${dogCards(G, sort(pub), opts, 'The pub is empty. Ask around.')}
       ${askAround(s)}`;
   }
-  return `<h2>The Dog &amp; Duck</h2>
+  // Old faces who are free come first: no need to go through the book on the Crew page.
+  const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id) && !outOfTown(s, d));
+  return `${stepsToCover(G)}
+  ${book.length ? `<h2>Free in Your Little Black Book</h2>${dogCards(G, book, { fee: true })}` : ''}
+  <h2 class="mt">The Dog &amp; Duck</h2>
   ${dogCards(G, pub, { fee: true }, 'The pub is empty. Ask around.')}
   ${askAround(s)}`;
 }
@@ -507,7 +546,8 @@ function kitScreen(G) {
   const s = G.state;
   const own = (id) => s.kit[id] || 0;
   const all = Object.entries(KIT);
-  const row = (id, k, right, extra = '') => `<div class="kit"><div class="ico">${k.icon}</div><div class="grow"><b>${esc(k.name)}</b>${extra}<div class="muted">${esc(k.blurb)}</div></div>${right}</div>`;
+  const use = s.phase === 'plan' ? kitForJob(s) : {};
+  const row = (id, k, right, extra = '') => `<div class="kit ${use[id] ? 'useful' : ''}"><div class="ico">${k.icon}</div><div class="grow"><b>${esc(k.name)}</b>${extra}<div class="muted">${esc(k.blurb)}</div>${use[id] ? `<div class="for-job">📋 ${esc(use[id])}</div>` : ''}</div>${right}</div>`;
   // For sale: anything you haven't got, and the things that get used up.
   const forSale = all.filter(([id, k]) => !k.special && (k.consumable || !own(id)));
   const sale = forSale.map(([id, k]) => row(id, k, `<button class="btn small" data-act="buy" data-kit="${id}" ${s.cash >= k.price ? '' : 'disabled'}>${money(k.price)}</button>`, k.consumable && own(id) ? ` <span class="own">×${own(id)} in the lock-up</span>` : '')).join('');
@@ -523,6 +563,29 @@ function kitScreen(G) {
   <section class="card lockup">${lockup || '<p class="muted">Nothing yet.</p>'}${wears ? '<p class="muted small-note">Gear can break when a step goes wrong, and the Old Bill keep whatever they find on anyone they collar.</p>' : ''}</section>
   ${locked.length ? `<h2 class="mt">Found on Jobs</h2>
   <section class="card">${locked.map(([, k]) => `<div class="kit locked"><div class="ico">🔒</div><div class="grow"><b>${esc(k.name)}</b><div class="muted">${esc(k.blurb)}</div><div class="muted">🎁 ${esc(fromText(k))}</div></div></div>`).join('')}</section>` : ''}`;
+}
+
+// What each piece of kit would do on this job, from the steps you can see.
+function kitForJob(s) {
+  const job = s.job;
+  const out = {};
+  for (const id of Object.keys(KIT)) {
+    const e = KIT[id].effect;
+    const opens = new Set();
+    const helps = new Set();
+    for (const st of visibleStages(job)) {
+      for (const ap of st.options) {
+        const a = APPROACHES[ap];
+        if (a.needKit === id) opens.add(ap);
+        if (a.kitBonus === id || (e && (e.stage === st.id || e.kind === st.kind || e.skill === a.skill || e.types?.includes(job.type)))) helps.add(st.id);
+      }
+    }
+    const bits = [];
+    if (opens.size) bits.push(`opens ${opens.size === 1 ? `"${APPROACHES[[...opens][0]].label}"` : `${opens.size} options`}`);
+    if (helps.size) bits.push(`helps on ${count(helps.size, 'step')}`);
+    if (bits.length) out[id] = `This job: ${bits.join(', ')}`;
+  }
+  return out;
 }
 
 function fixerScreen(G) {
@@ -560,7 +623,33 @@ export function hiringFor(G) {
   if (idx < 0) return null;
   const st = stages[idx];
   const ap = G.state.job.plan[st.id]?.approach;
-  return { stage: st, n: idx + 1, approach: ap || null, skill: ap ? APPROACHES[ap].skill : null };
+  return { stage: st, n: idx + 1, approach: ap || null, skill: ap ? APPROACHES[ap].skill : null, skills: ap ? [APPROACHES[ap].skill] : stepSkills(G.state, st) };
+}
+
+// The skills that would do for a step: one per option open to you.
+function stepSkills(s, st) {
+  const aps = stageOptions(st, E.crewDogs(s)).filter((ap) => !APPROACHES[ap].size && !APPROACHES[ap].signature && approachAvailable(s, s.job, ap).ok);
+  return [...new Set(aps.map((ap) => APPROACHES[ap].skill))];
+}
+
+// The steps of the job and how well the crew covers each, from what you know of them.
+// Tap one to hire for it.
+function stepsToCover(G) {
+  const s = G.state;
+  const job = s.job;
+  const crew = E.crewDogs(s);
+  const rows = visibleStages(job).map((st, i) => {
+    let best = 0;
+    for (const ap of stageOptions(st, crew)) {
+      if (!approachAvailable(s, job, ap).ok) continue;
+      for (const d of crew) if (canDo(d, ap) && oddsKnown(d, ap)) best = Math.max(best, odds(s, job, st, ap, d).p);
+    }
+    const pct = Math.round(best * 100);
+    const cls = !crew.length || !best ? 'todo' : pct >= 70 ? 'done' : pct >= 45 ? 'part' : 'todo';
+    const what = st.needsSize ? SIZE_NEED[st.needsSize].split(' ')[0] : st.needs ? `${SKILL_INFO[st.needs.skill].icon}${st.needs.min}+` : stepSkills(s, st).map((sk) => SKILL_INFO[sk].icon).join('');
+    return `<button class="cover ${cls}" data-act="hire-for" data-stage="${st.id}"><span class="n">${i + 1}</span><span class="grow">${st.icon} ${esc(st.label)}</span><span class="sk">${what}</span><b>${best ? `${pct}%` : '＋'}</b></button>`;
+  });
+  return `<section class="card cover-card"><div class="row spread"><b>The job needs</b><span class="muted">Best odds · tap to hire</span></div>${rows.join('')}</section>`;
 }
 
 function planScreen(G) {
@@ -603,7 +692,8 @@ function planScreen(G) {
       else if (a.noise > 0) tags.push('🔉 Noisy');
       if (a.clues >= 2) tags.push('🔍 Messy');
       if (a.swap) tags.push('🤫 They won\'t notice');
-      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''}" data-act="plan-ap" data-stage="${st.id}" data-ap="${ap}" ${av.ok ? '' : 'disabled'}><span class="ski">${a.size ? SIZE_NEED[a.size].split(' ')[0] : SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${a.size ? SIZE_NEED[a.size].replace(/^\S+ /, '') : SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
+      // A locked option opens a sheet with the way to unlock it, right here.
+      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''} ${av.ok ? '' : 'locked'}" data-act="${av.ok ? 'plan-ap' : 'unlock'}" data-stage="${st.id}" data-ap="${ap}"><span class="ski">${a.size ? SIZE_NEED[a.size].split(' ')[0] : SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${a.size ? SIZE_NEED[a.size].replace(/^\S+ /, '') : SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
     }
     h += '</div>';
     if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
@@ -623,11 +713,50 @@ function planScreen(G) {
     }
     h += '</section>';
   });
-  if (probs.length) h += `<div class="problems"><b>Loose ends</b><ul>${probs.map((p) => `<li>${esc(p)}</li>`).join('')}</ul></div>`;
+  const short = Object.entries(E.kitShort(s));
+  if (probs.length) h += `<div class="problems"><b>Loose ends</b><ul>${probs.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>${short.map(([k]) => `<button class="btn small" data-act="buy" data-kit="${k}" ${s.cash < KIT[k].price ? 'disabled' : ''}>${KIT[k].icon} Buy another ${esc(KIT[k].name)} · ${money(KIT[k].price)}</button>`).join(' ')}</div>`;
   h += `<button class="calling-card ${job.callingCard ? 'on' : ''}" data-act="calling-card" aria-pressed="${!!job.callingCard}"><span class="cc-box">${job.callingCard ? '✓' : ''}</span><span class="grow"><b>🃏 Leave a calling card</b><small>A monogrammed biscuit at the scene. One more clue, but the right people notice style.</small></span></button>`;
+  h += wholeJob(s, stages);
+  h += lastCalls(s);
   h += `<div class="btn-row"><button class="btn ghost" data-act="autoplan">✏️ Pencil in the gaps</button></div>
   <button class="btn big block red mt" data-act="pull">🚨 PULL THE JOB</button>`;
   return h;
+}
+
+// The fixer's extras, one tap from the plan: the last things to sort before you pull it.
+function lastCalls(s) {
+  const job = s.job;
+  const item = (act, label, price, done, off) => `<button class="chip ${done ? 'good' : ''}" data-act="${act}" ${done || off ? 'disabled' : ''}>${done ? `✓ ${label}` : `${label} <b>${price}</b>`}</button>`;
+  return `<div class="last-calls"><b>Before you go</b> <span class="muted">from the fixer</span><div class="dm-chips">
+    ${item('buyer', '🎩 The Collector', '£150 · 1 day', job.buyer, !job.daysLeft || s.cash < 150)}
+    ${item('safehouse', '🏚️ Safehouse', '£250', job.safehouse, s.cash < 250)}
+    ${item('fakeids', '🪪 Fake IDs', '£200', job.fakeIds, s.cash < 200)}
+  </div></div>`;
+}
+
+// Every step has to come off: the odds of the lot going to plan, if nothing
+// surprises you, and the weakest link. Unknown skills keep it a guess.
+function wholeJob(s, stages) {
+  const job = s.job;
+  let all = 1;
+  let unknown = 0;
+  let weakest = null;
+  stages.forEach((st, i) => {
+    const p = job.plan[st.id];
+    if (!p?.approach || !p.dog) { unknown++; return; }
+    const d = s.dogs[p.dog];
+    if (!oddsKnown(d, p.approach)) { unknown++; return; }
+    const o = odds(s, job, st, p.approach, d).p;
+    all *= o;
+    if (!weakest || o < weakest.p) weakest = { p: o, n: i + 1, st };
+  });
+  const pct = Math.round(all * 100);
+  const cls = unknown ? 'unk' : pct >= 50 ? 'good' : pct >= 25 ? 'mid' : 'low';
+  const notes = [];
+  if (unknown) notes.push(`${count(unknown, 'step')} you can't call yet: a skill you haven't seen, or nobody on it.`);
+  if (weakest && weakest.p < 0.8) notes.push(`Weakest link: step ${weakest.n}, ${weakest.st.icon} ${esc(weakest.st.label)} (${Math.round(weakest.p * 100)}%).`);
+  if (notes.length) notes.push('A slip isn\'t the end: the crew improvise.');
+  return `<div class="whole-job ${cls}"><div class="row spread"><b>🎲 Every step to plan</b><span class="big">${unknown ? '??' : `${pct}%`}</span></div>${notes.map((n) => `<div class="note">${n}</div>`).join('')}</div>`;
 }
 
 // ------------------------------------------------------------------ heist playback
@@ -959,8 +1088,47 @@ function renderModal(G) {
   root.innerHTML = `<div class="modal-back" data-act="close-modal"><div class="modal" data-stop role="dialog" aria-modal="true"><div class="modal-bar"><button class="close" data-act="close-modal" aria-label="Close">✕</button></div>${inner}</div></div>`;
 }
 
+// A locked option on the plan, and how to unlock it without leaving the plan.
+function unlockModal(G, m) {
+  const s = G.state;
+  const job = s.job;
+  const a = APPROACHES[m.ap];
+  const st = job.stages.find((x) => x.id === m.stage);
+  const days = job.daysLeft ? `${count(job.daysLeft, 'day')} left` : 'No days left';
+  let h = `<h2>🔒 ${esc(a.label)}</h2><p class="muted">${st.icon} ${esc(st.label)} · ${SKILL_INFO[a.skill]?.icon || ''} ${SKILL_INFO[a.skill]?.label || ''}</p>`;
+  const btn = (act, label, extra = '', off = false, ghost = false) => `<button class="btn block ${ghost ? 'ghost' : ''}" data-act="${act}" ${extra} ${off ? 'disabled' : ''}>${label}</button>`;
+  if (a.needKit && !(s.kit[a.needKit] > 0)) {
+    const k = KIT[a.needKit];
+    h += `<div class="kit"><div class="ico">${k.icon}</div><div class="grow"><b>Needs ${esc(k.name)}</b><div class="muted">${esc(k.blurb)}</div>${k.special ? `<div class="muted">🎁 Not for sale. Found on: ${esc(fromText(k))}</div>` : ''}</div></div>`;
+    if (!k.special) h += btn('unlock-buy', `Buy it and use it here · ${money(k.price)}`, `data-kit="${a.needKit}"`, s.cash < k.price);
+  } else if (a.needIntel && !job.intel[a.needIntel]) {
+    const k = a.needIntel;
+    const info = INTEL[k];
+    h += `<p><b>Needs the ${esc(info.label)}.</b> ${esc(info.blurb)}</p>`;
+    if (!(k in job.intel)) h += '<p class="muted">Nobody knows anything about that on this job.</p>';
+    else {
+      // Who on the crew would most likely turn it up casing the joint.
+      const best = E.crewDogs(s).map((d) => ({ d, p: E.caseOdds(s, d).finds.find((f) => f.k === k)?.p || 0 })).sort((x, y) => y.p - x.p)[0];
+      h += `<p class="muted">Turned up by ${SKILL_INFO[info.skill].icon} ${SKILL_INFO[info.skill].label} when casing.${best ? ` Best bet: ${esc(shortName(best.d))}, ${Math.round(best.p * 100)}%.` : ''} ${days}.</p>`;
+      h += btn('pick', '🔎 Case the joint · £40 · 1 day', 'data-purpose="case"', !job.daysLeft);
+      h += btn('unlock-tip', `💰 Buy it off a tipster · ${money(E.TIP_FOR)} · 1 day`, `data-k="${k}"`, !job.daysLeft || s.cash < E.TIP_FOR, true);
+    }
+  } else if (a.needInsider && !job.insider) {
+    h += '<p><b>Needs an inside dog</b>: someone from the crew on the staff.</p>';
+    if (job.noInsider) h += '<p class="muted">Not on this job: nobody new gets in.</p>';
+    else h += `<p class="muted">🥸 Disguise or 🎩 Charm helps them through the interview. ${days}.</p>${btn('pick', '🧹 Plant an inside dog · £100 · 1 day', 'data-purpose="insider"', !job.daysLeft || !s.crew.length)}`;
+  } else if (a.needBribe && !job.bribed) {
+    const cost = 150 * job.tier;
+    h += `<p><b>Needs a bribed guard.</b></p><p class="muted">Three in four take the money. The fourth tells his sergeant.</p>${btn('unlock-bribe', `💵 Bribe a guard · ${money(cost)}`, '', s.cash < cost)}`;
+  } else {
+    h += `<p>${esc(approachAvailable(s, job, m.ap).reason || 'Ready.')}</p>`;
+  }
+  return h;
+}
+
 // The body of each kind of modal sheet.
 const MODALS = {
+  unlock: (G, m) => unlockModal(G, m),
   dog: (G, m) => dogModal(G, G.state.dogs[m.id]),
   pick: (G, m) => pickModal(G, m.purpose),
   recruit: (G) => recruitModal(G),
