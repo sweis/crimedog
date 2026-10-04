@@ -46,7 +46,7 @@ test('breeds lean the way you\'d expect; aim, tech, wheels and locks are anybody
   const topBy = (filter, sk) => { const xs = dogs.filter(filter); return xs.filter((d) => topSkills(d, 1)[0][0] === sk).length / xs.length; };
   const all = (sk) => topBy(() => true, sk);
   assert.ok(topBy((d) => ['beagle', 'basset', 'bloodhound', 'dachshund'].includes(d.breed), 'nose') > 2 * all('nose'), 'scent hounds have the noses');
-  assert.ok(topBy((d) => BREEDS[d.breed].group === 'sporting', 'charm') > 1.5 * all('charm'), 'sporting types the charm');
+  assert.ok(topBy((d) => ['labrador', 'golden', 'spaniel', 'cocker'].includes(d.breed), 'charm') > 1.5 * all('charm'), 'retrievers and spaniels the charm');
   assert.ok(topBy((d) => ['greyhound', 'whippet'].includes(d.breed), 'agility') > 2 * all('agility'), 'the quick ones the agility');
   assert.equal(topBy((d) => sizeOf(d) === 'small', 'muscle'), 0, 'no small heavies');
   for (const sk of NEUTRAL_SKILLS) {
