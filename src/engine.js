@@ -1,10 +1,10 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence } from './util.js';
-import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf } from './dogs.js';
-import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
+import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence, roundTo, addStat } from './util.js';
+import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO, PRICES, FIXER } from './data.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf, sendToFarm } from './dogs.js';
+import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier, unknownIntel } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
 import { bump } from './career.js';
@@ -17,7 +17,7 @@ import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
 import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
 import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
-import { simulate, approachAvailable, odds, baseOdds, stageOptions, canDo, signatureFits } from './sim.js';
+import { simulate, approachAvailable, baseOdds, stageOptions, canDo, signatureFits, bestAssignment, planScore, odds, oddsKnown } from './sim.js';
 
 export const MAX_CREW = 6;
 const START_CASH = 2500;
@@ -394,12 +394,12 @@ export function acceptOffer(state, offerId) {
   pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
   news(state, `You took ${state.job.name} (${who}).`);
-  return done(p?.front ? `${state.job.name}: you're on. ${GROUPS[p.group].short} fronted you £${p.front}.` : `${state.job.name}: you're on.`);
+  return done(p?.front ? `${state.job.name}: you're on. ${GROUPS[p.group].short} fronted you ${money(p.front)}.` : `${state.job.name}: you're on.`);
 }
 
 export function digLeads(state) {
   if (state.phase !== 'select') return fail('Not now.');
-  if (!spend(state, 40, 'intel')) return fail('A round of drinks for tips costs £40.');
+  if (!spend(state, PRICES.leads, 'intel')) return fail(`A round of drinks for tips costs £${PRICES.leads}.`);
   rerollOwnLeads(state, rngOf(state));
   return done('You buy a round and listen. Two fresh leads.');
 }
@@ -412,11 +412,17 @@ export function borrow(state) {
 export { payDebt } from './groups.js';
 export { chooseDrama };
 
+// Between jobs a scene or a deal can take rep to nothing or heat to the top: that
+// ends it there, not after one more job.
+const settle = (state, r) => {
+  if (state.phase === 'select' && (state.rep <= 0 || state.heat >= 100)) checkGameOver(state);
+  return r;
+};
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
 export const retireNow = (state) => retire(state, rngOf(state));
-export const makeAmends = (state, gid, how) => amendsWith(state, rngOf(state), gid, how);
+export const makeAmends = (state, gid, how) => settle(state, amendsWith(state, rngOf(state), gid, how));
 export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), { genJob });
-export const runnerAction = (state, dogId, effect) => actOnRunner(state, dogId, effect, rngOf(state), { genJob });
+export const runnerAction = (state, dogId, effect) => settle(state, actOnRunner(state, dogId, effect, rngOf(state), { genJob }));
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 // The scene at the front of the queue, answered by whoever's story it is.
@@ -424,7 +430,7 @@ export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { g
 const ANSWER = { inspector: chooseInspector, rival: chooseRival, runner: chooseRunner, drama: chooseDrama };
 export function chooseStory(state, i) {
   const answer = ANSWER[state.story[0]?.type];
-  if (answer) return answer(state, i);
+  if (answer) return settle(state, answer(state, i));
   state.story.shift();
   return done('');
 }
@@ -460,7 +466,7 @@ function raiseAlert(job, why, n = 1) {
 export function caseOdds(state, d) {
   const job = state.job;
   const intelBoost = hasSpecial(d, 'intel') ? 0.15 : 0;
-  const finds = Object.keys(job.intel).filter((k) => !job.intel[k])
+  const finds = unknownIntel(job)
     .map((k) => ({ k, p: Math.min(0.9, 0.1 + 0.16 * skillOf(d, INTEL[k].skill) + intelBoost) }));
   const cover = Math.max(skillOf(d, 'sneak'), skillOf(d, 'disguise'));
   return { finds, expected: finds.reduce((a, f) => a + f.p, 0), spotted: Math.max(0.03, 0.35 - 0.08 * cover) };
@@ -469,11 +475,11 @@ export function caseOdds(state, d) {
 const CASE_MAX = 3;
 export function caseJoint(state, who) {
   const job = state.job;
-  const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
+  const unknown = unknownIntel(job);
   if (!unknown.length) return fail('You know everything there is to know.');
   const rng = rngOf(state);
   if (who === 'tipster') {
-    const unpaid = payForDay(state, 120, 'intel', 'The tipster wants £120.');
+    const unpaid = payForDay(state, PRICES.tipster, 'intel', `The tipster wants £${PRICES.tipster}.`);
     if (unpaid) return unpaid;
     const k = rng.pick(unknown);
     revealIntel(job, k);
@@ -481,7 +487,7 @@ export function caseJoint(state, who) {
   }
   const d = state.dogs[who];
   if (!d || !state.crew.includes(who)) return fail('Send someone from the crew.');
-  const unpaid = payForDay(state, 40, 'intel', 'Expenses are £40.');
+  const unpaid = payForDay(state, PRICES.case, 'intel', `Expenses are £${PRICES.case}.`);
   if (unpaid) return unpaid;
   const odds = caseOdds(state, d);
   if (hasSpecial(d, 'intel')) {
@@ -507,12 +513,11 @@ export function caseJoint(state, who) {
 }
 
 // A tipster who knows the one thing you're after. Dearer than pot luck.
-export const TIP_FOR = 160;
 export function tipFor(state, k) {
   const job = state.job;
   if (!(k in job.intel)) return fail('Nobody knows anything about that here.');
   if (job.intel[k]) return fail('You already know that.');
-  const unpaid = payForDay(state, TIP_FOR, 'intel', `The tipster wants £${TIP_FOR}.`);
+  const unpaid = payForDay(state, PRICES.tipFor, 'intel', `The tipster wants £${PRICES.tipFor}.`);
   if (unpaid) return unpaid;
   revealIntel(job, k);
   return done(`A tipster sells you: ${intelLabel(job, k)}.`, { revealed: [k] });
@@ -522,7 +527,7 @@ export function surveil(state, id) {
   const d = state.dogs[id];
   if (!d) return fail('No such dog.');
   if (d.known.loyalty && (d.known.undercover || d.cleared)) return fail(`You already know all about ${shortName(d)}.`);
-  const unpaid = payForDay(state, 80, 'intel', 'Surveillance costs £80.');
+  const unpaid = payForDay(state, PRICES.surveil, 'intel', `Surveillance costs £${PRICES.surveil}.`);
   if (unpaid) return unpaid;
   const rng = rngOf(state);
   d.met = true;
@@ -530,14 +535,10 @@ export function surveil(state, id) {
   d.known.quirks = d.quirks.slice();
   for (const [s] of SKILLS.map((s) => [s, skillOf(d, s)]).sort((a, b) => b[1] - a[1]).slice(0, 3)) d.known.skills[s] = true;
   let msg = `🕵️ ${shortName(d)}:`;
-  if (d.undercover) {
-    if (rng.chance(0.85)) {
-      d.known.undercover = true;
-      msg += ' 👮 UNDERCOVER COPPER!';
-    } else {
-      d.cleared = true;
-      msg += ' seems legit.';
-    }
+  // A copper usually gives themselves away; anyone else checks out.
+  if (d.undercover && rng.chance(0.85)) {
+    d.known.undercover = true;
+    msg += ' 👮 UNDERCOVER COPPER!';
   } else {
     d.cleared = true;
     msg += ' seems legit.';
@@ -551,7 +552,7 @@ export function plantInsider(state, id) {
   if (job.noInsider) return fail('No way to get anyone inside on this one.');
   if (!state.crew.includes(id)) return fail('Pick someone from the crew.');
   if (job.insider) return fail('You already have someone inside.');
-  const unpaid = payForDay(state, 100, 'fixer', 'Costs £100 for a fake reference.');
+  const unpaid = payForDay(state, PRICES.insider, 'fixer', `Costs £${PRICES.insider} for a fake reference.`);
   if (unpaid) return unpaid;
   const rng = rngOf(state);
   const s = Math.max(skillOf(d, 'disguise'), skillOf(d, 'charm'));
@@ -568,7 +569,7 @@ export function bribeGuard(state) {
   const job = state.job;
   if (!job.stages.some((s) => s.id === 'obs_guards')) return fail('There are no guards to bribe.');
   if (job.bribed) return fail('Already bribed.');
-  const cost = 150 * job.tier;
+  const cost = PRICES.bribe * job.tier;
   if (!spend(state, cost, 'fixer')) return fail(`The guard wants £${cost}.`);
   const rng = rngOf(state);
   if (rng.chance(0.75)) {
@@ -579,33 +580,25 @@ export function bribeGuard(state) {
   return done(`The guard takes your £${cost}... and tells his sergeant. (+6 heat)`);
 }
 
-export function buySafehouse(state) {
-  if (state.job.safehouse) return fail('Already sorted.');
-  if (!spend(state, 250, 'fixer')) return fail('A safehouse costs £250.');
-  state.job.safehouse = true;
-  return done('A lock-up behind the launderette. Somewhere to lie low after the job.');
+// The fixer's simple services (data.js FIXER): pay, and it's sorted.
+function fixerService(state, id) {
+  const f = FIXER[id];
+  const job = state.job;
+  if (job[f.flag]) return fail(f.already);
+  if (f.day) {
+    const unpaid = payForDay(state, f.price, 'fixer', f.tooDear);
+    if (unpaid) return unpaid;
+  } else if (!spend(state, f.price, 'fixer')) return fail(f.tooDear);
+  job[f.flag] = true;
+  return done(f.msg(job));
 }
-export function buyFakeIds(state) {
-  if (state.job.fakeIds) return fail('Already sorted.');
-  if (!spend(state, 200, 'fixer')) return fail('Fake IDs cost £200.');
-  state.job.fakeIds = true;
-  return done('Fresh papers for everyone. Captured crew will be harder to trace.');
-}
-export function lineUpBuyer(state) {
-  if (state.job.buyer) return fail('The Collector is already waiting.');
-  const unpaid = payForDay(state, 150, 'fixer', 'Costs £150 to get a meeting.');
-  if (unpaid) return unpaid;
-  state.job.buyer = true;
-  return done('The Collector agrees to buy the lot — at full value.');
-}
-export function vetFence(state) {
-  if (state.job.fenceVetted) return fail('Already looked into her.');
-  if (!spend(state, 60, 'fixer')) return fail('Costs £60.');
-  state.job.fenceVetted = true;
-  return done(state.job.stingFence ? 'Fancy Francesca drives a police-issue car. She\'s a STING.' : 'Fancy Francesca checks out. Just flashy.');
-}
+export const buySafehouse = (state) => fixerService(state, 'safehouse');
+export const buyFakeIds = (state) => fixerService(state, 'fakeids');
+export const lineUpBuyer = (state) => fixerService(state, 'buyer');
+export const vetFence = (state) => fixerService(state, 'vet');
 export function layLow(state) {
-  const unpaid = payForDay(state, 100, 'fixer', 'Lying low costs £100.');
+  if (state.heat <= 0) return fail('Nobody\'s looking for you. Nothing to lie low from.');
+  const unpaid = payForDay(state, PRICES.layLow, 'fixer', `Lying low costs £${PRICES.layLow}.`);
   if (unpaid) return unpaid;
   const before = state.heat;
   addHeat(state, -8);
@@ -657,18 +650,18 @@ export function assignToStage(state, stageId, dogId) {
   if (!state.crew.includes(dogId)) return fail('Not on the crew.');
   let approach = job.plan[stageId]?.approach;
   if (!approach || !approachAvailable(state, job, approach).ok || !canDo(d, approach)) {
-    let best = null;
-    for (const ap of stageOptions(stage, crewDogs(state))) {
-      if (!approachAvailable(state, job, ap).ok || !canDo(d, ap)) continue;
-      const known = d.known.skills[APPROACHES[ap].skill];
-      const o = odds(state, job, stage, ap, d);
-      const score = known ? o.p : o.p * 0.5 + 0.1;
-      if (!best || score > best.score) best = { ap, score };
-    }
-    approach = best?.ap;
+    approach = bestAssignment(state, job, stage, { crew: [d], approaches: stageOptions(stage, crewDogs(state)), score: planScore })?.ap;
   }
   job.plan[stageId] = { approach, dog: dogId };
   return done(`${shortName(d)} is on ${stage.label}.`);
+}
+
+// A step's odds with a given approach and dog, and whether you'd know them.
+export function stepOdds(state, stageId, ap, dogId) {
+  const stage = state.job.stages.find((x) => x.id === stageId);
+  const d = state.dogs[dogId];
+  if (!stage || !ap || !d) return null;
+  return { p: odds(state, state.job, stage, ap, d, { crew: crewDogs(state) }).p, known: oddsKnown(d, ap), dog: d };
 }
 
 // Who on the crew looks best for an approach, on what you know of them
@@ -677,15 +670,7 @@ export function bestDogFor(state, stageId, ap) {
   const job = state.job;
   const stage = job.stages.find((s) => s.id === stageId);
   const crew = crewDogs(state);
-  let best = null;
-  for (const d of crew) {
-    if (!canDo(d, ap)) continue;
-    const known = d.known.skills[APPROACHES[ap].skill];
-    const o = odds(state, job, stage, ap, d, { crew });
-    const score = known ? o.p : o.p * 0.5 + 0.1;
-    if (!best || score > best.score) best = { d, score };
-  }
-  return best?.d.id || null;
+  return bestAssignment(state, job, stage, { crew, approaches: [ap], available: () => true, ctx: { crew }, score: planScore })?.d.id || null;
 }
 
 // Fill any gaps in the plan with the best-looking choice using *known* info,
@@ -697,17 +682,7 @@ export function autoPlan(state) {
   for (const stage of visibleStages(job)) {
     const cur = job.plan[stage.id] || {};
     if (cur.approach && cur.dog && approachAvailable(state, job, cur.approach).ok && state.crew.includes(cur.dog) && canDo(state.dogs[cur.dog], cur.approach)) continue;
-    let best = null;
-    for (const ap of stageOptions(stage, crew)) {
-      if (!approachAvailable(state, job, ap).ok) continue;
-      for (const d of crew) {
-        if (!canDo(d, ap)) continue;
-        const known = d.known.skills[APPROACHES[ap].skill];
-        const o = odds(state, job, stage, ap, d, { crew });
-        const score = known ? o.p : o.p * 0.5 + 0.1;
-        if (!best || score > best.score) best = { ap, d, score };
-      }
-    }
+    const best = bestAssignment(state, job, stage, { crew, ctx: { crew }, score: planScore });
     if (best) job.plan[stage.id] = { approach: best.ap, dog: best.d.id };
   }
   return done('The crew pencils in a plan.');
@@ -838,7 +813,7 @@ export function resolveHeist(state) {
     const d = state.dogs[id];
     if (!earnedPromotion(d)) continue;
     promoted.push({ id, to: promote(d, state) });
-    state.stats.promoted = (state.stats.promoted || 0) + 1;
+    addStat(state, 'promoted');
     news(state, `${displayName(d)} has made a name for themselves: ${d.rarity}, ✨ ${SIGNATURES[d.signature].name}.`);
   }
   // Special kit found on the job is yours to keep, if they got into the goods.
@@ -886,7 +861,7 @@ export function deliver(state) {
   const G = GROUPS[p.group];
   const item = inSentence(lootItem(state.job, p.want).name);
   if (p.deal === 'marker') return done(`${G.boss} takes ${item}. Your debt is squared.`);
-  return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the £${p.front} advance)` : ''}.`);
+  return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the ${money(p.front)} advance)` : ''}.`);
 }
 
 export function fenceRate(state, fenceId) {
@@ -898,7 +873,7 @@ export function fenceRate(state, fenceId) {
     const l = lootItem(job, id);
     total += l.value * Math.min(1, f.rates[l.kind] + (fenceId === 'collector' ? 0 : bonus));
   }
-  return Math.round(total / 10) * 10;
+  return roundTo(total);
 }
 
 export function fence(state, fenceId) {
@@ -922,7 +897,10 @@ export function fence(state, fenceId) {
   if (p?.cut) {
     a.patronCut = Math.min(got, Math.round((got * p.cut) / 100) + (p.front || 0)); // their cut, plus the advance back
     net -= a.patronCut;
-    msg += ` ${GROUPS[p.group].name} take their ${p.cut}%: ${money(a.patronCut)}.`;
+    const advance = Math.min(p.front || 0, a.patronCut);
+    msg += advance
+      ? ` ${GROUPS[p.group].name} take their ${p.cut}% and the ${money(advance)} advance back: ${money(a.patronCut)}.`
+      : ` ${GROUPS[p.group].name} take their ${p.cut}%: ${money(a.patronCut)}.`;
   }
   a.received += net;
   book(state, 'fence', net);
@@ -931,13 +909,24 @@ export function fence(state, fenceId) {
   return done(msg);
 }
 
+// Who's owed a share: everyone who got away, and everyone nicked (they kept quiet for it).
+export const owedCrew = (r) => r.crew.filter((id) => r.escaped.includes(id) || r.captured.some((c) => c.id === id));
+
 export function payCrew(state, pct) {
   const a = state.after;
   if (!a || a.step !== 'pay') return fail('Not now.');
   const cut = CUTS.find((c) => c.pct === pct);
   if (!cut) return fail('Pick a cut.');
   const r = state.result;
-  const owed = r.crew.filter((id) => r.escaped.includes(id) || r.captured.some((c) => c.id === id));
+  const owed = owedCrew(r);
+  // Nobody left to pay (they ran, or they're gone): you keep the lot, and nobody's stiffed.
+  if (!owed.length) {
+    a.cut = 30;
+    a.paid = 0;
+    finishGrade(state);
+    a.step = 'grade';
+    return done(a.received ? 'Nobody left to pay. You keep the lot.' : '');
+  }
   const share = Math.round((a.received * pct) / 100);
   if (share > state.cash) return fail('You can\'t cover that.');
   book(state, 'pay', -share);
@@ -965,21 +954,28 @@ export function payCrew(state, pct) {
   return done(share ? `Paid the crew ${money(share)}.` : 'The crew gets nothing. They\'ll remember that.');
 }
 
+// What a grade is made of, and the most each part can score (they add up to 100).
+export const GRADE_PARTS = {
+  loot: { label: 'Loot secured', max: 35 }, fence: { label: 'Fenced value', max: 15 }, stealth: { label: 'Stealth', max: 20 },
+  crew: { label: 'Crew got away', max: 15 }, clues: { label: 'Clean scene', max: 10 }, pay: { label: 'Crew paid fairly', max: 5 },
+};
+
 export function gradeJob(state) {
   const r = state.result;
   const a = state.after;
   const job = state.job;
   const total = totalLootValue(job);
+  const M = Object.fromEntries(Object.entries(GRADE_PARTS).map(([k, v]) => [k, v.max]));
   const parts = {};
-  parts.loot = Math.round((35 * a.securedValue) / total);
-  parts.fence = a.securedValue ? Math.min(15, Math.round((15 * (a.gross ?? a.received)) / a.securedValue)) : 0;
-  parts.stealth = r.alarmMax === 0 ? 20 : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
+  parts.loot = Math.round((M.loot * a.securedValue) / total);
+  parts.fence = a.securedValue ? Math.min(M.fence, Math.round((M.fence * (a.gross ?? a.received)) / a.securedValue)) : 0;
+  parts.stealth = r.alarmMax === 0 ? M.stealth : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
   // Loyal crew doing time count for half; grasses and the lost count for nothing.
   const stayedQuiet = r.captured.filter((c) => !c.talked).length;
   const realCrew = r.crew.filter((id) => !r.exposed.includes(id) && !r.tipped.includes(id)).length;
-  parts.crew = realCrew ? Math.round((15 * (r.escaped.length + 0.5 * stayedQuiet)) / realCrew) : 0;
-  parts.clues = Math.max(0, 10 - r.clues);
-  parts.pay = (a.cut ?? 0) >= 30 ? 5 : (a.cut ?? 0) >= 15 ? 2 : 0;
+  parts.crew = realCrew ? Math.round((M.crew * (r.escaped.length + 0.5 * stayedQuiet)) / realCrew) : 0;
+  parts.clues = Math.max(0, M.clues - r.clues);
+  parts.pay = (a.cut ?? 0) >= 30 ? M.pay : (a.cut ?? 0) >= 15 ? 2 : 0;
   if (!a.securedValue) { parts.stealth = Math.min(parts.stealth, 5); parts.pay = 0; }
   const score = Object.values(parts).reduce((s, v) => s + v, 0);
   const letter = score >= 93 ? 'S' : score >= 78 ? 'A' : score >= 62 ? 'B' : score >= 45 ? 'C' : score >= 28 ? 'D' : 'F';
@@ -1057,15 +1053,13 @@ export function farm(state, id) {
   if (!d || ['farm', 'gone'].includes(d.status)) return fail('Can\'t do that.');
   if (state.phase === 'heist') return fail('Not now.');
   const wasPound = d.status === 'pound';
-  d.status = 'farm';
-  d.farmedBy = 'you';
+  sendToFarm(state, d);
   leaveCrew(state, id);
   if (state.phase === 'plan' && state.job) {
     for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k].dog;
     if (state.job.insider === id) state.job.insider = null;
   }
   state.pub = state.pub.filter((x) => x !== id);
-  state.stats.farmed += 1;
   addHardness(state, d.undercover ? 5 : 15);
   if (d.undercover) {
     // Word gets round that you dealt with a copper. The underworld approves.
@@ -1102,7 +1096,7 @@ export function nextJob(state) {
       }
     }
     if (d.status === 'hospital' && !walkedAway) {
-      const out = recover(state, d, state.job?.id);
+      const out = recover(d, state.job?.id);
       if (out) news(state, out);
     }
   }

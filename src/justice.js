@@ -92,7 +92,7 @@ export function payHospital(state, d) {
 }
 
 // Between jobs: a job's worth of recovery. Returns news lines.
-export function recover(state, d, jobId) {
+export function recover(d, jobId) {
   const h = d.hospital;
   if (h.since === jobId) { h.since = null; return null; }
   h.jobs -= 1;

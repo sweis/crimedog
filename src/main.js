@@ -1,9 +1,11 @@
 // Boot, save/load, input routing and the frame loop.
 import * as E from './engine.js';
-import { render, currentScreen, hiringFor, profileHTML, careerHTML } from './ui.js';
+import { render, renderModal, currentScreen, hiringFor, profileHTML, careerHTML } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
 import { approachAvailable } from './sim.js';
 import { visibleStages } from './heists.js';
+import { shortName } from './dogs.js';
+import { money } from './util.js';
 import { cardPNG, careerPNG, recapPNG, shareBlob } from './card.js';
 
 const SAVE_KEY = 'crimedog.save.v2';
@@ -17,6 +19,7 @@ const G = {
   fixedDt: 1 / 60,
   beatMs: Number(params.get('simdt')) || 1500,
   dev: params.has('dev'),
+  saveKey: SAVE_KEY,
 };
 
 // ------------------------------------------------------------------ persistence
@@ -34,7 +37,9 @@ G.hasSave = () => {
 G.save = () => {
   if (!G.state) return;
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ state: G.state, screen: G.ui.screen, heistI: G.ui.heist.i }));
+    const json = JSON.stringify({ state: G.state, screen: G.ui.screen, heistI: G.ui.heist.i, heistPlaying: G.ui.heist.playing });
+    localStorage.setItem(SAVE_KEY, json);
+    G.stats.saveBytes = json.length;
   } catch { /* private mode etc. */ }
 };
 G.load = () => {
@@ -45,7 +50,7 @@ G.load = () => {
     if (!data.state || data.state.version !== 2) return false;
     G.state = data.state;
     G.ui.screen = data.screen || 'job';
-    G.ui.heist = { i: data.heistI || 0, playing: true };
+    G.ui.heist = { i: data.heistI || 0, playing: data.heistPlaying ?? true }; // paused stays paused
     return true;
   } catch { return false; }
 };
@@ -75,6 +80,13 @@ G.render = () => {
   const ms = performance.now() - t0;
   G.stats.renderMs = ms;
   G.stats.renderMax = Math.max(G.stats.renderMax || 0, ms);
+};
+// Opening or closing a sheet changes nothing underneath it: redraw just the sheet.
+G.renderModal = () => {
+  const t0 = performance.now();
+  renderModal(G);
+  G.stats.renders++;
+  G.stats.renderMs = performance.now() - t0;
 };
 G.clearToasts = () => { document.getElementById('toast').innerHTML = ''; };
 G.showDiag = (on) => {
@@ -144,6 +156,19 @@ function show(screen) {
   window.scrollTo(0, 0);
 }
 
+// A button that needs a second tap: the first one asks "really?" on the button itself.
+// Tapping anything else in between starts over.
+function confirmTap(el, ask) {
+  if (G.ui.confirming === el.dataset.act) {
+    G.ui.confirming = null;
+    return true;
+  }
+  G.ui.confirming = el.dataset.act;
+  el.textContent = ask;
+  el.classList.add('red');
+  return false;
+}
+
 // Unlocking an option from the plan: do it, then put the option on the plan if it's open now.
 function unlockWith(fn, ...args) {
   G.ui.modal = null;
@@ -155,7 +180,15 @@ function useUnlocked() {
   G.ui.unlockFor = null;
   const s = G.state;
   if (!u || s?.phase !== 'plan' || !approachAvailable(s, s.job, u.ap).ok) return;
-  if (E.setPlan(s, u.stage, { approach: u.ap, dog: E.bestDogFor(s, u.stage, u.ap) || s.crew[0] }).ok) {
+  // Switch to it unless the step as planned is a known better bet.
+  const cur = s.job.plan[u.stage];
+  const now = cur?.approach && cur.approach !== u.ap && approachAvailable(s, s.job, cur.approach).ok ? E.stepOdds(s, u.stage, cur.approach, cur.dog) : null;
+  const then = E.stepOdds(s, u.stage, u.ap, E.bestDogFor(s, u.stage, u.ap));
+  if (now?.known && then && (!then.known || then.p < now.p)) {
+    toast(`Kept ${shortName(now.dog)} on it (${Math.round(now.p * 100)}%). The new way's there if you want it.`);
+    return;
+  }
+  if (E.setPlan(s, u.stage, { approach: u.ap, dog: then?.dog.id || s.crew[0] }).ok) {
     G.commit();
     const el = document.querySelector(`.plan-step[data-stage="${u.stage}"]`);
     el?.classList.add('flash');
@@ -259,36 +292,26 @@ const A = {
   'unlock'(el) {
     G.ui.unlockFor = { stage: el.dataset.stage, ap: el.dataset.ap };
     G.ui.modal = { type: 'unlock', ...G.ui.unlockFor };
-    G.render();
+    G.renderModal();
   },
   'unlock-buy'(el) { unlockWith(E.buy, el.dataset.kit); },
   'unlock-tip'(el) { unlockWith(E.tipFor, el.dataset.k); pencilNew(); },
   'unlock-bribe'() { unlockWith(E.bribeGuard); },
-  // Retiring ends the game, so it takes two taps.
+  // Retiring ends the game, and walking away costs rep, so each takes two taps.
   'retire'(el) {
-    if (!G.ui.confirmRetire) {
-      G.ui.confirmRetire = true;
-      el.textContent = 'Really retire? This ends the game. Tap again.';
-      el.classList.add('red');
-      return;
-    }
-    G.ui.confirmRetire = false;
+    if (!confirmTap(el, 'Really retire? This ends the game. Tap again.')) return;
     G.ui.modal = null;
     run(E.retireNow);
   },
   'walk-away'(el) {
-    if (!G.ui.confirmWalk) {
-      G.ui.confirmWalk = true;
-      el.textContent = 'Really walk away? (-3 rep) Tap again.';
-      el.classList.add('red');
-      return;
-    }
-    G.ui.confirmWalk = false;
+    const p = G.state.job?.patron;
+    const owe = p?.front ? `, and the ${money(p.front)} advance goes back` : '';
+    if (!confirmTap(el, `Really walk away? (-3 rep${owe}) Tap again.`)) return;
     run(E.nextJob);
     show('job');
   },
-  'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.render(); },
-  'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.ui.unlockFor = null; G.render(); },
+  'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.renderModal(); },
+  'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.ui.unlockFor = null; G.renderModal(); },
   'hire'(el) {
     const id = el.dataset.id;
     const hf = hiringFor(G);
@@ -351,6 +374,7 @@ const A = {
   },
   'plan-dog'(el) { run(E.setPlan, el.dataset.stage, { dog: el.dataset.id }); },
   'pull'() {
+    G.clearToasts(); // nothing from the planning should cover the job itself
     const r = E.pullJob(G.state);
     if (!r.ok) { toast(r.msg, true); return; }
     G.ui.heist = { i: 0, playing: true };
@@ -374,7 +398,7 @@ const OPENS = { pick: 'purpose', recruit: null, career: null, history: null, hel
 for (const [type, key] of Object.entries(OPENS)) {
   A[type] = (el) => {
     G.ui.modal = key ? { type, [key]: el.dataset[key] } : { type };
-    G.render();
+    G.renderModal();
   };
 }
 
@@ -384,8 +408,7 @@ document.addEventListener('click', (e) => {
   if (el.disabled) return;
   const fn = A[el.dataset.act];
   if (!fn) return;
-  if (el.dataset.act !== 'walk-away') G.ui.confirmWalk = false;
-  if (el.dataset.act !== 'retire') G.ui.confirmRetire = false;
+  if (G.ui.confirming !== el.dataset.act) G.ui.confirming = null;
   try {
     fn(el);
   } catch (err) {

@@ -8,11 +8,11 @@
 // Deal with the first two by ratting them out (it costs rep), setting them up, or
 // robbing them. All scene data lives on the scene, so it survives a save.
 import { KIT, SKILLS } from './data.js';
-import { money, addHeat, addRep, repNote, addRelation, book } from './util.js';
+import { money, addHeat, addRep, repNote, addRelation, book, addSabotage, withArticle, capFirst } from './util.js';
 import { genDog, shortName, displayName, feeFor } from './dogs.js';
 import { addHardness } from './repute.js';
 import { pushScene, answerScene } from './story.js';
-import { pinJob, keepPinned } from './heists.js';
+import { pinJob, keepPinned, beforeVault } from './heists.js';
 
 export const RIVALS = {
   jacks: {
@@ -105,7 +105,7 @@ const MOVES = {
     const kind = rng.weighted(kinds);
     let text;
     if (kind === 'tipoff') {
-      state.sabotage = (state.sabotage || 0) + 1;
+      addSabotage(state);
       text = 'The Jack Russells have been telling every security guard in town you\'re coming. Your next job starts on alert.';
     } else if (kind === 'gatecrash') {
       state.gatecrash = 'jacks';
@@ -194,7 +194,10 @@ const EFFECTS = {
     addRep(state, -6);
     addHeat(state, -3);
     if (R.ghost.met) R.ghost.interest = Math.max(0, R.ghost.interest - 2);
-    return `A quiet word with the Inspector. ${RIVALS[id].name} ${id === 'dan' ? 'is' : 'are'} lifted at dawn. Nobody at the Dog & Duck will look you in the eye. (-6 rep)`;
+    // A grass is the last thing the Ghost wants on the firm: the audition's off.
+    const offTest = R.ghost.test;
+    if (offTest) R.ghost.test = false;
+    return `A quiet word with the Inspector. ${RIVALS[id].name} ${id === 'dan' ? 'is' : 'are'} lifted at dawn. Nobody at the Dog & Duck will look you in the eye. (-6 rep)${offTest ? ' A grey feather on your desk, snapped in two: the Ghost has heard. The audition\'s off.' : ''}`;
   },
   setup(state, id, rng) {
     addHardness(state, 3);
@@ -208,7 +211,7 @@ const EFFECTS = {
     }
     r.beef += 2;
     state.gatecrash = id;
-    return `${RIVALS[id].short[0].toUpperCase() + RIVALS[id].short.slice(1)} smelled it a mile off. Now ${id === 'dan' ? 'he\'s' : 'they\'re'} coming for your next job.`;
+    return `${capFirst(RIVALS[id].short)} smelled it a mile off. Now ${id === 'dan' ? 'he\'s' : 'they\'re'} coming for your next job.`;
   },
   rob(state, id, rng, ctx) {
     const H = RIVALS[id].hit;
@@ -342,7 +345,7 @@ export function ghostScene(state, rng) {
     else book(state, 'wager', 500);
     return scene(state, 'ghost', 'gift', {
       title: 'A Gift',
-      text: `A parcel in grey paper on the doorstep. Inside: ${k ? `a ${KIT[k].name}` : money(500)}, and a note. "For the collection. Keep leaving your card. — G."`,
+      text: `A parcel in grey paper on the doorstep. Inside: ${k ? withArticle(KIT[k].name) : money(500)}, and a note. "For the collection. Keep leaving your card. — G."`,
       choices: [{ label: 'Leave a card on the next one' }],
     });
   }
@@ -366,9 +369,8 @@ export function gatecrash(state, job) {
   if (!id || !active(R[id]) || ['con', 'fix', 'hack', 'fraud', 'smash'].includes(job.type)) return null;
   let st = job.stages.find((x) => x.id === 'obs_rivals');
   if (!st) {
-    const at = job.stages.findIndex((x) => x.kind === 'vault');
     st = { id: 'obs_rivals', kind: 'obstacle', label: '', icon: '🦹', options: ['o_rivalfight', 'o_rivaldeal', 'o_rivalwait', 'o_rivalgrass'] };
-    job.stages.splice(at, 0, st);
+    beforeVault(job.stages, st);
   }
   st.label = RIVALS[id].name;
   st.icon = RIVALS[id].emblem;

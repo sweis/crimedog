@@ -92,7 +92,44 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Share cards in the hosted build (latest, 0.22.1)
+## Performance, shared code, text that fits (latest, 0.23.0)
+
+- **Performance** (30-job career save, Chromium, probe scripts in scratch `perf/`): the engine is cheap (a whole job ≈ 2 ms, newGame ≈ 1 ms); the cost was rendering.
+  - Portraits are cached by what they're drawn from (`breed|look|size|bg|round`), so a render no longer builds each face's SVG string just to find its cache key (`dogs.portraitURL`). The crew tab went from ~13 to ~11 ms a round trip, the cash pane ×5 from 83 to 16 ms (with the next fix).
+  - Opening or closing a sheet redraws only the sheet (`G.renderModal`), not the screen under it.
+  - Heist tokens on the blueprint reference the cached portrait images (`<image href>`) instead of a fresh inline SVG per token per beat.
+  - The night-sky backdrop is a fixed `body::before` layer instead of six gradients with `background-attachment: fixed`, which repainted on every scroll frame on Android.
+  - The dev overlay reads the save size recorded at save time instead of reading the whole save from storage every 250 ms.
+  - Not done: venue pictures stay inline SVG (as `<img>` they'd lose the Alfa Slab sign lettering).
+- **Shared code** (from a survey of the whole codebase): `sim.bestAssignment` + `planScore` replace five "best person for a step" loops (assignToStage, bestDogFor, autoPlan, the sim's improvise, the pub's step list); `data.PRICES` and `data.FIXER` hold every price and the fixer's simple services (engine `fixerService`, and the Fixer tab and the plan's "Before you go" read the same table); `util`: `roundTo` (13 copies), `fillIn` (three template fillers and two `{d}` replaces), `dots`, `addStat`, `addSabotage`, `coppersCame`; `dogs`: `bestBase`, `loyaltyOf`, `sendToFarm`, `portraitURL`; `heists`: `beforeVault` (5 copies), `unknownIntel` (3); `engine.GRADE_PARTS`; `ui`: `freeInBook`, `rapRow`, `priceTag`; `main`: `confirmTap` for the two-tap buttons. Unused parameters and a duplicate branch gone.
+  - **Verified unchanged:** a fingerprint of 80 seeded careers (both bot policies) and 550 generated jobs is byte-identical before and after (scratch `base/fingerprint.mjs`); `tools/snapshots.mjs` shows every screen identical (heist 0.001%, its animation); ESLint (no-unused-vars, no-undef) clean.
+  - Left as is: the story-scene registry (already shared via story.js; a registry would only move code) and the rivals' he/they switches (most are different words, not grammar).
+- **Text that fits:** `text-wrap: pretty` everywhere (no lone last word), `balance` on headlines, buttons and chips; "·" detail lines (`util.dots`) break between pieces, never inside "Unknown quantity"; tips put "Got it" in their header so the text uses the full width; the profile sheet only clears the close button with its first two lines; crew chemistry and the night/day switch fit at 360 px. Slightly bigger: muted text 14→15 px, dog-card details 13→14, plan option tags 12→13, small chips 12→13.
+- **UI fix:** a dog who won't or can't be hired (rep too low, their outfit says no, out of town, sitting it out, crew full) says why on their sheet, instead of offering a Hire button that only says no.
+- **Bugs found by playing** (a QA pass: 8 careers with real taps at 390 and 360 px, offer and scene sweeps, reloads at every phase; plus an invariant sweep over 300 bot careers, scratch `inv.mjs`). Fixed:
+  1. Rep to 0 or heat to 100 from a scene, amends or a runner action between jobs didn't end the game until after the next job. Now `settle` checks at once (`engine.chooseStory`, `makeAmends`, `runnerAction`).
+  2. Paying the crew when nobody was owed (all ran or were lost) took the money anyway. Now "Nobody left to pay. Keep all £X." (`engine.owedCrew`), full marks for pay.
+  3. Unlocking an option from the plan could swap a 95% step for a 38% one. The sheet shows the option's odds with its best person against the step as planned; after unlocking, the plan only switches if the new way isn't a known worse bet (else "Kept X on it (95%)").
+  4. Lie low at 0 heat cost £100 and a day for "(-0 heat)". Now refused and greyed out.
+  5. "The Syndicate take their 25%: £4,675" included the advance being repaid. Now says so ("their 25% and the £400 advance back").
+  6. "Inside: a The Little Black Ledger" (`util.withArticle`).
+  7. "brick Bone's cash box": `inSentence` now drops a capital only from A/An/The or a word followed by a lower-case word; recaps and the Inspector's file use it instead of lower-casing whole labels ("crack the Wi-Fi").
+  8. The plan tip was used up on an empty plan (no crew). Now saved for a plan with options.
+  9. Planning toasts covered the heist's blueprint for 3 s. Cleared on pull.
+  10. Unhireable regulars (sitting it out, won't work for you) topped the hire-for list. `freeInBook` now uses `hireProblem`.
+  11. A commission that went fine but missed the wanted item said "Job botched". Now "No tiara for them".
+  12. Reload un-paused a paused heist. The playing flag is saved.
+  13. A rush job (2 days) drew 5 day pips, 3 already "used".
+  14. Heat chart: the threshold labels sat on top of the latest value. They're on the left now.
+  15. Ratting out a rival during the Ghost's audition left the audition running. It's off now (CLAUDE.md: ratting puts the Ghost off).
+  16. Dev hooks `spawn('move'|'rival')` returned a name when no scene appeared; now null.
+  17. (invariant sweep) A dog poached, gone or sent down by a drama scene stayed listed in the pub.
+- **Layout nits fixed:** "·" separators end a line instead of starting the next; "×1 in the lock-up" stays in one piece; long names stay inside plan tiles (ellipsis); the prep strip's 📅 sits beside its number; the board's "Buy a round" and "Rap sheet" buttons get a row each; "The Family's place" is capitalised; "Lost to the police: an oil painting"; the walk-away confirmation says when an advance goes back; the aftermath tip covers handing over.
+- **Not fixed (reported):** two dogs with the same first name in one pub; headlines don't vary by job kind; a four-star job named after its own district ("…to Pawcaster, Pawcaster Square"); the hiring-for banner and an open sheet aren't restored on reload; the Jack Russell breed belongs to the Terrier Lads while the rival is the Jack Russell Gang.
+- **Tests:** tests/fixes.test.mjs (6: game over between jobs, nobody to pay, lie low at 0, capitals and articles, ratting ends the audition, the pub after a poaching; the last fails without its fix). Smoke 1v checks the unlock sheet's odds and the keep-or-switch rule; 1x covers walking away. Balance (150 careers): smart F 40% B 17% A 14%, £11.0k, the same as 0.22.
+- **Verified vs not:** 206 unit tests, full smoke, snapshots, invariant sweep, ESLint, all in headless Chromium. Not verified: real phones (Safari's `text-wrap: pretty` arrived in Safari 26; older Safari falls back to normal wrapping, still with the "·" grouping).
+
+## Share cards in the hosted build (0.22.1)
 
 - **Bug:** crew and career share cards said "Couldn't draw the card." in the hosted build. The artifact runs in a sandboxed iframe with an opaque origin (`window.origin === 'null'`); html2canvas clones the page into a child iframe, which gets its own opaque origin, so reading its document throws a SecurityError. Locally (no sandbox) it worked, so smoke never saw it. Reproduced by loading the game in `<iframe sandbox="allow-scripts">`.
 - **Fix** (`card.js`): in a sandboxed frame, or if html2canvas throws, the card is drawn by `drawDOM`, a small painter that walks the same off-screen card and paints each box (background colour or simple gradient, borders, rounded corners), image, inline SVG and word of text at the position the browser laid it out, at 2x. No iframe, no foreignObject, so nothing to taint. Outside a sandbox html2canvas still draws it. The heist recap card was never affected (plain SVG).

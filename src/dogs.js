@@ -1,5 +1,5 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
-import { esc } from './util.js';
+import { esc, roundTo, addStat } from './util.js';
 import { startingRecord } from './justice.js';
 import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES, NEUTRAL_SKILLS, SIZE_CAPS } from './data.js';
 
@@ -221,14 +221,23 @@ export function feeFor(dog, cheap) {
   const power = topSkills(dog, 3).reduce((s, [, v]) => s + v, 0);
   const R = dog.rarity && RARITY[dog.rarity];
   const base = (30 + power * 18 + (dog.role?.level || 0) * 20 + (dog.relation > 30 ? -20 : 0)) * (R ? (dog.homegrown ? R.homeMult : R.feeMult) : 1);
-  return Math.max(30, Math.round((cheap ? base * 0.6 : base) / 10) * 10);
+  return Math.max(30, roundTo(cheap ? base * 0.6 : base));
 }
 
 // A star passing through town (as opposed to one of your own who made it big).
 export const isVisitor = (dog) => !!dog.rarity && !dog.homegrown;
 
+// Off to live on a farm, at the mastermind's say-so. Out of the game for good.
+export function sendToFarm(state, dog) {
+  dog.status = 'farm';
+  dog.farmedBy = 'you';
+  addStat(state, 'farmed');
+}
+
 // Base skills, best first.
-const bestBase = (dog) => SKILLS.slice().sort((a, b) => dog.skills[b] - dog.skills[a]);
+export const bestBase = (dog) => SKILLS.slice().sort((a, b) => (dog.skills[b] || 0) - (dog.skills[a] || 0));
+// How far a dog would go for you: their own loyalty, plus half how they feel about you.
+export const loyaltyOf = (dog) => dog.loyalty + dog.relation * 0.5;
 
 // Common -> rare -> legendary, for crew who've made a name for themselves. A rare
 // gets a signature move in their best skill; a legendary goes by it. Returns the
@@ -524,15 +533,27 @@ export function portraitSVG(dog, opts = {}) {
 // Each image is its own document, so the ids can be fixed, which makes the SVG
 // for a given face and size the same string every time (the cache key).
 // Without a DOM (tests, tools) it falls back to inline SVG.
+// Keyed by what the picture is drawn from (breed, look, size, backdrop), so a
+// render that's seen the face before doesn't build its SVG at all.
 const portraitURLs = new Map();
+const lookKeys = new WeakMap();
+const lookKey = (look) => {
+  let k = lookKeys.get(look);
+  if (!k) lookKeys.set(look, (k = JSON.stringify(look)));
+  return k;
+};
+export function portraitURL(dog, opts = {}) {
+  const key = `${dog.breed}|${lookKey(dog.look)}|${opts.size || ''}|${opts.bg ?? ''}|${opts.round || ''}`;
+  let url = portraitURLs.get(key);
+  if (!url) {
+    url = URL.createObjectURL(new Blob([portraitSVG(dog, { ...opts, uid: 'p' })], { type: 'image/svg+xml' }));
+    portraitURLs.set(key, url);
+  }
+  return url;
+}
 export function portraitHTML(dog, opts = {}) {
   if (typeof document === 'undefined') return portraitSVG(dog, opts);
-  const svg = portraitSVG(dog, { ...opts, uid: 'p' });
-  let url = portraitURLs.get(svg);
-  if (!url) {
-    url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    portraitURLs.set(svg, url);
-  }
+  const url = portraitURL(dog, opts);
   const size = opts.size || 96;
   return `<img class="portrait" src="${url}" width="${size}" height="${size}" alt="${esc(dog.first)} the ${esc(BREEDS[dog.breed].label)}" draggable="false">`;
 }

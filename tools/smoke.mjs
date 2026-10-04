@@ -1193,14 +1193,26 @@ console.log('1v. Planning in one place: the prep strip, the job\'s needs in the 
   const locked = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => ({ ap: e.dataset.ap, stage: e.dataset.stage, rope: /Grappling Rope/.test(e.innerText) })), lockedSel);
   const rope = locked.find((x) => x.rope) || locked[0];
   check(!!rope, `the plan has a locked option (${locked.map((x) => x.ap).join(', ')})`);
+  rope.plan = await page.evaluate((st) => window.cd.live().job.plan[st] || null, rope.stage);
   await tap(page, `main .opt.locked[data-ap="${rope.ap}"][data-stage="${rope.stage}"]`);
+  check(/With it: .*\d+%|\?\?%/.test(await page.locator('.modal .unlock-odds').innerText()), 'the sheet says what the option would be worth');
   check(await page.locator('.modal [data-act="unlock-buy"], .modal [data-act="unlock-tip"], .modal [data-act="pick"]').count() >= 1, 'tapping it says how to unlock it, with the button right there');
   await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
   await shot(page, 'unlock-sheet');
   const before = await page.evaluate(() => window.cd.live().cash);
   await tap(page, '.modal [data-act="unlock-buy"], .modal [data-act="unlock-tip"]');
-  const after = await page.evaluate(async (r) => { const E = await import('/src/engine.js'); const s = window.cd.live(); return { cash: s.cash, plan: s.job.plan[r.stage], best: E.bestDogFor(s, r.stage, r.ap), modal: !!document.querySelector('.modal') }; }, rope);
-  check(after.cash < before && after.plan?.approach === rope.ap && after.plan.dog === after.best && !after.modal, `unlocked, on the plan, with the best person on it (${JSON.stringify(after)})`);
+  const planBefore = rope.plan;
+  const after = await page.evaluate(async (r) => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    const best = E.bestDogFor(s, r.stage, r.ap);
+    const then = E.stepOdds(s, r.stage, r.ap, best);
+    const was = r.plan?.approach ? E.stepOdds(s, r.stage, r.plan.approach, r.plan.dog) : null;
+    return { cash: s.cash, plan: s.job.plan[r.stage], best, then: then && { p: then.p, known: then.known }, was: was && { p: was.p, known: was.known }, modal: !!document.querySelector('.modal'), toast: document.getElementById('toast').innerText };
+  }, rope);
+  const switched = after.plan?.approach === rope.ap && after.plan.dog === after.best;
+  const kept = after.was?.known && (!after.then.known || after.then.p < after.was.p) && after.plan?.approach === planBefore.approach && /Kept/.test(after.toast);
+  check(after.cash < before && !after.modal && (switched || kept), `unlocked: on the plan with the best person, or the better plan kept and said so (${JSON.stringify(after).slice(0, 300)})`);
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }
@@ -1248,6 +1260,29 @@ console.log('1w. Share cards inside a sandboxed frame (as hosted): a crew card a
   await ftap('.modal [data-act="share-career"]');
   const career = await cardShown();
   check(career.w === 780 && career.h > 600 && !career.bad, `the career card draws in the sandbox (${JSON.stringify(career)})`);
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+console.log('1x. Walking away takes two taps; anything in between starts over');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=5`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(5); window.cd.teleport('select'); window.cd.live().story = []; window.cd.teleport('select'); });
+  await tap(page, 'main [data-act="take-offer"]');
+  const rep0 = await page.evaluate(() => window.cd.live().rep);
+  await tap(page, 'main [data-act="walk-away"]');
+  check((await page.locator('main [data-act="walk-away"]').innerText()).includes('Really walk away'), 'the first tap asks');
+  await tap(page, 'main [data-act="time"][data-t="day"]');
+  check(!(await page.locator('main [data-act="walk-away"]').innerText()).includes('Really'), 'another tap in between: it asks again');
+  await tap(page, 'main [data-act="walk-away"]');
+  await tap(page, 'main [data-act="walk-away"]');
+  const after = await page.evaluate(() => ({ phase: window.cd.live().phase, rep: window.cd.live().rep }));
+  check(after.phase === 'select' && after.rep < rep0, `two taps: walked away, rep ${rep0} -> ${after.rep}`);
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

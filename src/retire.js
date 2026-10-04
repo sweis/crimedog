@@ -1,9 +1,9 @@
 // The long game: put away enough to retire, then walk away for good. Retiring
 // ends the game with a few epilogues: who came with you, who you visited on the
 // farm, who you tracked down after they did a runner, and the stars who drop in.
-import { SIGNATURES, SKILLS } from './data.js';
-import { fail, done, money, inSentence } from './util.js';
-import { displayName, shortName, closestMates } from './dogs.js';
+import { SIGNATURES } from './data.js';
+import { fail, done, money, inSentence, fillIn } from './util.js';
+import { displayName, shortName, closestMates, bestBase } from './dogs.js';
 import { rivalsOf, RIVALS } from './rivals.js';
 import { INSPECTOR } from './inspector.js';
 import { GRADE_ORDER } from './recap.js';
@@ -26,7 +26,7 @@ export function retire(state, rng) {
 function bestJob(state, d) {
   return (state.history || []).filter((h) => h.crew?.some((c) => c.id === d.id)).sort((a, b) => GRADE_ORDER.indexOf(a.grade) - GRADE_ORDER.indexOf(b.grade))[0] || null;
 }
-const bestSkill = (d) => SKILLS.slice().sort((a, b) => (d.skills[b] || 0) - (d.skills[a] || 0))[0];
+const bestSkill = (d) => bestBase(d)[0];
 
 // What a close mate does in retirement, by what they're best at.
 const CLOSE = {
@@ -41,7 +41,7 @@ const CLOSE = {
   aim: '{d} spends the afternoons knocking coconuts off trees from the terrace. Never misses.',
   nose: '{d} found the best fish restaurant on the coast in four minutes flat. You go every Friday.',
 };
-const fill = (t, d, extra = {}) => t.replace(/\{d\}/g, shortName(d)).replace(/\{(\w+)\}/g, (m, k) => extra[k] ?? m);
+const fill = (t, d, extra = {}) => fillIn(t, { ...extra, d: shortName(d) }, null);
 
 function closeLine(state, d) {
   const job = bestJob(state, d);

@@ -30,14 +30,6 @@
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--night);
-  background-image:
-    var(--rain),
-    radial-gradient(ellipse 60% 40% at 8% -5%, rgba(255, 196, 110, .18), transparent 70%),
-    radial-gradient(circle at 90% 6%, rgba(220, 230, 255, .10) 0, transparent 22%),
-    radial-gradient(ellipse 120% 50% at 50% 110%, rgba(120, 140, 180, .22), transparent 70%),
-    radial-gradient(circle at 100% 100%, #2a1f3a 0, transparent 45%),
-    linear-gradient(180deg, #0c1427 0%, #121e3a 55%, #17213d 100%);
-  background-attachment: fixed;
   color: var(--paper);
   font-family: var(--font-body);
   font-size: 16px;
@@ -45,6 +37,25 @@ body {
   min-height: 100svh;
   -webkit-tap-highlight-color: transparent;
   overflow-x: hidden;
+  /* No lone word on a last line: browsers that can, even out the lines. */
+  text-wrap: pretty;
+}
+/* Short, centred or display text reads best with lines of even length. */
+.btn, .chip, .hl, .stamp, .verdict, .center, .story-pic + .muted, .share-mark { text-wrap: balance; }
+/* Pieces of a "·" line that stay together. */
+.bit { display: inline-block; }
+/* The night sky behind everything: its own fixed layer, painted once, instead of a
+   fixed background that repaints on every scroll frame. */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-color: var(--night);
+  background-image:
+    var(--rain),
+    radial-gradient(ellipse 60% 40% at 8% -5%, rgba(255, 196, 110, .18), transparent 70%),
+    radial-gradient(circle at 90% 6%, rgba(220, 230, 255, .10) 0, transparent 22%),
+    radial-gradient(ellipse 120% 50% at 50% 110%, rgba(120, 140, 180, .22), transparent 70%),
+    radial-gradient(circle at 100% 100%, #2a1f3a 0, transparent 45%),
+    linear-gradient(180deg, #0c1427 0%, #121e3a 55%, #17213d 100%);
 }
 button { font: inherit; color: inherit; cursor: pointer; }
 /* Portraits fill whatever frame they sit in. */
@@ -87,7 +98,7 @@ h3 { font-size: 16px; }
 .card h2, .modal h2, .plan-step h2 { color: var(--ink); text-shadow: none; }
 .card.dark h2 { color: var(--brass); text-shadow: 0 2px 0 rgba(0, 0, 0, .45); }
 p { margin: 0 0 8px; }
-.muted { color: #aab3c9; font-size: 14px; }
+.muted { color: #aab3c9; font-size: 15px; }
 .card {
   background: var(--grain), linear-gradient(180deg, #f7eedb, var(--paper) 40%, #efe2c6); color: var(--ink); border-radius: var(--radius);
   padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow); border: 1px solid var(--paper-edge);
@@ -183,14 +194,15 @@ p { margin: 0 0 8px; }
 .days i { width: 16px; height: 16px; border-radius: 4px; display: block; background: linear-gradient(180deg, #f0cf6e, #c8962a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 1px 2px rgba(0, 0, 0, .3); }
 .days i.used { background: var(--paper-3); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .2); }
 .seg { display: inline-flex; background: var(--paper-2); border-radius: 12px; padding: 3px; gap: 3px; box-shadow: inset 0 1px 3px rgba(60, 40, 10, .3); }
-.seg button { border: 0; background: transparent; padding: 8px 12px; border-radius: 9px; min-height: 40px; font-weight: 600; color: var(--ink); }
+.seg button { border: 0; background: transparent; padding: 8px 12px; border-radius: 9px; min-height: 40px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+@media (max-width: 380px) { .seg button { padding: 8px 9px; } }
 .seg button.on { background: linear-gradient(180deg, #2c2a33, #16151a); color: var(--paper); box-shadow: 0 2px 4px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .12); }
 
 /* ---------- dog cards */
 .dog-card { display: flex; gap: 12px; align-items: center; background: var(--paper-fill); color: var(--ink); border-radius: var(--radius); padding: 10px; margin-bottom: 10px; box-shadow: var(--shadow); width: 100%; text-align: left; border: 1px solid var(--paper-edge); }
 .dog-card .pic { width: 64px; height: 64px; flex: none; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 2px var(--ink), 0 3px 8px rgba(0, 0, 0, .35); }
 .dog-card .name { font-weight: 800; font-family: var(--font-title); font-size: 16px; line-height: 1.15; }
-.dog-card .sub { font-size: 13px; color: var(--ink-soft); }
+.dog-card .sub { font-size: 14px; color: var(--ink-soft); line-height: 1.35; }
 .dog-card .fee { font-weight: 800; font-variant-numeric: tabular-nums; }
 .dog-card.hired { box-shadow: var(--shadow), 0 0 0 3px var(--green), 0 0 18px rgba(47, 125, 82, .5); }
 .dog-card.gone { opacity: .6; }
@@ -233,6 +245,10 @@ p { margin: 0 0 8px; }
 @keyframes up { from { transform: translateY(40px); opacity: .5; } }
 .modal-bar { position: sticky; top: 0; z-index: 3; height: 0; display: flex; justify-content: flex-end; }
 .modal-bar + * { padding-right: 52px; }
+/* A profile only needs to clear the close button with its first two lines; the rest
+   can run the full width. */
+.modal-bar + .dm-head { padding-right: 0; }
+.modal-bar + .dm-head :is(.dm-name, .faction) { padding-right: 44px; }
 .modal .close { background: var(--paper-2); border: 2px solid var(--paper-3); border-radius: 999px; width: 44px; height: 44px; font-size: 20px; flex: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); }
 .modal .portrait-big { width: 120px; height: 120px; border-radius: 16px; overflow: hidden; flex: none; box-shadow: 0 0 0 3px var(--ink), 0 6px 14px rgba(0, 0, 0, .4); }
 .pick-list .dog-card { box-shadow: none; border: 2px solid var(--paper-3); }
@@ -252,7 +268,7 @@ p { margin: 0 0 8px; }
 .dm-skills .pips i { width: 7px; height: 10px; }
 .dm-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 .dm-chips .muted { font-size: 13px; }
-.dm-chips .chip { font-size: 12px; padding: 2px 8px; }
+.dm-chips .chip { font-size: 13px; padding: 2px 8px; }
 .dm-traits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .dm-trait b.bad { color: #8a2419; }
 .dm-trait { background: rgba(255, 255, 255, .35); border: 1px solid var(--paper-3); border-radius: 8px; padding: 4px 8px; display: flex; flex-direction: column; font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .05em; }
@@ -365,7 +381,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .opt[disabled] { opacity: .5; }
 .opt.secret { border-color: var(--brass); background: linear-gradient(180deg, #fff8dc, #f6e3a6); }
 .opt.secret.on { border-color: var(--ink); background: linear-gradient(180deg, #fff3c4, #f3d77e); }
-.opt .tags { font-size: 12px; color: var(--ink-soft); }
+.opt .tags { font-size: 13px; color: var(--ink-soft); line-height: 1.35; }
 .opt .ski { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; text-align: center; flex: none; font-size: 17px; background: radial-gradient(circle at 35% 30%, #fff, #e3d3ae); box-shadow: inset 0 -2px 3px rgba(80, 60, 20, .25), 0 1px 2px rgba(0, 0, 0, .25); }
 .assignees { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 2px; }
 .assignee { flex: none; width: 64px; border: 2px solid var(--paper-3); background: linear-gradient(180deg, rgba(255, 255, 255, .45), rgba(233, 220, 191, .6)); border-radius: 10px; padding: 4px; text-align: center; font-size: 11px; color: var(--ink); line-height: 1.1; }
@@ -564,7 +580,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .prep button.todo { border-style: dashed; }
 .prep button.here { box-shadow: 0 0 0 2px var(--paper); }
 .prep button[disabled] { opacity: .5; }
-.prep .days-left { display: grid; place-items: center; font-size: 13px; padding: 0 4px; color: var(--paper); }
+.prep .days-left { display: flex; align-items: center; gap: 2px; white-space: nowrap; font-size: 13px; padding: 0 2px; color: var(--paper); }
 body.prepping #toast { top: calc(104px + env(safe-area-inset-top, 0px)); }
 /* The pub while planning: the job's steps and how well the crew covers each. */
 .cover-card { padding: 10px 12px; }
@@ -577,10 +593,11 @@ body.prepping #toast { top: calc(104px + env(safe-area-inset-top, 0px)); }
 .cover.part b { color: var(--brass-dark); }
 .cover.todo b { color: var(--red); }
 /* First-visit tips. */
-.tip { display: flex; gap: 10px; align-items: flex-start; background: #fff7df; border: 1.5px solid var(--brass); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; color: var(--ink); font-size: 14px; box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .4); }
-.tip .ico { font-size: 22px; line-height: 1; }
-.tip b { display: block; font-family: var(--font-title); margin-bottom: 2px; }
-.tip .btn { flex: none; align-self: center; }
+.tip { background: #fff7df; border: 1.5px solid var(--brass); border-radius: 12px; padding: 8px 12px 10px; margin: 0 0 12px; color: var(--ink); font-size: 15px; line-height: 1.4; box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .4); }
+.tip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.tip-head .ico { font-size: 20px; line-height: 1; }
+.tip-head b { flex: 1; font-family: var(--font-title); }
+.tip-head .btn { flex: none; min-height: 32px; padding: 4px 12px; }
 .kit .for-job { font-size: 12px; color: var(--green); font-weight: 600; margin-top: 2px; }
 .kit.useful .ico { box-shadow: 0 0 0 2px var(--green); border-radius: 10px; }
 /* The odds of the whole plan coming off. */
@@ -595,3 +612,13 @@ body.prepping #toast { top: calc(104px + env(safe-area-inset-top, 0px)); }
 .last-calls .chip { font-size: 13px; padding: 6px 10px; min-height: 34px; }
 .last-calls .chip[disabled] { opacity: .6; }
 .last-calls .chip.good[disabled] { opacity: 1; }
+
+/* Crew chemistry: the label stays on one line; the verdict sits beside it or under it. */
+.chem > .row { flex-wrap: wrap; column-gap: 10px; row-gap: 2px; }
+.chem > .row > b { white-space: nowrap; }
+
+/* An assignee's name stays inside the tile. */
+.assignee .nm { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* "×1 in the lock-up" and the like stay in one piece. */
+.own { white-space: nowrap; }
+.board-actions .btn { flex: 1 1 100%; }

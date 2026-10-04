@@ -1,8 +1,8 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
 import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES, INTEL } from './data.js';
-import { skillOf, hasSpecial, shortName, roleLevel, sizeOf } from './dogs.js';
-import { clamp, hashOf, inSentence } from './util.js';
+import { skillOf, hasSpecial, shortName, roleLevel, sizeOf, loyaltyOf } from './dogs.js';
+import { clamp, hashOf, inSentence, fillIn } from './util.js';
 import { bondOf, chemistry } from './bonds.js';
 import { lootItem } from './heists.js';
 import { moPenalty, SETUP_TEXT } from './inspector.js';
@@ -80,6 +80,24 @@ export function specialKitFor(kit, job, stage, a) {
   });
 }
 const specialKitBonus = (kit, job, stage, a) => specialKitFor(kit, job, stage, a).reduce((sum, k) => sum + KIT[k].effect.diff, 0);
+
+// The best approach and person for a step: approaches in order, then the crew in
+// order, and a tie goes to the first. `score` turns odds into a preference.
+export function bestAssignment(state, job, stage, { crew, approaches = stageOptions(stage, crew), available = (ap) => approachAvailable(state, job, ap).ok, ctx, score = (o) => o.p }) {
+  let best = null;
+  for (const ap of approaches) {
+    if (!available(ap)) continue;
+    for (const d of crew) {
+      if (!canDo(d, ap)) continue;
+      const o = odds(state, job, stage, ap, d, ctx);
+      const sc = score(o, d, ap);
+      if (!best || sc > best.score) best = { ap, d, p: o.p, score: sc };
+    }
+  }
+  return best;
+}
+// Planning on what you know: an unknown skill counts for about half.
+export const planScore = (o, d, ap) => (d.known.skills[APPROACHES[ap].skill] ? o.p : o.p * 0.5 + 0.1);
 
 export function baseOdds(skill, diff) {
   return clamp(0.6 + 0.11 * (skill - diff), 0.05, 0.95);
@@ -169,7 +187,6 @@ const END_TEXT = {
   setup: 'Stitched up like a kipper. The Inspector got his photos.',
 };
 
-const loyaltyOf = (d) => d.loyalty + d.relation * 0.5;
 
 // Now and then the crew go by colours for the night. Somebody always ends up Mr Pink.
 function codenames(job, crew) {
@@ -286,7 +303,7 @@ export function simulate(state, job, rng) {
     // Once the Inspector is close, the police are never far away.
     if (!ctx.coppers && ctx.alarm >= (state.heat >= 60 ? ALARM_MAX - 2 : ALARM_MAX)) {
       ctx.coppers = true;
-      beat({ kind: 'alarm', stage: stageId, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
+      beat({ kind: 'alarm', stage: stageId, coppers: true, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
       const unlucky = active();
       if (unlucky.length) escapeCheck(rng.pick(unlucky), stageId);
     }
@@ -333,7 +350,7 @@ export function simulate(state, job, rng) {
         ok = roll < p;
         beat({ kind: 'luck', stage: stage.id, dog: dog.id, text: `${shortName(dog)} fumbles... and gets a lucky second go.` });
       }
-      text = (ok ? a.ok : a.fail).replace(/\{d\}/g, shortName(dog));
+      text = fillIn(ok ? a.ok : a.fail, { d: shortName(dog) }, null);
     }
     // Talents that helped
     for (const t of dog.talents) {
@@ -378,17 +395,14 @@ export function simulate(state, job, rng) {
   };
 
   const bestFor = (stage, exclude = [], extra = 0) => {
-    let best = null;
-    for (const ap of stageOptions(stage, active())) {
-      if (exclude.includes(ap)) continue;
-      if (!approachAvailable(state, job, ap, ctx.kitLeft, active()).ok) continue;
-      for (const d of active()) {
-        if (!canDo(d, ap)) continue;
-        const o = odds(state, job, stage, ap, d, { alarm: ctx.alarm, crew: active(), kitLeft: ctx.kitLeft, extra });
-        if (!best || o.p > best.p) best = { approach: ap, dog: d, p: o.p };
-      }
-    }
-    return best;
+    const crew = active();
+    const best = bestAssignment(state, job, stage, {
+      crew,
+      approaches: stageOptions(stage, crew).filter((ap) => !exclude.includes(ap)),
+      available: (ap) => approachAvailable(state, job, ap, ctx.kitLeft, crew).ok,
+      ctx: { alarm: ctx.alarm, crew, kitLeft: ctx.kitLeft, extra },
+    });
+    return best && { approach: best.ap, dog: best.d, p: best.p };
   };
 
   // Anything a dog was carrying on the way out is lost with them.
@@ -729,7 +743,7 @@ export function simulate(state, job, rng) {
       if (!rng.chance(0.1 + 0.03 * d.role.level)) continue;
       const good = rng.chance(0.5 + 0.04 * d.role.level);
       const e = rng.pick(good ? WILD.good : WILD.bad);
-      beat({ kind: good ? 'good' : 'chaos', stage: stage.id, dog: d.id, text: e.text.replace(/\{d\}/g, shortName(d)) });
+      beat({ kind: good ? 'good' : 'chaos', stage: stage.id, dog: d.id, text: fillIn(e.text, { d: shortName(d) }, null) });
       if (e.alarm > 0) addAlarm(e.alarm, stage.id);
       if (e.alarm < 0) ctx.alarm = Math.max(0, ctx.alarm + e.alarm);
       if (e.bonus) ctx.nextBonus = e.bonus;

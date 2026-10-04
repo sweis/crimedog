@@ -71,7 +71,7 @@ export function snapshot(G) {
     renders: G.stats.renders,
     renderMs: +(G.stats.renderMs || 0).toFixed(2),
     renderMax: +(G.stats.renderMax || 0).toFixed(2),
-    saveBytes: (() => { try { return (localStorage.getItem('crimedog.save.v2') || '').length; } catch { return -1; } })(),
+    saveBytes: G.stats.saveBytes ?? (() => { try { return (localStorage.getItem(G.saveKey) || '').length; } catch { return -1; } })(),
     domNodes: document.getElementsByTagName('*').length,
     drawCalls: 0, // DOM/SVG renderer: no GL draw calls
     shaderPrograms: 0,
@@ -169,12 +169,13 @@ export function installDebug(G) {
         // The Inspector makes a move: spawn('move', 'plant' | 'stakeout' | 'warn' | 'tail' | 'questioning' | 'lineup' | 'strip' | 'sting' | 'flip' | 'raid')
         const st = inspectorMoves(s, E.rngOf(s), { genJob, force: at || 'plant' });
         G.commit();
-        return st?.move || at;
+        return st ? st.move || at : null; // null: its conditions weren't met, so no scene
       }
       if (kind === 'rival') {
         // A rival's scene: spawn('rival', 'jacksIntro' | 'jacksMischief' | 'danIntro' | 'danNote' | 'danWager' | 'ghost')
         const rng = E.rngOf(s);
         const R = rivalsOf(s);
+        const before = s.story.length;
         if (at === 'ghost') { R.ghost.interest = Math.max(R.ghost.interest, 2); ghostScene(s, rng); }
         else {
           if (at?.startsWith('jacks')) R.jacks.met = true;
@@ -182,7 +183,7 @@ export function installDebug(G) {
           rivalsBetweenJobs(s, rng, { genJob, force: at || 'jacksIntro' });
         }
         G.commit();
-        return s.story.at(-1)?.move;
+        return s.story.length > before ? s.story.at(-1).move || s.story.at(-1).title : null;
       }
       if (kind === 'runner') {
         // One of your book does a runner: spawn('runner') — their plotline starts.

@@ -1,6 +1,7 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
 import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MASTERS, MASTER_MIN, SIZE_STEPS, MARKS, KIT } from './data.js';
+import { roundTo } from './util.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank', 'Bank Job', 'Heat'],
@@ -293,7 +294,7 @@ export function genJob(state, rng, opts = {}) {
     name,
     kind,
     bulk,
-    value: Math.round((worth * 450 * mult * rng.float(0.75, 1.3)) / 50) * 50,
+    value: roundTo(worth * 450 * mult * rng.float(0.75, 1.3), 50),
   }));
   loot.sort((a, b) => b.value - a.value);
   const star = loot[0];
@@ -316,19 +317,17 @@ export function genJob(state, rng, opts = {}) {
   const stages = LAYOUTS[type]({ rng, V, obstacles, hazards, insider });
   if (grand) {
     // Three master steps before the goods, each in a different skill.
-    const at = stages.findIndex((st) => st.kind === 'vault');
     const steps = rng.sample(mastersFor(type), 3).map((sk) => {
       const m = MASTERS[sk];
       return { id: `master_${sk}`, kind: 'obstacle', label: m.label, icon: m.icon, options: m.options.slice(), master: true, noSig: true, needs: { skill: sk, min: MASTER_MIN } };
     });
-    stages.splice(at, 0, ...steps);
+    beforeVault(stages, ...steps);
   }
   // Sometimes one step takes a real specialist.
   const specials = SPECIALS[type];
   if (!grand && specials.length && rng.chance(tier === 1 ? 0.3 : 0.45)) {
     const sp = SPECIALISTS[rng.pick(specials)];
-    const at = stages.findIndex((st) => st.kind === 'vault');
-    stages.splice(at, 0, { id: 'specialist', kind: 'obstacle', label: sp.label, icon: sp.icon, options: sp.options.slice(), needs: { skill: sp.skill, min: sp.min } });
+    beforeVault(stages, { id: 'specialist', kind: 'obstacle', label: sp.label, icon: sp.icon, options: sp.options.slice(), needs: { skill: sp.skill, min: sp.min } });
   }
 
   // Now and then a step wants someone small (a vent, a cat flap) or someone big (a lift
@@ -341,7 +340,7 @@ export function genJob(state, rng, opts = {}) {
     const step = { id: `size_${id}`, kind: 'obstacle', label: z.label, icon: z.icon, options: z.options.slice(), needsSize: z.size, noSig: true };
     const ordinary = stages.filter((st) => !st.hidden && st.id.startsWith('obs_') && OBSTACLES[st.id.slice(4)] && st.id !== 'obs_rivals');
     if (ordinary.length) stages[stages.indexOf(rng.pick(ordinary))] = step;
-    else stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, step);
+    else beforeVault(stages, step);
   }
 
   // A twist, now and then (more often on bigger jobs).
@@ -351,9 +350,9 @@ export function genJob(state, rng, opts = {}) {
   if (twist === 'rush') daysLeft = 2;
   if (twist === 'bigger') {
     jobBase += 1;
-    for (const l of loot) l.value = Math.round((l.value * 1.4) / 50) * 50;
+    for (const l of loot) l.value = roundTo(l.value * 1.4, 50);
   }
-  if (twist === 'rivals') stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, obstacle('obs_rivals', 'rivals', {}, rng));
+  if (twist === 'rivals') beforeVault(stages, obstacle('obs_rivals', 'rivals', {}, rng));
 
   // Your master key card opens a way into any building.
   if (state.kit?.keycard > 0 && ['breakin', 'swap'].includes(type)) stages[0].options.splice(stages[0].options.length - (insider ? 1 : 0), 0, 'e_keycard');
@@ -435,6 +434,14 @@ function pickTwist(rng, type, stages) {
 function isUngated(approachId) {
   const a = APPROACHES[approachId];
   return !a.needKit && !a.needIntel && !a.needInsider && !a.needBribe;
+}
+
+// What you don't know yet about a job, in the order it was drawn up.
+export const unknownIntel = (job) => Object.keys(job.intel).filter((k) => !job.intel[k]);
+
+// Put steps just before the goods.
+export function beforeVault(stages, ...steps) {
+  stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, ...steps);
 }
 
 export function visibleStages(job) {

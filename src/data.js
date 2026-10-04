@@ -392,6 +392,18 @@ export const CODENAMES = ['Mr White', 'Mr Orange', 'Mr Blonde', 'Mr Brown', 'Mr 
 
 // Kit: bonus = +difficulty relief when the approach lists it; consumable kit is
 // used up when the step runs.
+// What the pub, the tipsters and the fixer charge: one place, so the screens and the
+// engine always agree.
+export const PRICES = { leads: 40, case: 40, tipster: 120, tipFor: 160, surveil: 80, insider: 100, bribe: 150 /* a star */, safehouse: 250, fakeIds: 200, buyer: 150, vet: 60, layLow: 100 };
+
+// The fixer's simple services: each sets a flag on the job. `day`: it takes a day.
+export const FIXER = {
+  safehouse: { flag: 'safehouse', price: PRICES.safehouse, icon: '🏚️', name: 'Safehouse', blurb: 'Less heat, better escapes.', state: 'Sorted', already: 'Already sorted.', tooDear: `A safehouse costs £${PRICES.safehouse}.`, msg: () => 'A lock-up behind the launderette. Somewhere to lie low after the job.' },
+  fakeids: { flag: 'fakeIds', price: PRICES.fakeIds, icon: '🪪', name: 'Fake IDs', blurb: 'Fewer clues; nicked crew crack less.', state: 'Sorted', already: 'Already sorted.', tooDear: `Fake IDs cost £${PRICES.fakeIds}.`, msg: () => 'Fresh papers for everyone. Captured crew will be harder to trace.' },
+  buyer: { flag: 'buyer', price: PRICES.buyer, day: true, icon: '🎩', name: 'Line up The Collector', short: 'The Collector', blurb: 'Pays full value.', state: 'Waiting', already: 'The Collector is already waiting.', tooDear: `Costs £${PRICES.buyer} to get a meeting.`, msg: () => 'The Collector agrees to buy the lot — at full value.' },
+  vet: { flag: 'fenceVetted', price: PRICES.vet, icon: '🔍', name: 'Check out Francesca', blurb: 'Is the new fence a sting?', state: (job) => (job.stingFence ? 'STING!' : 'Legit'), already: 'Already looked into her.', tooDear: `Costs £${PRICES.vet}.`, msg: (job) => (job.stingFence ? 'Fancy Francesca drives a police-issue car. She\'s a STING.' : 'Fancy Francesca checks out. Just flashy.') },
+};
+
 export const KIT = {
   lockpicks: { name: 'Lockpicks', price: 80, icon: '🗝️', consumable: false, blurb: '+2 on lock work.', breaks: 'snap off in the lock' },
   stethoscope: { name: 'Stethoscope', price: 120, icon: '🩺', consumable: false, blurb: '+2 cracking safes by ear.', breaks: 'gets trodden on' },

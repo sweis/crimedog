@@ -1,8 +1,8 @@
 // The city's outfits: standing, job offers, deals, debts and grudges. Pure
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
-import { clamp, fail, done, money, addHeat, addRep, addRelation, book } from './util.js';
-import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady } from './heists.js';
+import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn, addSabotage, inSentence } from './util.js';
+import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady, unknownIntel, lootItem } from './heists.js';
 import { makeTip } from './inspector.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -44,7 +44,7 @@ export function hireBlocked(state, dog) {
 }
 export function hireCost(state, dog) {
   const g = state.groups?.[dog.faction];
-  return g && g.standing >= 50 ? Math.max(30, Math.round((dog.fee * 0.8) / 10) * 10) : dog.fee;
+  return g && g.standing >= 50 ? Math.max(30, roundTo(dog.fee * 0.8)) : dog.fee;
 }
 
 function ownedBy(gid) {
@@ -53,7 +53,7 @@ function ownedBy(gid) {
 
 function queueStory(state, gid, kind, vars = {}) {
   const G = GROUPS[gid];
-  const fill = (t) => t.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+  const fill = (t) => fillIn(t, vars);
   const byKind = {
     intro: { title: G.boss, text: G.intro },
     debt: { title: `You owe ${G.short}`, text: fill(G.debtText || '') },
@@ -102,12 +102,12 @@ function groupOffer(state, rng, gid, forced) {
     const wanted = job.loot.filter((l) => G.wants.includes(l.kind));
     const item = (wanted.length ? wanted : job.loot)[0];
     patron.want = item.id;
-    patron.fee = deal === 'marker' || amends ? 0 : Math.round((item.value * (1.25 + Math.max(0, g.standing) / 200)) / 50) * 50;
+    patron.fee = deal === 'marker' || amends ? 0 : roundTo(item.value * (1.25 + Math.max(0, g.standing) / 200), 50);
     if (deal === 'marker' || amends) patron.debtClear = g.debt?.amount || 0;
   } else {
     patron.cut = g.standing >= 50 ? 20 : g.standing >= 20 ? 25 : 30;
     // A tip-off comes with some of their intel.
-    const unknown = Object.keys(job.intel).filter((k) => !job.intel[k]);
+    const unknown = unknownIntel(job);
     for (const k of rng.sample(unknown, 2)) revealIntel(job, k);
   }
   if (G.serious && deal !== 'marker' && !amends && rng.chance(0.5)) patron.front = 100 * tier + 100;
@@ -145,7 +145,7 @@ const AMENDS_AT = -20;
 export const canMakeAmends = (state, gid) => state.groups[gid].standing <= AMENDS_AT;
 export function amendsCost(state, gid) {
   const g = state.groups[gid];
-  const debt = g.debt ? Math.round((g.debt.amount * 1.25) / 10) * 10 : 0;
+  const debt = g.debt ? roundTo(g.debt.amount * 1.25) : 0;
   return debt + Math.max(0, -g.standing) * 20;
 }
 export function makeAmends(state, rng, gid, how) {
@@ -203,7 +203,9 @@ export function settleGroups(state) {
       }
       for (const rival of G.rivals) adjust(state, rival, -5, `Working for ${G.short}`, log);
     } else {
-      adjust(state, p.group, -15, 'Job botched', log);
+      // A commission is about the one thing: say so, if the rest went fine.
+      const why = p.want && a.securedValue > 0 ? `No ${inSentence(lootItem(job, p.want)?.name || 'goods')} for them` : 'Job botched';
+      adjust(state, p.group, -15, why, log);
       log[log.length - 1].quote = G.angry[state.stats.jobs % G.angry.length];
       if (p.deal === 'amends') g.amends = null;
       if (G.serious && p.deal !== 'amends' && !(p.deal === 'marker' && !g.debt)) {
@@ -249,7 +251,7 @@ export function betweenJobs(state, rng) {
         } else {
           addHeat(state, 15);
         }
-        g.debt.amount = Math.round((g.debt.amount * 1.2) / 10) * 10;
+        g.debt.amount = roundTo(g.debt.amount * 1.2);
         g.debt.patience = 2;
         queueStory(state, gid, 'pressure');
         events.push(G.pressure);
@@ -262,7 +264,7 @@ export function betweenJobs(state, rng) {
         const take = Math.round(state.cash * 0.15);
         book(state, 'raids', -take);
         vars.amount = `${money(take)}`;
-      } else if (e === 'alert') state.sabotage = (state.sabotage || 0) + 1;
+      } else if (e === 'alert') addSabotage(state);
       else if (e === 'rep') addRep(state, -5);
       else if (e === 'crew') {
         const pool = Object.values(state.dogs).filter((d) => d.met && d.status === 'free');

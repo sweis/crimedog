@@ -3,9 +3,9 @@
 // money and change the dog (loyalty, a promotion, the pound, a betrayal), and some
 // spill into the next job: a dog fired up or distracted (edge), sitting it out
 // (away), or bringing trouble that turns up on the night (see sim.js).
-import { GROUPS, SIGNATURES, SKILL_INFO, SKILLS, RARITY } from './data.js';
-import { shortName, displayName, genDog, promote, skillOf } from './dogs.js';
-import { clamp, money, fail, done, addHeat, addRelation, book } from './util.js';
+import { GROUPS, SIGNATURES, SKILL_INFO, RARITY } from './data.js';
+import { shortName, displayName, genDog, promote, skillOf, bestBase, loyaltyOf } from './dogs.js';
+import { clamp, money, fail, done, addHeat, addRelation, book, roundTo, fillIn } from './util.js';
 import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
 import { addGenerosity, addHardness } from './repute.js';
@@ -19,9 +19,8 @@ const PARTNERS = ['Fingers Malone', 'Two-Bowls Terry', 'Slippy Sid', 'Mad Maxine
 const MASTERS = ['Old Man Biscuit', 'The Duchess', 'Grandad Growler', 'Silent Sal'];
 const RELATIVES = ['old mum', 'little brother', 'nan', 'kid sister'];
 
-const bestSkill = (d) => SKILLS.slice().sort((a, b) => d.skills[b] - d.skills[a])[0];
-const loyalOdds = (d) => clamp((d.loyalty + d.relation * 0.5) / 100, 0.1, 0.9);
-const round10 = (n) => Math.round(n / 10) * 10;
+const bestSkill = (d) => bestBase(d)[0];
+const loyalOdds = (d) => clamp(loyaltyOf(d) / 100, 0.1, 0.9);
 
 // Arcs. `nodes` are scenes: `fx` applies when the scene comes up, `choices` are the
 // buttons. A choice's `next` is a scene id, weighted [[id, w], ...], or a function;
@@ -34,7 +33,7 @@ export const ARCS = {
     vars: (d, rng) => {
       const g = GROUPS[d.faction] ? d.faction : rng.pick(['family', 'syndicate', 'firm']);
       const amt = 150 + 50 * rng.int(1, 4) + (d.rarity ? 200 : 0);
-      return { g, amt, amt2: round10(amt * 1.5) };
+      return { g, amt, amt2: roundTo(amt * 1.5) };
     },
     start: 'start',
     nodes: {
@@ -295,7 +294,7 @@ function fill(text, arc, d) {
     d: shortName(d), G: G?.short ?? '', boss: G?.boss ?? '',
     ...Object.fromEntries(Object.entries(v).map(([k, x]) => [k, typeof x === 'number' && /amt|taken/.test(k) ? money(x) : x])),
   };
-  return text.replace(/\{(\w+)\}/g, (_, k) => map[k] ?? '');
+  return fillIn(text, map);
 }
 
 const arcDog = (state, arc) => state.dogs[arc.dog];
@@ -336,12 +335,14 @@ function applyFx(state, arc, fx = {}, rng) {
     if (to) note.push(`${displayName(d)} is ${RARITY[to].label}: ✨ ${SIGNATURES[d.signature].name}.`);
   }
   if (fx.pound) sendDown(d, fx.pound + Math.floor(recordOf(d) / 2));
+  // Off to the pound or gone for good: no longer sat in the pub waiting to be hired.
+  if (fx.pound || fx.leave) state.pub = state.pub.filter((id) => id !== d.id);
   if (fx.leave) {
     d.status = 'gone';
     d.left = fx.leave;
     d.relation = fx.leave === 'poached' ? d.relation : -100;
     if (fx.leave === 'runner') {
-      const taken = Math.min(state.cash, round10(Math.max(100, state.cash * 0.15)));
+      const taken = Math.min(state.cash, roundTo(Math.max(100, state.cash * 0.15)));
       book(state, 'drama', -taken);
       arc.vars.taken = taken;
       d.ranWith = `${money(taken)} of yours`;
@@ -354,7 +355,7 @@ function applyFx(state, arc, fx = {}, rng) {
     kin.last = d.last;
     kin.met = true;
     kin.relation = 20;
-    kin.fee = Math.round(kin.fee * 0.8 / 10) * 10;
+    kin.fee = roundTo(kin.fee * 0.8);
     state.dogs[kin.id] = kin;
     arc.vars.kin = displayName(kin);
   }
