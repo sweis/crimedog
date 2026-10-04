@@ -163,29 +163,45 @@ export const QUIRKS = {
   doorsoff: { name: 'Blows the Doors Off', good: null, blurb: 'Brilliant with a drill. You were only supposed to blow the bloody doors off.' },
 };
 
+// Breeds, after the kennel club's groups. `size` matters on the job (some steps need
+// someone small or someone big) and caps a skill or two: the small aren't strong,
+// the big aren't sneaky. `bias` is what the breed leans towards, from the skills
+// that come with the body (sneak, muscle, charm, disguise, agility, nose); aim, tech,
+// wheels and locks are anybody's. `caps` are hard limits, like a Dalmatian in disguise.
+export const NEUTRAL_SKILLS = ['aim', 'tech', 'wheels', 'locks'];
+export const SIZE_CAPS = { small: { muscle: 2 }, medium: {}, large: { sneak: 3 } };
+export const SIZES = { small: 'Small', medium: 'Medium', large: 'Large' };
+export const BREED_GROUPS = { sporting: 'Sporting', hound: 'Hound', working: 'Working', terrier: 'Terrier', toy: 'Toy', nonsporting: 'Non-Sporting', herding: 'Herding' };
 export const BREEDS = {
-  shepherd: { label: 'German Shepherd', faction: 'ze', ears: 'pointy', snout: 1.15, coats: ['#b8793a', '#a86c32'], mask: '#2b1e16', bias: ['tech', 'muscle', 'nose'] },
-  doberman: { label: 'Doberman', faction: 'ze', ears: 'pointy', snout: 1.2, coats: ['#221c19', '#3a2a22'], mask: '#b06a32', maskStyle: 'points', bias: ['muscle', 'aim', 'tech'] },
-  bulldog: { label: 'Bulldog', faction: 'firm', ears: 'rose', snout: 0.55, jowls: true, coats: ['#d8b38a', '#efe2cf', '#c69064'], mask: '#fff5e8', bias: ['muscle', 'locks'] },
-  staffie: { label: 'Staffie', faction: 'firm', ears: 'rose', snout: 0.8, coats: ['#6b4a33', '#3b3b3b', '#8c6a4f', '#2f3a4a'], mask: '#f2ede6', maskStyle: 'blaze', bias: ['muscle', 'wheels', 'charm'] },
-  poodle: { label: 'Poodle', faction: 'poodle', ears: 'puff', snout: 1.0, coats: ['#f4f1ea', '#e8b77c', '#2b2b2b', '#c9c3bb'], bias: ['charm', 'disguise', 'agility'] },
-  corgi: { label: 'Corgi', faction: 'poodle', ears: 'bat', snout: 0.95, coats: ['#e08a3c', '#c9772f'], mask: '#fbf3e6', maskStyle: 'blaze', bias: ['charm', 'sneak'] },
-  pug: { label: 'Pug', faction: 'poodle', ears: 'rose', snout: 0.35, coats: ['#e3c79a', '#2a2724'], mask: '#2a2320', maskStyle: 'muzzle', bias: ['charm', 'disguise'] },
-  greyhound: { label: 'Greyhound', faction: 'whippet', ears: 'fold', snout: 1.5, narrow: true, coats: ['#8d8f96', '#c7b299', '#3c3c42'], bias: ['wheels', 'agility'] },
-  whippet: { label: 'Whippet', faction: 'whippet', ears: 'fold', snout: 1.35, narrow: true, coats: ['#d6c3a8', '#9aa0a8', '#f1ece4'], bias: ['wheels', 'sneak', 'agility'] },
-  jackrussell: { label: 'Jack Russell', faction: 'terrier', ears: 'fold', snout: 0.95, coats: ['#f5f1ea'], patch: '#9a5b2c', bias: ['agility', 'locks', 'nose'] },
-  bordert: { label: 'Border Terrier', faction: 'terrier', ears: 'fold', snout: 0.8, coats: ['#a0785a', '#8a6a52'], mask: '#3a2c22', maskStyle: 'muzzle', bias: ['locks', 'sneak', 'muscle'] },
-  beagle: { label: 'Beagle', faction: 'hounds', ears: 'floppy', snout: 1.0, coats: ['#c98b45'], mask: '#fbf6ee', maskStyle: 'blaze', patch: '#2e2620', bias: ['nose', 'sneak'] },
-  basset: { label: 'Basset Hound', faction: 'hounds', ears: 'long', snout: 1.05, jowls: true, coats: ['#b3763c', '#f1e7d7'], mask: '#fbf6ee', maskStyle: 'blaze', bias: ['nose', 'charm'] },
-  bloodhound: { label: 'Bloodhound', faction: 'hounds', ears: 'long', snout: 1.2, jowls: true, coats: ['#9b5a2e', '#7a4424'], bias: ['nose', 'muscle'] },
-  dachshund: { label: 'Dachshund', faction: 'indie', ears: 'floppy', snout: 1.3, coats: ['#8a4b22', '#2a1f1b'], mask: '#b87a44', maskStyle: 'points', bias: ['sneak', 'agility', 'nose'] },
-  dalmatian: { label: 'Dalmatian', faction: 'indie', ears: 'floppy', snout: 1.05, coats: ['#fbfbf8'], spots: '#1d1d1f', bias: ['disguise', 'wheels', 'aim'] },
-  labrador: { label: 'Labrador', faction: 'indie', ears: 'floppy', snout: 1.0, coats: ['#e8c07a', '#262120', '#6a3f22'], bias: ['charm', 'muscle', 'nose'] },
-  chihuahua: { label: 'Chihuahua', faction: 'indie', ears: 'bat', snout: 0.6, coats: ['#e2b37e', '#2a2420', '#f2e7d8'], small: true, bias: ['sneak', 'tech', 'agility'] },
-  collie: { label: 'Border Collie', faction: 'indie', ears: 'fold', snout: 1.1, coats: ['#1f1d1c'], mask: '#fbf8f2', maskStyle: 'blaze', bias: ['tech', 'nose', 'agility'] },
-  italiangreyhound: { label: 'Italian Greyhound', faction: 'family', ears: 'fold', snout: 1.45, narrow: true, coats: ['#9aa0ab', '#c9b7a0', '#5b5f6b', '#e6ddd0'], bias: ['wheels', 'charm', 'agility'] },
-  shiba: { label: 'Shiba Inu', faction: 'syndicate', ears: 'pointy', snout: 0.9, coats: ['#d9853b', '#c97a3a', '#2b2522', '#e9d7b8'], mask: '#fbf3e6', maskStyle: 'muzzle', bias: ['sneak', 'aim', 'tech'] },
-  spaniel: { label: 'Spaniel', faction: 'indie', ears: 'long', snout: 1.0, coats: ['#a8552a', '#f3ebe0'], patch: '#6a2f16', bias: ['aim', 'nose', 'charm'] },
+  shepherd: { label: 'German Shepherd', group: 'herding', size: 'large', faction: 'ze', ears: 'pointy', snout: 1.15, coats: ['#b8793a', '#a86c32'], mask: '#2b1e16', bias: ['nose', 'muscle', 'agility'], note: 'Clever, dutiful, and follows a scent anywhere.' },
+  doberman: { label: 'Doberman', group: 'working', size: 'large', faction: 'ze', ears: 'pointy', snout: 1.2, coats: ['#221c19', '#3a2a22'], mask: '#b06a32', maskStyle: 'points', bias: ['muscle', 'agility'], note: 'All muscle and alarm bells.' },
+  rottweiler: { label: 'Rottweiler', group: 'working', size: 'large', faction: 'ze', ears: 'fold', snout: 1.0, coats: ['#1f1b19'], mask: '#9a5a2a', maskStyle: 'points', bias: ['muscle', 'nose'], note: 'A wall with a wagging bit at the back.' },
+  bulldog: { label: 'Bulldog', group: 'nonsporting', size: 'medium', faction: 'firm', ears: 'rose', snout: 0.55, jowls: true, coats: ['#d8b38a', '#efe2cf', '#c69064'], mask: '#fff5e8', bias: ['muscle', 'charm'], caps: { agility: 2 }, note: 'Immovable. Also, mostly, unmoving: no good over a wall.' },
+  staffie: { label: 'Staffie', group: 'terrier', size: 'medium', faction: 'firm', ears: 'rose', snout: 0.8, coats: ['#6b4a33', '#3b3b3b', '#8c6a4f', '#2f3a4a'], mask: '#f2ede6', maskStyle: 'blaze', bias: ['muscle', 'charm'], note: 'Built like a brick, grins like a saint.' },
+  boxer: { label: 'Boxer', group: 'working', size: 'large', faction: 'firm', ears: 'fold', snout: 0.6, jowls: true, coats: ['#b8743a', '#c98a4a'], mask: '#2b1e16', maskStyle: 'muzzle', bias: ['muscle', 'agility'], note: 'Bounces in, knocks out.' },
+  poodle: { label: 'Poodle', group: 'nonsporting', size: 'medium', faction: 'poodle', ears: 'puff', snout: 1.0, coats: ['#f4f1ea', '#e8b77c', '#2b2b2b', '#c9c3bb'], bias: ['charm', 'disguise', 'agility'], note: 'Cleverer than the haircut suggests.' },
+  corgi: { label: 'Corgi', group: 'herding', size: 'small', faction: 'poodle', ears: 'bat', snout: 0.95, coats: ['#e08a3c', '#c9772f'], mask: '#fbf3e6', maskStyle: 'blaze', bias: ['charm', 'sneak'], note: 'Low to the ground, high in society.' },
+  pug: { label: 'Pug', group: 'toy', size: 'small', faction: 'poodle', ears: 'rose', snout: 0.35, coats: ['#e3c79a', '#2a2724'], mask: '#2a2320', maskStyle: 'muzzle', bias: ['charm', 'disguise'], caps: { agility: 2 }, note: 'Charming, snorting, and not built for climbing.' },
+  pomeranian: { label: 'Pomeranian', group: 'toy', size: 'small', small: true, faction: 'poodle', ears: 'pointy', snout: 0.55, coats: ['#e8913a', '#f3ece2'], bias: ['charm', 'disguise'], note: 'A powder puff with opinions.' },
+  greyhound: { label: 'Greyhound', group: 'hound', size: 'large', faction: 'whippet', ears: 'fold', snout: 1.5, narrow: true, coats: ['#8d8f96', '#c7b299', '#3c3c42'], bias: ['agility'], note: 'Fastest thing on four legs, given a reason.' },
+  whippet: { label: 'Whippet', group: 'hound', size: 'medium', faction: 'whippet', ears: 'fold', snout: 1.35, narrow: true, coats: ['#d6c3a8', '#9aa0a8', '#f1ece4'], bias: ['agility', 'sneak'], note: 'Quick, quiet, and gone.' },
+  jackrussell: { label: 'Jack Russell', group: 'terrier', size: 'small', faction: 'terrier', ears: 'fold', snout: 0.95, coats: ['#f5f1ea'], patch: '#9a5b2c', bias: ['agility', 'nose'], note: 'Small, springy, and never lets go.' },
+  bordert: { label: 'Border Terrier', group: 'terrier', size: 'small', faction: 'terrier', ears: 'fold', snout: 0.8, coats: ['#a0785a', '#8a6a52'], mask: '#3a2c22', maskStyle: 'muzzle', bias: ['sneak', 'nose'], note: 'Goes down holes others won\'t.' },
+  yorkie: { label: 'Yorkie', group: 'toy', size: 'small', small: true, faction: 'terrier', ears: 'pointy', snout: 0.7, coats: ['#8a6a4a', '#5a4a3a'], mask: '#c9a06a', maskStyle: 'points', bias: ['sneak', 'charm'], note: 'Fits in a handbag. Has done, professionally.' },
+  beagle: { label: 'Beagle', group: 'hound', size: 'small', faction: 'hounds', ears: 'floppy', snout: 1.0, coats: ['#c98b45'], mask: '#fbf6ee', maskStyle: 'blaze', patch: '#2e2620', bias: ['nose', 'charm'], note: 'A nose with a beagle attached.' },
+  basset: { label: 'Basset Hound', group: 'hound', size: 'medium', faction: 'hounds', ears: 'long', snout: 1.05, jowls: true, coats: ['#b3763c', '#f1e7d7'], mask: '#fbf6ee', maskStyle: 'blaze', bias: ['nose', 'charm'], caps: { agility: 2 }, note: 'Ears like curtains. Not one for walls.' },
+  bloodhound: { label: 'Bloodhound', group: 'hound', size: 'large', faction: 'hounds', ears: 'long', snout: 1.2, jowls: true, coats: ['#9b5a2e', '#7a4424'], bias: ['nose'], note: 'The best nose in town, and the saddest face.' },
+  dachshund: { label: 'Dachshund', group: 'hound', size: 'small', faction: 'indie', ears: 'floppy', snout: 1.3, coats: ['#8a4b22', '#2a1f1b'], mask: '#b87a44', maskStyle: 'points', bias: ['nose', 'sneak'], note: 'Built for tunnels. Knows it.' },
+  dalmatian: { label: 'Dalmatian', group: 'nonsporting', size: 'large', faction: 'indie', ears: 'floppy', snout: 1.05, coats: ['#fbfbf8'], spots: '#1d1d1f', bias: ['agility', 'charm'], caps: { disguise: 1 }, note: 'Hard to miss. Impossible to disguise.' },
+  labrador: { label: 'Labrador', group: 'sporting', size: 'large', faction: 'indie', ears: 'floppy', snout: 1.0, coats: ['#e8c07a', '#262120', '#6a3f22'], bias: ['charm', 'nose', 'muscle'], note: 'Everyone\'s friend. Will fetch anything, including evidence.' },
+  golden: { label: 'Golden Retriever', group: 'sporting', size: 'large', faction: 'indie', ears: 'floppy', snout: 1.05, coats: ['#e0a85a', '#d39a4a'], bias: ['charm', 'nose'], note: 'Nobody has ever suspected a Golden Retriever of anything.' },
+  spaniel: { label: 'Spaniel', group: 'sporting', size: 'medium', faction: 'indie', ears: 'long', snout: 1.0, coats: ['#a8552a', '#f3ebe0'], patch: '#6a2f16', bias: ['nose', 'charm', 'agility'], note: 'Bounding, sniffing, delighted about everything.' },
+  husky: { label: 'Husky', group: 'working', size: 'large', faction: 'indie', ears: 'pointy', snout: 1.05, coats: ['#7a7f88', '#3c3f46'], mask: '#f2efe8', maskStyle: 'blaze', bias: ['muscle', 'agility'], caps: { disguise: 2 }, note: 'Pulls anything. Those eyes give the game away.' },
+  saintbernard: { label: 'Saint Bernard', group: 'working', size: 'large', faction: 'indie', ears: 'floppy', snout: 1.0, jowls: true, coats: ['#f3ece2'], patch: '#a0522d', bias: ['muscle', 'nose', 'charm'], caps: { agility: 2 }, note: 'Enormous, kindly, and no good on a drainpipe.' },
+  chihuahua: { label: 'Chihuahua', group: 'toy', size: 'small', faction: 'indie', ears: 'bat', snout: 0.6, coats: ['#e2b37e', '#2a2420', '#f2e7d8'], small: true, bias: ['sneak', 'agility'], note: 'Tiny, fearless, fits through anything. No muscle to speak of.' },
+  collie: { label: 'Border Collie', group: 'herding', size: 'medium', faction: 'indie', ears: 'fold', snout: 1.1, coats: ['#1f1d1c'], mask: '#fbf8f2', maskStyle: 'blaze', bias: ['agility', 'sneak'], note: 'The cleverest in the room, and restless with it.' },
+  italiangreyhound: { label: 'Italian Greyhound', group: 'toy', size: 'small', faction: 'family', ears: 'fold', snout: 1.45, narrow: true, coats: ['#9aa0ab', '#c9b7a0', '#5b5f6b', '#e6ddd0'], bias: ['agility', 'charm'], note: 'Slender, elegant, and quick to take offence.' },
+  shiba: { label: 'Shiba Inu', group: 'nonsporting', size: 'medium', faction: 'syndicate', ears: 'pointy', snout: 0.9, coats: ['#d9853b', '#c97a3a', '#2b2522', '#e9d7b8'], mask: '#fbf3e6', maskStyle: 'muzzle', bias: ['sneak', 'agility'], note: 'Quiet, tidy, catlike. Says nothing.' },
 };
 
 export const FACTIONS = {
@@ -585,6 +601,15 @@ export const APPROACHES = {
   m_twoplaces: { label: 'Be two people at once', skill: 'disguise', mod: 2, noise: 0, failNoise: 3, clues: 0, ok: 'The auditor and the tea lady are never in the same room. Funny, that.', fail: 'The auditor and the tea lady walk into the same room.' },
   m_ratrun: { label: 'Rat-run every back street', skill: 'wheels', mod: 1, noise: 0, failNoise: 3, clues: 0, kitBonus: 'van', ok: 'Nine minutes, fifty seconds. Every back street, wrong way up two of them.', fail: 'A milk float. Of all things, a milk float.' },
   m_lightsout: { label: 'Drive it with the lights off', skill: 'wheels', mod: 2, noise: 0, failNoise: 3, clues: 0, ok: 'Lights off, engine ticking over, straight through between the patrols.', fail: 'Lights off is fine until the bollards.' },
+  // ---- Size steps: it's about fitting (or weighing enough), not skill. `flat` odds for the right size.
+  z_vent: { label: 'Crawl through the air vent', skill: 'agility', size: 'small', flat: 0.82, mod: 0, noise: 0, failNoise: 2, clues: 0, ok: '{d} wriggles through a vent the size of a biscuit tin and opens the door from the inside.', fail: '{d} gets stuck halfway. Only the tail is visible. It wags, apologetically.' },
+  z_ducts: { label: 'Follow the ducts to the office', skill: 'sneak', size: 'small', flat: 0.78, mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'Left, right, left, down. {d} drops out of the ceiling right beside the switch.', fail: '{d} takes a wrong turn and comes out in the canteen.' },
+  z_flap: { label: 'Straight through the cat flap', skill: 'sneak', size: 'small', flat: 0.85, mod: 0, noise: 0, failNoise: 2, clues: 0, ok: 'In through the cat flap, bold as brass. The cat is not pleased.', fail: 'The cat flap has a lock. The cat has the key.' },
+  z_letterbox: { label: 'Post yourself through the letterbox', skill: 'agility', size: 'small', flat: 0.78, mod: 0, noise: 0, failNoise: 2, clues: 0, ok: '{d} goes through the letterbox like the evening paper.', fail: '{d} gets stuck in the letterbox. Second class.' },
+  z_counterweight: { label: 'Be the counterweight', skill: 'muscle', size: 'large', flat: 0.85, mod: 0, noise: 1, failNoise: 2, clues: 0, ok: '{d} steps into the goods lift and down it goes, hauling the rest of the crew up four floors.', fail: 'Not quite heavy enough. Everyone stops between floors, swinging gently.' },
+  z_haul: { label: 'Haul the cable hand over hand', skill: 'muscle', size: 'large', flat: 0.78, mod: 0, noise: 1, failNoise: 2, clues: 0, ok: 'Hand over hand, {d} hauls the lift up from the basement. Not even out of breath.', fail: 'The cable slips. So does the lift. So does everyone\'s stomach.' },
+  z_sit: { label: 'Sit on the grate till it gives', skill: 'muscle', size: 'large', flat: 0.82, mod: 0, noise: 1, failNoise: 3, clues: 0, ok: '{d} sits on the grate. The grate thinks about it, then gives up.', fail: 'The grate holds. {d} sits there looking thoughtful.' },
+  z_lean: { label: 'Lean on it, all of you', skill: 'muscle', size: 'large', flat: 0.78, mod: 0, noise: 2, failNoise: 3, clues: 0, ok: '{d} leans. Bolts ping off into the dark. Through.', fail: 'The grate creaks. So does the night watchman\'s chair.' },
   // ---- Signature moves: secret options only a rare or legendary specialist can open (see SIGNATURES)
   s_phantom: { label: 'Just... appear inside', skill: 'sneak', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'phantom', ok: 'Nobody saw {d} come in. Nobody ever does.', fail: '{d} appears inside. Right in front of a guard.' },
   s_blackout: { label: 'Black out the whole street', skill: 'tech', mod: -3, noise: 0, failNoise: 3, clues: 1, signature: 'blackout', ok: '{d} flips one switch. Every light on the street dies. "Power cut, innit."', fail: 'The whole street goes dark. Except, somehow, the alarm.' },
@@ -844,6 +869,17 @@ export const SPECIALISTS = {
   creaky: { label: 'The Creaky Corridor', icon: '🪵', skill: 'sneak', min: 4, options: ['x_creak', 'x_skirting'] },
   carpark: { label: 'The Car Park Barrier', icon: '🚧', skill: 'wheels', min: 4, options: ['x_drift', 'x_ramp'] },
 };
+
+// Steps that want someone the right size, whatever their skills: a vent only the small
+// fit through, a lift only the big can counterweight.
+export const SIZE_STEPS = {
+  vent: { label: 'The Air Vent', icon: '🌀', size: 'small', types: ['breakin', 'swap', 'hack'], options: ['z_vent', 'z_ducts'] },
+  flap: { label: 'The Cat Flap', icon: '🐈', size: 'small', types: ['breakin', 'swap'], options: ['z_flap', 'z_letterbox'] },
+  lift: { label: 'The Goods Lift', icon: '🛗', size: 'large', types: ['breakin', 'swap', 'roof', 'train'], options: ['z_counterweight', 'z_haul'] },
+  grate: { label: 'The Iron Grate', icon: '⛓️', size: 'large', types: ['tunnel', 'breakin', 'train'], options: ['z_sit', 'z_lean'] },
+};
+// How a size need reads on the plan.
+export const SIZE_NEED = { small: '🤏 Small only', large: '🏋️ Big only' };
 
 // Master steps: four-star jobs have three, each in a different skill. Only a real
 // master (8+) gets anywhere, and the pub won't supply more than one of them.

@@ -214,6 +214,9 @@ p { margin: 0 0 8px; }
 .pips { display: flex; gap: 2px; }
 .pips i { width: 9px; height: 12px; border-radius: 2px; display: block; background: linear-gradient(180deg, #d8c79f, #cbb58a); box-shadow: inset 0 1px 1px rgba(0, 0, 0, .15); }
 .pips i.on { background: linear-gradient(180deg, #4a4652, #16151a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2); }
+/* Past a breed's cap: as good as they'll ever get. */
+.pips i.cap { background: repeating-linear-gradient(135deg, #e9dcc0 0 2px, #c9a89a 2px 3px); opacity: .7; }
+.capnote { font-size: 11px; color: var(--ink-soft); margin-left: 4px; }
 .q { color: var(--ink-soft); font-weight: 700; letter-spacing: .1em; }
 .quote { font-family: var(--font-quote); font-style: italic; font-size: 15px; border-left: 4px solid var(--brass); padding: 4px 0 4px 10px; margin: 10px 0; }
 .trait { display: flex; gap: 8px; font-size: 14px; padding: 5px 0; border-top: 1px dashed var(--paper-3); }

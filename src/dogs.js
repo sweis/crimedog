@@ -1,7 +1,7 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
 import { esc } from './util.js';
 import { startingRecord } from './justice.js';
-import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES } from './data.js';
+import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES, NEUTRAL_SKILLS, SIZE_CAPS } from './data.js';
 
 const QUIRK_CLASHES = [['nervous', 'steel'], ['pack', 'lonewolf'], ['looselips', 'nevergrass'], ['goodboy', 'greedy'], ['sheds', 'eatsevidence'], ['nopink', 'greedy'], ['tell', 'closer']];
 
@@ -24,8 +24,29 @@ function signatureNick(state, dog) {
   return dog.nick || base;
 }
 
+// The most a breed can be at a skill, whatever their talents: the small aren't
+// strong, the big aren't sneaky, and a Dalmatian is never in disguise.
+export function capOf(breedId, skill) {
+  const b = BREEDS[breedId];
+  if (!b) return Infinity;
+  return Math.min(SIZE_CAPS[b.size]?.[skill] ?? Infinity, b.caps?.[skill] ?? Infinity);
+}
+export const sizeOf = (dog) => BREEDS[dog.breed]?.size || 'medium';
+// Could a breed be properly good at this (4 or better)?
+const canExcel = (breedId, skill) => !skill || capOf(breedId, skill) >= 4;
+
+// How likely a skill is to be what a newcomer does best: the breed's leanings
+// four times over, the anybody's skills (aim, tech, wheels, locks) evenly, the
+// rest now and then, and never what the breed can't do.
+function skillWeights(breedId, skip = []) {
+  const b = BREEDS[breedId];
+  return SKILLS.filter((sk) => !skip.includes(sk)).map((sk) => [sk, !canExcel(breedId, sk) ? 0 : NEUTRAL_SKILLS.includes(sk) ? 1 : b.bias.includes(sk) ? 4 : 0.3]);
+}
+
 export function genDog(state, rng, opts = {}) {
-  const breedId = opts.breed || rng.pick(Object.keys(BREEDS));
+  // A newcomer good at something is of a breed that can be good at it (and the right size, if asked).
+  const fits = (id) => canExcel(id, opts.primary) && (!opts.size || BREEDS[id].size === opts.size);
+  const breedId = opts.breed || rng.pick(Object.keys(BREEDS).filter(fits));
   const breed = BREEDS[breedId];
   const faction = breed.faction;
   let voice = FACTIONS[faction].voice;
@@ -41,10 +62,8 @@ export function genDog(state, rng, opts = {}) {
   const quality = opts.quality ?? 0; // 0..3, from rep / tier
   const skills = Object.fromEntries(SKILLS.map((s) => [s, rng.chance(0.35) ? 1 : 0]));
   const rarity = opts.undercover ? null : opts.rarity || null; // null | 'rare' | 'legendary'
-  const primary = opts.primary || (rng.chance(0.75) ? rng.pick(breed.bias) : rng.pick(SKILLS));
-  const secondaryPool = SKILLS.filter((s) => s !== primary);
-  const biasRest = breed.bias.filter((s) => s !== primary);
-  const secondary = biasRest.length && rng.chance(0.5) ? rng.pick(biasRest) : rng.pick(secondaryPool);
+  const primary = opts.primary || rng.weighted(skillWeights(breedId));
+  const secondary = rng.weighted(skillWeights(breedId, [primary]));
   skills[primary] = Math.min(5, rng.int(2, 3) + (rng.chance(0.25 + quality * 0.2) ? 1 : 0) + (quality >= 2 && rng.chance(0.3) ? 1 : 0));
   skills[secondary] = Math.max(skills[secondary], rng.int(1, 2) + (rng.chance(0.2 + quality * 0.1) ? 1 : 0));
   if (opts.undercover) {
@@ -177,7 +196,7 @@ function genLook(rng, breedId, faction) {
 export function skillOf(dog, skill) {
   let v = dog.skills[skill] || 0;
   for (const t of dog.talents) if (TALENTS[t].skill === skill) v += TALENTS[t].bonus;
-  return v;
+  return Math.min(v, capOf(dog.breed, skill));
 }
 
 // The best skill the player knows about (never leaks hidden stats), or null.

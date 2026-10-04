@@ -96,12 +96,15 @@ test('specialist steps: one skill, 4+ to do it well, and someone in the pub who 
     // Out of their depth vs up to it.
     const d = s.dogs[s.pub[0]];
     const saved = { ...d.skills };
+    const breed = d.breed;
+    d.breed = 'poodle'; // no caps to get in the way
     d.talents = [];
     d.skills[st.needs.skill] = st.needs.min - 1;
     const low = odds(s, s.job, st, st.options[0], d).p;
     d.skills[st.needs.skill] = st.needs.min;
     const ok = odds(s, s.job, st, st.options[0], d).p;
     d.skills = saved;
+    d.breed = breed;
     assert.ok(ok - low > 0.3, `seed ${seed}: ${low.toFixed(2)} -> ${ok.toFixed(2)}`);
   }
   assert.ok(found >= 20, `specialist steps found: ${found}`);

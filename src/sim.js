@@ -1,7 +1,7 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
 import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES } from './data.js';
-import { skillOf, hasSpecial, shortName, roleLevel } from './dogs.js';
+import { skillOf, hasSpecial, shortName, roleLevel, sizeOf } from './dogs.js';
 import { clamp, hashOf, inSentence } from './util.js';
 import { bondOf, chemistry } from './bonds.js';
 import { lootItem } from './heists.js';
@@ -17,8 +17,11 @@ export function signatureFits(sigId, stage) {
   return SIGNATURES[sigId].fits.some((t) => t === stage.kind || t === stage.id || t === `vault:${stage.vaultType}`);
 }
 
-// Only a signature's owner can pull it off.
-export const canDo = (dog, approachId) => !APPROACHES[approachId].signature || dog.signature === APPROACHES[approachId].signature;
+// Only a signature's owner can pull it off, and only someone the right size fits (or weighs enough).
+export const canDo = (dog, approachId) => {
+  const a = APPROACHES[approachId];
+  return (!a.signature || dog.signature === a.signature) && (!a.size || sizeOf(dog) === a.size);
+};
 
 // A step's options: the usual ones, plus secret ones this crew can open.
 export function stageOptions(stage, crew) {
@@ -96,7 +99,8 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   // is hopeless.
   const outOfDepth = stage.needs && skill < stage.needs.min ? (stage.master ? 6 : 3) : 0;
   const diff = difficulty(state, job, stage, approachId, ctx.kitLeft) + (ctx.extra || 0) + outOfDepth;
-  let p = baseOdds(skill, diff);
+  // A size step is about fitting, not skill: good odds for the right size, none for the wrong one.
+  let p = a.size ? (sizeOf(dog) === a.size ? a.flat - 0.05 * (job.alert || 0) : 0.03) : baseOdds(skill, diff);
   const alarm = ctx.alarm || 0;
   const crew = ctx.crew || [...new Set([...crewOf(job.plan), ...(state.crew || [])])].map((id) => state.dogs[id]).filter(Boolean);
   const q = dog.quirks;
@@ -122,11 +126,13 @@ export function odds(state, job, stage, approachId, dog, ctx = {}) {
   p += ctx.bonus || 0;
   // Luck and good company don't make a master: short of the mark on a master step, it's a fluke or nothing.
   if (stage.master && outOfDepth) p = 0.03;
+  if (a.size && sizeOf(dog) !== a.size) p = 0.03;
   return { p: clamp(p, 0.03, 0.97), skill, diff };
 }
 
 // Does the player know enough to see the odds?
 export function oddsKnown(dog, approachId) {
+  if (APPROACHES[approachId].size) return true; // anyone can see how big someone is
   return !!dog.known.skills[APPROACHES[approachId].skill];
 }
 

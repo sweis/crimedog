@@ -3,7 +3,7 @@
 import { makeRng, seedHolder } from './rng.js';
 import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty } from './dogs.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
@@ -117,8 +117,10 @@ export function refreshPub(state, rng = rngOf(state)) {
     const primary = rng.weighted(SKILLS.map((sk) => [sk, (need.has(sk) ? 1.5 : 1) / ((1 + 4 * (have[sk] || 0)) ** 2 * (1 + 2 * ((state.faces[sk] || 0) - least)))]));
     have[primary] = (have[primary] || 0) + 1;
     state.faces[primary] = (state.faces[primary] || 0) + 1;
-    // Usually a breed known for it (poodles and pugs for disguise, hounds for noses...).
-    const breed = rng.chance(0.7) ? rng.pick(Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary))) : undefined;
+    // Usually a breed known for it (poodles and pugs for disguise, hounds for noses...),
+    // and never one that can't do it. Aim, tech, wheels and locks are anybody's.
+    const known = Object.keys(BREEDS).filter((b) => BREEDS[b].bias.includes(primary));
+    const breed = known.length && rng.chance(0.7) ? rng.pick(known) : undefined;
     return { primary, breed };
   };
   // The Inspector plants coppers once he's heard of you; after his first move, one is guaranteed.
@@ -155,6 +157,13 @@ const pubQuality = (state, tier) => Math.floor(state.rep / 30) + Math.min(3, tie
 function jobArrivals(state, rng, quality) {
   const pub = state.pub;
   masterArrives(state, rng);
+  // A step that wants someone small (or big): there's always someone that size about.
+  const sized = state.job?.stages.find((st) => st.needsSize);
+  if (sized && ![...pub, ...state.crew].some((id) => sizeOf(state.dogs[id]) === sized.needsSize)) {
+    const d = genDog(state, rng, { quality, size: sized.needsSize });
+    state.dogs[d.id] = d;
+    pub.push(d.id);
+  }
   // A job with a specialist step always has someone in the pub who's up to it (at a price).
   const sp = state.job?.stages.find((st) => st.needs && !st.master);
   if (sp && !pub.some((id) => skillOf(state.dogs[id], sp.needs.skill) >= sp.needs.min)) {
@@ -617,8 +626,11 @@ export function setPlan(state, stageId, patch) {
   if (next.dog && !state.crew.includes(next.dog)) return fail('Not on the crew.');
   // A signature move goes to its owner.
   if (next.approach && next.dog && !canDo(state.dogs[next.dog], next.approach)) {
-    if (!patch.approach) return fail(`Only ${SIGNATURES[APPROACHES[next.approach].signature].name} can pull that off.`);
-    next.dog = crew.find((d) => canDo(d, next.approach)).id;
+    const a = APPROACHES[next.approach];
+    if (!patch.approach) return fail(a.size ? `That needs someone ${a.size === 'small' ? 'small' : 'big'}.` : `Only ${SIGNATURES[a.signature].name} can pull that off.`);
+    const who = crew.find((d) => canDo(d, next.approach));
+    if (!who) return fail(a.size ? `Nobody on the crew is ${a.size === 'small' ? 'small enough' : 'big enough'}.` : 'Nobody on the crew can.');
+    next.dog = who.id;
   }
   state.job.plan[stageId] = next;
   return done('Plan updated.');

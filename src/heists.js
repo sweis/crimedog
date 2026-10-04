@@ -1,6 +1,6 @@
 // Heist (job) generation. A job is a venue with ordered stages; each stage has
 // several approaches so there are multiple ways through.
-import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MASTERS, MASTER_MIN, MARKS, KIT } from './data.js';
+import { TWISTS, INTEL, VENUE_OWNERS, VENUES, VENUE_LABELS, DISTRICTS, JOB_CODEWORDS, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, APPROACHES, JOB_TYPES, SPECIALISTS, MASTERS, MASTER_MIN, SIZE_STEPS, MARKS, KIT } from './data.js';
 
 const JOB_WORDS = {
   bank: ['Kibble', 'Bone Bank', 'Fiver', 'Piggy Bank', 'Bank Job', 'Heat'],
@@ -329,6 +329,19 @@ export function genJob(state, rng, opts = {}) {
     const sp = SPECIALISTS[rng.pick(specials)];
     const at = stages.findIndex((st) => st.kind === 'vault');
     stages.splice(at, 0, { id: 'specialist', kind: 'obstacle', label: sp.label, icon: sp.icon, options: sp.options.slice(), needs: { skill: sp.skill, min: sp.min } });
+  }
+
+  // Now and then a step wants someone small (a vent, a cat flap) or someone big (a lift
+  // to counterweight). In a building it takes the place of one of the ordinary obstacles
+  // (guards, cameras...), so the job is no longer, just different; on a tunnel, a
+  // rooftop or a train, whose steps tell the story, it's one more.
+  const sized = Object.entries(SIZE_STEPS).filter(([, z]) => z.types.includes(type));
+  if (sized.length && rng.chance(0.3)) {
+    const [id, z] = rng.pick(sized);
+    const step = { id: `size_${id}`, kind: 'obstacle', label: z.label, icon: z.icon, options: z.options.slice(), needsSize: z.size, noSig: true };
+    const ordinary = stages.filter((st) => !st.hidden && st.id.startsWith('obs_') && OBSTACLES[st.id.slice(4)] && st.id !== 'obs_rivals');
+    if (ordinary.length) stages[stages.indexOf(rng.pick(ordinary))] = step;
+    else stages.splice(stages.findIndex((st) => st.kind === 'vault'), 0, step);
   }
 
   // A twist, now and then (more often on bigger jobs).

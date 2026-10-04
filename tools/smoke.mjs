@@ -1084,6 +1084,58 @@ console.log('1t. A four-star job: on the board, its master in the pub, asking ar
   await ctx.close();
 }
 
+console.log('1u. Breeds and sizes: a step for someone small, from the board to the plan, and a capped skill on a profile');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=3`);
+  await page.waitForFunction(() => window.cd);
+  const info = await page.evaluate(async () => {
+    const H = await import('/src/heists.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.setSeed(3);
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.cash = 20000;
+    s.story = [];
+    let job;
+    for (let k = 1; k < 400 && !job; k++) { const j = H.genJob(s, makeRng({ s: k }), { type: 'breakin', tier: 2 }); if (j.stages.some((x) => x.needsSize === 'small')) job = j; }
+    s.offers.unshift(H.ownOffer(job));
+    window.cd.teleport('select');
+    document.getElementById('toast').innerHTML = '';
+    return { id: job.id, step: job.stages.find((x) => x.needsSize).id };
+  });
+  check((await page.locator(`main .offer[data-offer="${info.id}"]`).innerText()).includes('Small only'), 'the board says the job wants someone small');
+  await tap(page, `main .offer[data-offer="${info.id}"] [data-act="take-offer"]`);
+  // Hire someone big first, then hire for the small step from the plan.
+  await tap(page, '.nav [data-to="pub"]');
+  const big = await page.evaluate(async () => { const { sizeOf } = await import('/src/dogs.js'); const s = window.cd.live(); return s.pub.find((id) => sizeOf(s.dogs[id]) === 'large'); });
+  await tap(page, `main .dog-card[data-id="${big}"]`);
+  await tap(page, '.modal [data-act="hire"]');
+  await tap(page, '.modal .close');
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  check(await page.locator(`.plan-step[data-stage="${info.step}"] .stage-head .chip.bad`).count() === 1, 'the step says nobody on the crew is small enough');
+  await tap(page, `.plan-step[data-stage="${info.step}"] [data-act="hire-for"]`);
+  check((await page.locator('.hire-banner').innerText()).includes('Needs someone small'), 'the pub says who to look for');
+  const firstSize = await page.evaluate(async () => { const { sizeOf } = await import('/src/dogs.js'); const id = document.querySelector('main .dog-card').dataset.id; return sizeOf(window.cd.live().dogs[id]); });
+  check(firstSize === 'small', `someone small is top of the list (${firstSize})`);
+  await tap(page, 'main .dog-card');
+  check(/ · (Toy|Terrier|Hound|Herding|Sporting|Working|Non-Sporting) · Small/.test(await page.locator('.modal .dm-sub').innerText()), 'the profile gives breed group and size');
+  await tap(page, '.modal [data-act="hire"]');
+  await page.waitForTimeout(300);
+  const st = await page.evaluate(async (step) => { const { sizeOf } = await import('/src/dogs.js'); const s = window.cd.live(); const p = s.job.plan[step]; return { size: p?.dog && sizeOf(s.dogs[p.dog]), screen: window.cd.getState().screen }; }, info.step);
+  check(st.screen === 'plan' && st.size === 'small', `back on the plan, someone small on the step (${JSON.stringify(st)})`);
+  check(await page.locator(`.plan-step[data-stage="${info.step}"] .stage-head .chip.good`).count() === 1, 'and the step says so');
+  await page.locator(`.plan-step[data-stage="${info.step}"]`).evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => { scrollBy(0, -70); document.getElementById('toast').innerHTML = ''; });
+  await shot(page, 'size-step-plan');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 console.log('1d. Hiring from a planning step returns to that step');
 {
   const ctx = await browser.newContext(phone);

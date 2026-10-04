@@ -3,8 +3,8 @@
 import * as E from './engine.js';
 import { esc, money, moneyShort, count, pickBy, inSentence } from './util.js';
 import { meter, tile, heatLevel } from './charts.js';
-import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS, VERDICTS } from './data.js';
-import { portraitSVG, portraitHTML, displayName, shortName, skillOf, relationLabel, band, isVisitor, specialty, roleLevel } from './dogs.js';
+import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS, VERDICTS, SIZES, SIZE_NEED, BREED_GROUPS } from './data.js';
+import { portraitSVG, portraitHTML, displayName, shortName, skillOf, relationLabel, band, isVisitor, specialty, roleLevel, capOf, sizeOf } from './dogs.js';
 import { visibleStages, lootItem, intelLabel } from './heists.js';
 import { odds, oddsKnown, approachAvailable, stageOptions, canDo, specialKitFor, ALARM_MAX } from './sim.js';
 import { canShareFiles, FATES } from './card.js';
@@ -180,6 +180,7 @@ function jobTraits(job, { twist = true, prize = true } = {}) {
   const chips = [`<span class="chip dark">${T.icon} ${esc(T.label)}</span>`];
   if (job.stages.some((st) => st.master)) chips.push('<span class="chip bad">👑 Three masters</span>');
   for (const st of job.stages.filter((x) => x.needs)) chips.push(`<span class="chip warn">${SKILL_INFO[st.needs.skill].icon} ${SKILL_INFO[st.needs.skill].label} ${st.needs.min}+</span>`);
+  for (const st of job.stages.filter((x) => x.needsSize)) chips.push(`<span class="chip warn">${SIZE_NEED[st.needsSize]}</span>`);
   if (job.noInsider) chips.push('<span class="chip">🚫 No insiders</span>');
   if (job.stages.some((st) => st.kind === 'vault' && st.options.filter((ap) => APPROACHES[ap].needKit === 'replica').length > 1)) chips.push(`<span class="chip info">${KIT.replica.icon} Replica</span>`);
   if (job.prize && prize) chips.push(`<span class="chip good">🎁 ${KIT[job.prize].icon} ${esc(KIT[job.prize].name)}</span>`);
@@ -354,10 +355,11 @@ function timeSeg(job) {
 }
 
 // ------------------------------------------------------------------ dogs
-function pips(v, known, max = 7) {
-  if (!known) return '<span class="q">? ? ?</span>';
+// A skill as pips. Past the breed's cap the pips are struck out: that's as good as they'll get.
+function pips(v, known, max = 7, cap = Infinity) {
+  if (!known) return cap < max ? `<span class="q">? ? ?</span><span class="capnote">max ${cap}</span>` : '<span class="q">? ? ?</span>';
   let h = '<span class="pips">';
-  for (let i = 0; i < max; i++) h += `<i class="${i < v ? 'on' : ''}"></i>`;
+  for (let i = 0; i < max; i++) h += `<i class="${i < v ? 'on' : i >= cap ? 'cap' : ''}"></i>`;
   return h + '</span>';
 }
 
@@ -415,6 +417,9 @@ function dogCard(G, d, opts = {}) {
   if (d.known.undercover && d.undercover && d.status !== 'gone') flags.push('<span class="chip bad">Undercover!</span>');
   else if (d.cleared) flags.push('<span class="chip good">Checked out</span>');
   if (d.role) flags.push(roleChip(d));
+  // A job with a step for someone small (or big): who's the right size.
+  const sized = s.phase === 'plan' && s.job.stages.find((x) => x.needsSize && !x.hidden);
+  if (sized && sizeOf(d) === sized.needsSize) flags.push(`<span class="chip good">${SIZE_NEED[sized.needsSize].replace(/ only$/, '')}</span>`);
   // On a four-star job: a master of one of its master steps, as far as you know.
   for (const st of s.phase === 'plan' ? s.job.stages.filter((x) => x.master) : []) {
     if (d.known.skills[st.needs.skill] && skillOf(d, st.needs.skill) >= st.needs.min) flags.push(`<span class="chip good">👑 ${SKILL_INFO[st.needs.skill].icon} ${skillOf(d, st.needs.skill)}</span>`);
@@ -453,11 +458,12 @@ function pubScreen(G) {
   const hf = hiringFor(G);
   if (hf) {
     // Best known fit for the step first; unknowns after.
-    const fit = (d) => (hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1); // unknowns sort last
+    const size = hf.stage.needsSize;
+    const fit = (d) => (size ? (sizeOf(d) === size ? 1 : -1) : hf.skill && d.known.skills[hf.skill] ? skillOf(d, hf.skill) : -1); // unknowns sort last
     const sort = (list) => list.slice().sort((a, b) => fit(b) - fit(a));
     const book = E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id) && !outOfTown(s, d));
-    const need = hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}${hf.stage.needs ? ` ${hf.stage.needs.min}+` : ''}</b>` : 'Anyone will do';
-    const opts = { fee: true, skill: hf.skill };
+    const need = size ? `Needs someone <b>${size === 'small' ? 'small' : 'big'}</b>` : hf.skill ? `Needs ${SKILL_INFO[hf.skill].icon} <b>${SKILL_INFO[hf.skill].label}${hf.stage.needs ? ` ${hf.stage.needs.min}+` : ''}</b>` : 'Anyone will do';
+    const opts = { fee: true, skill: size ? null : hf.skill };
     return `<section class="card dark hire-banner"><div class="muted">Hiring for step ${hf.n}</div><h2>${hf.stage.icon} ${esc(hf.stage.label)}</h2>
       <p>${need}</p>
       <button class="btn ghost small" data-act="hire-back">← Back to the plan</button></section>
@@ -540,8 +546,9 @@ function fixerScreen(G) {
 }
 
 // ------------------------------------------------------------------ plan
-function hireTile(st, skill) {
-  return `<button class="assignee hire-tile" data-act="hire-for" data-stage="${st.id}" aria-label="Hire someone for ${esc(st.label)}"><span class="plus">＋</span>Hire<br><small>${SKILL_INFO[skill].icon} ${SKILL_INFO[skill].label}</small></button>`;
+function hireTile(st, skill, size) {
+  const what = size ? SIZE_NEED[size].replace(/ only$/, '') : `${SKILL_INFO[skill].icon} ${SKILL_INFO[skill].label}`;
+  return `<button class="assignee hire-tile" data-act="hire-for" data-stage="${st.id}" aria-label="Hire someone for ${esc(st.label)}"><span class="plus">＋</span>Hire<br><small>${what}</small></button>`;
 }
 
 // Which step (and skill) the pub is hiring for, if we came from the plan.
@@ -576,7 +583,8 @@ function planScreen(G) {
   stages.forEach((st, i) => {
     const p = job.plan[st.id] || {};
     // A specialist step says what it takes, and whether anyone on the crew has it.
-    const needs = st.needs ? `<span class="chip ${crew.some((d) => d.known.skills[st.needs.skill] && skillOf(d, st.needs.skill) >= st.needs.min) ? 'good' : 'bad'}">${SKILL_INFO[st.needs.skill].icon} ${st.needs.min}+ only</span>` : '';
+    const needs = st.needs ? `<span class="chip ${crew.some((d) => d.known.skills[st.needs.skill] && skillOf(d, st.needs.skill) >= st.needs.min) ? 'good' : 'bad'}">${SKILL_INFO[st.needs.skill].icon} ${st.needs.min}+ only</span>`
+      : st.needsSize ? `<span class="chip ${crew.some((d) => sizeOf(d) === st.needsSize) ? 'good' : 'bad'}">${SIZE_NEED[st.needsSize]}</span>` : '';
     h += `<section class="plan-step" data-stage="${st.id}"><div class="stage-head"><span class="n">${i + 1}</span><h3>${st.icon} ${esc(st.label)}</h3>${needs}</div><div class="opts">`;
     // Secret options (a star's signature move) go first.
     for (const ap of stageOptions(st, crew).sort((x, y) => !!APPROACHES[y].signature - !!APPROACHES[x].signature)) {
@@ -595,13 +603,15 @@ function planScreen(G) {
       else if (a.noise > 0) tags.push('🔉 Noisy');
       if (a.clues >= 2) tags.push('🔍 Messy');
       if (a.swap) tags.push('🤫 They won\'t notice');
-      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''}" data-act="plan-ap" data-stage="${st.id}" data-ap="${ap}" ${av.ok ? '' : 'disabled'}><span class="ski">${SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
+      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''}" data-act="plan-ap" data-stage="${st.id}" data-ap="${ap}" ${av.ok ? '' : 'disabled'}><span class="ski">${a.size ? SIZE_NEED[a.size].split(' ')[0] : SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${a.size ? SIZE_NEED[a.size].replace(/^\S+ /, '') : SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
     }
     h += '</div>';
     if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
     if (p.approach) {
       const skill = APPROACHES[p.approach].skill;
-      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitHTML(d, { size: 44 })}${esc(shortName(d))}${dramaMark(d)}<br><b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}</button>`).join('')}${hireTile(st, skill)}</div>`;
+      const size = APPROACHES[p.approach].size;
+      const what = (d) => (size ? `<b>${esc(SIZES[sizeOf(d)])}</b>` : `<b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}`);
+      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitHTML(d, { size: 44 })}${esc(shortName(d))}${dramaMark(d)}<br>${what(d)}</button>`).join('')}${hireTile(st, skill, size)}</div>`;
       if (p.dog) {
         const d = s.dogs[p.dog];
         const o = odds(s, job, st, p.approach, d);
@@ -993,7 +1003,7 @@ function storyModal(s, st) {
 export function profileHTML(G, d) {
   const s = G.state;
   const b = BREEDS[d.breed];
-  const skills = SKILLS.map((sk) => `<div class="skill"><span class="lbl">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}</span>${pips(skillOf(d, sk), d.known.skills[sk])}</div>`).join('');
+  const skills = SKILLS.map((sk) => `<div class="skill"><span class="lbl">${SKILL_INFO[sk].icon} ${SKILL_INFO[sk].label}</span>${pips(skillOf(d, sk), d.known.skills[sk], 7, capOf(d.breed, sk))}</div>`).join('');
   const knownT = d.talents.filter((t) => d.known.talents.includes(t));
   const unknownT = d.talents.length - knownT.length;
   const sig = d.signature ? `<span class="chip sig-chip" title="${esc(SIGNATURES[d.signature].blurb)}">✨ ${esc(SIGNATURES[d.signature].name)}</span>` : '';
@@ -1013,7 +1023,7 @@ export function profileHTML(G, d) {
   const record = (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
   return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitHTML(d, { size: 84 })}</div>
     <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-    <div class="dm-sub">${[b.label, relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map(esc).join(' · ')}</div></div></div>
+    <div class="dm-sub"><span title="${esc(b.note || '')}">${esc(b.label)} · ${esc(BREED_GROUPS[b.group])} · ${esc(SIZES[b.size])}</span>${[relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map((x) => ` · ${esc(x)}`).join('')}</div></div></div>
     <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>

@@ -36,8 +36,8 @@ test('about one in five dogs is a leader or a wildcard', () => {
 test('a leader steadies everyone on every step, without a step of their own', () => {
   const s = crewOf3(4);
   const [a, , c] = s.crew.map((id) => s.dogs[id]);
-  const st = visibleStages(s.job)[0];
-  const ap = st.options[0];
+  // A step in the normal range, away from the floor and the ceiling.
+  const [st, ap] = visibleStages(s.job).flatMap((x) => x.options.map((o) => [x, o])).find(([x, o]) => { const p = odds(s, s.job, x, o, a).p; return p > 0.1 && p < 0.85; });
   const before = odds(s, s.job, st, ap, a).p;
   c.role = { kind: 'leader', level: 3 };
   const after = odds(s, s.job, st, ap, a).p;

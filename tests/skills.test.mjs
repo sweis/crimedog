@@ -2,7 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../src/engine.js';
-import { SKILLS, APPROACHES, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, BREEDS, TALENTS } from '../src/data.js';
+import { SKILLS, APPROACHES, OBSTACLES, VAULTS, ENTRY_POOL, EXIT_POOL, GETAWAY_POOL, BREEDS, TALENTS, NEUTRAL_SKILLS } from '../src/data.js';
+import { capOf } from '../src/dogs.js';
 import { specialty } from '../src/dogs.js';
 import { takeJob } from './helpers.mjs';
 
@@ -16,7 +17,9 @@ test('every skill has several ways to use it, across different kinds of step', (
     const count = Object.values(APPROACHES).filter((a) => a.skill === sk && !a.signature).length;
     assert.ok(count >= 4, `${sk}: ${count} approaches`);
     assert.ok(kinds.length >= 3, `${sk}: only in ${kinds}`);
-    assert.ok(Object.values(BREEDS).filter((b) => b.bias.includes(sk)).length >= 3, `${sk}: breeds`);
+    // Skills that come with the body have breeds known for them; aim, tech, wheels and locks are anybody's.
+    if (NEUTRAL_SKILLS.includes(sk)) assert.ok(Object.keys(BREEDS).every((b) => !BREEDS[b].bias.includes(sk) && capOf(b, sk) >= 8), `${sk}: anybody's`);
+    else assert.ok(Object.values(BREEDS).filter((b) => b.bias.includes(sk)).length >= 3, `${sk}: breeds`);
     assert.equal(Object.values(TALENTS).filter((t) => t.skill === sk).length, 10, `${sk}: talents`);
   }
 });

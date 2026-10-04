@@ -74,7 +74,7 @@ test('the biggest enemy: a crossed outfit beats a rival with a grudge; a runner 
 test('retiring: the epilogues and the career card agree on who your closest mate is', async () => {
   const { RETIRE } = await import('../src/retire.js');
   let checked = 0;
-  for (let seed = 1; seed <= 40; seed++) {
+  for (let seed = 1; seed <= 60; seed++) {
     const { s } = career(seed, 'smart', 20);
     if (s.over) continue;
     while (s.story.length) E.dismissStory(s);

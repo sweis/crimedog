@@ -26,6 +26,7 @@ function onGrand(seed) {
 function dogAt(s, level, rng = E.rngOf(s)) {
   const d = genDog(s, rng, {});
   d.talents = [];
+  d.breed = 'poodle'; // no breed caps in the way
   for (const k of SKILLS) { d.skills[k] = level; d.known.skills[k] = true; }
   Object.assign(d, { met: true, relation: 20 });
   s.dogs[d.id] = d;
