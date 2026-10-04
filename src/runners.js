@@ -4,8 +4,8 @@
 // visit and send them to the farm (hard), show mercy (soft), or let it go.
 // While they're loose they make trouble: talking to the Inspector, tipping off
 // security. Scene data lives on the scene, so it survives a save.
-import { fail, done, money, addHeat, addRep, repNote, addRelation, book, inSentence, roundTo } from './util.js';
-import { displayName, shortName, skillOf } from './dogs.js';
+import { fail, done, money, addHeat, addRep, repNote, addRelation, book, inSentence, roundTo, addSabotage } from './util.js';
+import { displayName, shortName, skillOf, sendToFarm } from './dogs.js';
 import { addHardness } from './repute.js';
 import { pushScene, answerScene } from './story.js';
 import { pinJob, keepPinned } from './heists.js';
@@ -49,7 +49,7 @@ export function runnersBetweenJobs(state, rng) {
         scene(state, d.id, 'found', {
           title: 'Found Them',
           text: `${t ? `${shortName(t)} sniffed out the trail. ` : ''}${displayName(d)} is holed up in ${r.hideout}, living off ${inSentence(r.took)}. They don't know you know.`,
-          choices: foundChoices(state, r),
+          choices: foundChoices(r),
         });
         events.push(`${displayName(d)} has been found.`);
       } else events.push(`A lead on ${displayName(d)}: they were seen near the docks.`);
@@ -59,7 +59,7 @@ export function runnersBetweenJobs(state, rng) {
         addHeat(state, 4);
         events.push(`${displayName(d)} has been talking to the Inspector to save their own skin. (+4 heat)`);
       } else {
-        state.sabotage = (state.sabotage || 0) + 1;
+        addSabotage(state);
         events.push(`${displayName(d)} has been telling security you're coming. Your next job starts on alert.`);
       }
     }
@@ -67,7 +67,7 @@ export function runnersBetweenJobs(state, rng) {
   return events;
 }
 
-function foundChoices(state, r) {
+function foundChoices(r) {
   return [
     ...(r.board ? [] : [{ label: 'Steal it back', effect: 'stealback' }]),
     { label: 'Pay them a visit. The farm.', effect: 'farm' },
@@ -83,7 +83,7 @@ export const chooseRunner = (state, i, rng, ctx = {}) => answerScene(state, 'run
 export function runnerAction(state, dogId, effect, rng, ctx = {}) {
   const r = runnersOf(state)[dogId];
   if (!r || !loose(r)) return fail('Nothing to do there.');
-  const allowed = r.stage === 'found' ? foundChoices(state, r).map((c) => c.effect) : r.stage === 'loose' ? ['hunt', 'letgo'] : ['letgo'];
+  const allowed = r.stage === 'found' ? foundChoices(r).map((c) => c.effect) : r.stage === 'loose' ? ['hunt', 'letgo'] : ['letgo'];
   if (!allowed.includes(effect)) return fail('Not yet.');
   if (state.phase !== 'select') return fail('Between jobs.');
   state.story = state.story.filter((x) => !(x.type === 'runner' && x.dog === dogId));
@@ -118,9 +118,7 @@ const EFFECTS = {
   farm(state, r, d) {
     r.stage = 'done';
     r.ended = 'farm';
-    d.status = 'farm';
-    d.farmedBy = 'you';
-    state.stats.farmed = (state.stats.farmed || 0) + 1;
+    sendToFarm(state, d);
     addHardness(state, 12);
     const up = addRep(state, 2);
     const back = roundTo(r.value * 0.5);

@@ -3,6 +3,7 @@
 import { APPROACHES } from './data.js';
 import { shortName } from './dogs.js';
 import { lootItem } from './heists.js';
+import { coppersCame } from './util.js';
 
 export const HISTORY_MAX = 30;
 // Best grade first.
@@ -19,7 +20,7 @@ function fateOf(r, id) {
 }
 
 // Beats worth retelling.
-const isMoment = (b) => ['pear', 'caught', 'lost', 'hurt', 'betray', 'rescue'].includes(b.kind) || (b.kind === 'alarm' && /Old Bill have arrived/.test(b.text));
+const isMoment = (b) => ['pear', 'caught', 'lost', 'hurt', 'betray', 'rescue'].includes(b.kind) || coppersCame(b);
 
 export function buildRecap(state) {
   const { job, result: r, after: a, dogs } = state;

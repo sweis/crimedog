@@ -1,7 +1,7 @@
 // Heist resolution. Pure: takes state + plan + rng, returns a list of beats and
 // an outcome. The UI plays the beats back; engine.resolveHeist applies effects.
 import { APPROACHES, KIT, CHAOS, VOICES, TALENTS, SIGNATURES, WILD, TWISTS, CODENAMES, INTEL } from './data.js';
-import { skillOf, hasSpecial, shortName, roleLevel, sizeOf } from './dogs.js';
+import { skillOf, hasSpecial, shortName, roleLevel, sizeOf, loyaltyOf } from './dogs.js';
 import { clamp, hashOf, inSentence, fillIn } from './util.js';
 import { bondOf, chemistry } from './bonds.js';
 import { lootItem } from './heists.js';
@@ -187,7 +187,6 @@ const END_TEXT = {
   setup: 'Stitched up like a kipper. The Inspector got his photos.',
 };
 
-const loyaltyOf = (d) => d.loyalty + d.relation * 0.5;
 
 // Now and then the crew go by colours for the night. Somebody always ends up Mr Pink.
 function codenames(job, crew) {
@@ -304,7 +303,7 @@ export function simulate(state, job, rng) {
     // Once the Inspector is close, the police are never far away.
     if (!ctx.coppers && ctx.alarm >= (state.heat >= 60 ? ALARM_MAX - 2 : ALARM_MAX)) {
       ctx.coppers = true;
-      beat({ kind: 'alarm', stage: stageId, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
+      beat({ kind: 'alarm', stage: stageId, coppers: true, text: 'Sirens! Blue lights! The Old Bill have arrived!' });
       const unlucky = active();
       if (unlucky.length) escapeCheck(rng.pick(unlucky), stageId);
     }

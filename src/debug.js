@@ -71,7 +71,7 @@ export function snapshot(G) {
     renders: G.stats.renders,
     renderMs: +(G.stats.renderMs || 0).toFixed(2),
     renderMax: +(G.stats.renderMax || 0).toFixed(2),
-    saveBytes: (() => { try { return (localStorage.getItem('crimedog.save.v2') || '').length; } catch { return -1; } })(),
+    saveBytes: G.stats.saveBytes ?? (() => { try { return (localStorage.getItem(G.saveKey) || '').length; } catch { return -1; } })(),
     domNodes: document.getElementsByTagName('*').length,
     drawCalls: 0, // DOM/SVG renderer: no GL draw calls
     shaderPrograms: 0,

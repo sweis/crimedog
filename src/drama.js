@@ -3,8 +3,8 @@
 // money and change the dog (loyalty, a promotion, the pound, a betrayal), and some
 // spill into the next job: a dog fired up or distracted (edge), sitting it out
 // (away), or bringing trouble that turns up on the night (see sim.js).
-import { GROUPS, SIGNATURES, SKILL_INFO, SKILLS, RARITY } from './data.js';
-import { shortName, displayName, genDog, promote, skillOf } from './dogs.js';
+import { GROUPS, SIGNATURES, SKILL_INFO, RARITY } from './data.js';
+import { shortName, displayName, genDog, promote, skillOf, bestBase, loyaltyOf } from './dogs.js';
 import { clamp, money, fail, done, addHeat, addRelation, book, roundTo, fillIn } from './util.js';
 import { adjust } from './groups.js';
 import { makeRng } from './rng.js';
@@ -19,8 +19,8 @@ const PARTNERS = ['Fingers Malone', 'Two-Bowls Terry', 'Slippy Sid', 'Mad Maxine
 const MASTERS = ['Old Man Biscuit', 'The Duchess', 'Grandad Growler', 'Silent Sal'];
 const RELATIVES = ['old mum', 'little brother', 'nan', 'kid sister'];
 
-const bestSkill = (d) => SKILLS.slice().sort((a, b) => d.skills[b] - d.skills[a])[0];
-const loyalOdds = (d) => clamp((d.loyalty + d.relation * 0.5) / 100, 0.1, 0.9);
+const bestSkill = (d) => bestBase(d)[0];
+const loyalOdds = (d) => clamp(loyaltyOf(d) / 100, 0.1, 0.9);
 
 // Arcs. `nodes` are scenes: `fx` applies when the scene comes up, `choices` are the
 // buttons. A choice's `next` is a scene id, weighted [[id, w], ...], or a function;

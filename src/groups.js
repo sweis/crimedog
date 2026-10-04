@@ -1,7 +1,7 @@
 // The city's outfits: standing, job offers, deals, debts and grudges. Pure
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
-import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn } from './util.js';
+import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn, addSabotage } from './util.js';
 import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady } from './heists.js';
 import { makeTip } from './inspector.js';
 
@@ -262,7 +262,7 @@ export function betweenJobs(state, rng) {
         const take = Math.round(state.cash * 0.15);
         book(state, 'raids', -take);
         vars.amount = `${money(take)}`;
-      } else if (e === 'alert') state.sabotage = (state.sabotage || 0) + 1;
+      } else if (e === 'alert') addSabotage(state);
       else if (e === 'rep') addRep(state, -5);
       else if (e === 'crew') {
         const pool = Object.values(state.dogs).filter((d) => d.met && d.status === 'free');

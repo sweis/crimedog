@@ -32,6 +32,14 @@ export const hashOf = (s) => {
 };
 export const pickBy = (key, list) => list[hashOf(key) % list.length];
 
+// Career counters on state.stats (older saves may not have them all yet).
+export const addStat = (state, key, n = 1) => { state.stats[key] = (state.stats[key] || 0) + n; };
+// Someone tips off security: the next job starts with security on alert.
+export const addSabotage = (state, n = 1) => { state.sabotage = (state.sabotage || 0) + n; };
+
+// The police turning up, in a heist's beats (older saves only have the words).
+export const coppersCame = (b) => b.kind === 'alarm' && (b.coppers || /Old Bill have arrived/.test(b.text));
+
 // Every player action returns one of these.
 export const fail = (msg) => ({ ok: false, msg });
 export const done = (msg, extra) => ({ ok: true, msg, ...extra });

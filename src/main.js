@@ -17,6 +17,7 @@ const G = {
   fixedDt: 1 / 60,
   beatMs: Number(params.get('simdt')) || 1500,
   dev: params.has('dev'),
+  saveKey: SAVE_KEY,
 };
 
 // ------------------------------------------------------------------ persistence
@@ -34,7 +35,9 @@ G.hasSave = () => {
 G.save = () => {
   if (!G.state) return;
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ state: G.state, screen: G.ui.screen, heistI: G.ui.heist.i }));
+    const json = JSON.stringify({ state: G.state, screen: G.ui.screen, heistI: G.ui.heist.i });
+    localStorage.setItem(SAVE_KEY, json);
+    G.stats.saveBytes = json.length;
   } catch { /* private mode etc. */ }
 };
 G.load = () => {

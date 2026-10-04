@@ -3,7 +3,7 @@
 // scene on the job board. He also keeps a file on how you work: tricks you
 // lean on get harder, because security has been briefed on them.
 import { APPROACHES, KIT } from './data.js';
-import { money, clamp, addHeat, addRelation, book, roundTo } from './util.js';
+import { money, clamp, addHeat, addRelation, book, roundTo, addSabotage } from './util.js';
 import { pushScene, answerScene } from './story.js';
 import { displayName, shortName, skillOf } from './dogs.js';
 import { addBond } from './bonds.js';
@@ -87,7 +87,7 @@ const MOVES = {
     heat: 20,
     weight: 2,
     run(state) {
-      state.sabotage = (state.sabotage || 0) + 1;
+      addSabotage(state);
       return {
         title: 'Word to the Wise',
         text: 'The Inspector has been round every security firm in town with a slideshow. "Be on your guard," he says. They are. He ends every talk with "Here endeth the lesson." Your next job starts on alert.',

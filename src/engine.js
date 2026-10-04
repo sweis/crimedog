@@ -1,9 +1,9 @@
 // Game state and player actions. Pure logic (no DOM) so it runs under node --test.
 // Every action returns { ok, msg } and mutates state in place.
 import { makeRng, seedHolder } from './rng.js';
-import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence, roundTo } from './util.js';
+import { fail, done, money, clamp, addHeat, addRep, repNote, addRelation, book, pickBy, inSentence, roundTo, addStat } from './util.js';
 import { KIT, FENCES, CUTS, INTEL, APPROACHES, SKILLS, GROUPS, SIGNATURES, BREEDS, MASTER_MIN, SKILL_INFO, PRICES, FIXER } from './data.js';
-import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf } from './dogs.js';
+import { genDog, skillOf, hasSpecial, feeFor, shortName, displayName, isVisitor, promote, earnedPromotion, specialty, sizeOf, sendToFarm } from './dogs.js';
 import { visibleStages, totalLootValue, revealIntel, lootItem, genJob, intelLabel, jobTier } from './heists.js';
 import { inspectorMoves, recordMO, chooseInspector as answerInspector } from './inspector.js';
 import { retire } from './retire.js';
@@ -529,14 +529,10 @@ export function surveil(state, id) {
   d.known.quirks = d.quirks.slice();
   for (const [s] of SKILLS.map((s) => [s, skillOf(d, s)]).sort((a, b) => b[1] - a[1]).slice(0, 3)) d.known.skills[s] = true;
   let msg = `🕵️ ${shortName(d)}:`;
-  if (d.undercover) {
-    if (rng.chance(0.85)) {
-      d.known.undercover = true;
-      msg += ' 👮 UNDERCOVER COPPER!';
-    } else {
-      d.cleared = true;
-      msg += ' seems legit.';
-    }
+  // A copper usually gives themselves away; anyone else checks out.
+  if (d.undercover && rng.chance(0.85)) {
+    d.known.undercover = true;
+    msg += ' 👮 UNDERCOVER COPPER!';
   } else {
     d.cleared = true;
     msg += ' seems legit.';
@@ -802,7 +798,7 @@ export function resolveHeist(state) {
     const d = state.dogs[id];
     if (!earnedPromotion(d)) continue;
     promoted.push({ id, to: promote(d, state) });
-    state.stats.promoted = (state.stats.promoted || 0) + 1;
+    addStat(state, 'promoted');
     news(state, `${displayName(d)} has made a name for themselves: ${d.rarity}, ✨ ${SIGNATURES[d.signature].name}.`);
   }
   // Special kit found on the job is yours to keep, if they got into the goods.
@@ -929,21 +925,28 @@ export function payCrew(state, pct) {
   return done(share ? `Paid the crew ${money(share)}.` : 'The crew gets nothing. They\'ll remember that.');
 }
 
+// What a grade is made of, and the most each part can score (they add up to 100).
+export const GRADE_PARTS = {
+  loot: { label: 'Loot secured', max: 35 }, fence: { label: 'Fenced value', max: 15 }, stealth: { label: 'Stealth', max: 20 },
+  crew: { label: 'Crew got away', max: 15 }, clues: { label: 'Clean scene', max: 10 }, pay: { label: 'Crew paid fairly', max: 5 },
+};
+
 export function gradeJob(state) {
   const r = state.result;
   const a = state.after;
   const job = state.job;
   const total = totalLootValue(job);
+  const M = Object.fromEntries(Object.entries(GRADE_PARTS).map(([k, v]) => [k, v.max]));
   const parts = {};
-  parts.loot = Math.round((35 * a.securedValue) / total);
-  parts.fence = a.securedValue ? Math.min(15, Math.round((15 * (a.gross ?? a.received)) / a.securedValue)) : 0;
-  parts.stealth = r.alarmMax === 0 ? 20 : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
+  parts.loot = Math.round((M.loot * a.securedValue) / total);
+  parts.fence = a.securedValue ? Math.min(M.fence, Math.round((M.fence * (a.gross ?? a.received)) / a.securedValue)) : 0;
+  parts.stealth = r.alarmMax === 0 ? M.stealth : r.alarmMax < 3 ? 14 : r.alarmMax < 6 ? 8 : r.alarmMax < 9 ? 3 : 0;
   // Loyal crew doing time count for half; grasses and the lost count for nothing.
   const stayedQuiet = r.captured.filter((c) => !c.talked).length;
   const realCrew = r.crew.filter((id) => !r.exposed.includes(id) && !r.tipped.includes(id)).length;
-  parts.crew = realCrew ? Math.round((15 * (r.escaped.length + 0.5 * stayedQuiet)) / realCrew) : 0;
-  parts.clues = Math.max(0, 10 - r.clues);
-  parts.pay = (a.cut ?? 0) >= 30 ? 5 : (a.cut ?? 0) >= 15 ? 2 : 0;
+  parts.crew = realCrew ? Math.round((M.crew * (r.escaped.length + 0.5 * stayedQuiet)) / realCrew) : 0;
+  parts.clues = Math.max(0, M.clues - r.clues);
+  parts.pay = (a.cut ?? 0) >= 30 ? M.pay : (a.cut ?? 0) >= 15 ? 2 : 0;
   if (!a.securedValue) { parts.stealth = Math.min(parts.stealth, 5); parts.pay = 0; }
   const score = Object.values(parts).reduce((s, v) => s + v, 0);
   const letter = score >= 93 ? 'S' : score >= 78 ? 'A' : score >= 62 ? 'B' : score >= 45 ? 'C' : score >= 28 ? 'D' : 'F';
@@ -1021,15 +1024,13 @@ export function farm(state, id) {
   if (!d || ['farm', 'gone'].includes(d.status)) return fail('Can\'t do that.');
   if (state.phase === 'heist') return fail('Not now.');
   const wasPound = d.status === 'pound';
-  d.status = 'farm';
-  d.farmedBy = 'you';
+  sendToFarm(state, d);
   leaveCrew(state, id);
   if (state.phase === 'plan' && state.job) {
     for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k].dog;
     if (state.job.insider === id) state.job.insider = null;
   }
   state.pub = state.pub.filter((x) => x !== id);
-  state.stats.farmed += 1;
   addHardness(state, d.undercover ? 5 : 15);
   if (d.undercover) {
     // Word gets round that you dealt with a copper. The underworld approves.
@@ -1066,7 +1067,7 @@ export function nextJob(state) {
       }
     }
     if (d.status === 'hospital' && !walkedAway) {
-      const out = recover(state, d, state.job?.id);
+      const out = recover(d, state.job?.id);
       if (out) news(state, out);
     }
   }

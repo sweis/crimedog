@@ -1,5 +1,5 @@
 // Dog (crew member) generation, derived stats, and procedural SVG portraits.
-import { esc, roundTo } from './util.js';
+import { esc, roundTo, addStat } from './util.js';
 import { startingRecord } from './justice.js';
 import { SKILLS, TALENTS, QUIRKS, BREEDS, FACTIONS, NAMES, SURNAMES, NICKNAMES, ARCHETYPES, RARITY, SIGNATURES, ROLES, NEUTRAL_SKILLS, SIZE_CAPS } from './data.js';
 
@@ -227,8 +227,17 @@ export function feeFor(dog, cheap) {
 // A star passing through town (as opposed to one of your own who made it big).
 export const isVisitor = (dog) => !!dog.rarity && !dog.homegrown;
 
+// Off to live on a farm, at the mastermind's say-so. Out of the game for good.
+export function sendToFarm(state, dog) {
+  dog.status = 'farm';
+  dog.farmedBy = 'you';
+  addStat(state, 'farmed');
+}
+
 // Base skills, best first.
-const bestBase = (dog) => SKILLS.slice().sort((a, b) => dog.skills[b] - dog.skills[a]);
+export const bestBase = (dog) => SKILLS.slice().sort((a, b) => (dog.skills[b] || 0) - (dog.skills[a] || 0));
+// How far a dog would go for you: their own loyalty, plus half how they feel about you.
+export const loyaltyOf = (dog) => dog.loyalty + dog.relation * 0.5;
 
 // Common -> rare -> legendary, for crew who've made a name for themselves. A rare
 // gets a signature move in their best skill; a legendary goes by it. Returns the
@@ -533,14 +542,18 @@ const lookKey = (look) => {
   if (!k) lookKeys.set(look, (k = JSON.stringify(look)));
   return k;
 };
-export function portraitHTML(dog, opts = {}) {
-  if (typeof document === 'undefined') return portraitSVG(dog, opts);
-  const key = `${dog.breed}|${lookKey(dog.look)}|${opts.size || ''}|${opts.bg || ''}|${opts.round || ''}`;
+export function portraitURL(dog, opts = {}) {
+  const key = `${dog.breed}|${lookKey(dog.look)}|${opts.size || ''}|${opts.bg ?? ''}|${opts.round || ''}`;
   let url = portraitURLs.get(key);
   if (!url) {
     url = URL.createObjectURL(new Blob([portraitSVG(dog, { ...opts, uid: 'p' })], { type: 'image/svg+xml' }));
     portraitURLs.set(key, url);
   }
+  return url;
+}
+export function portraitHTML(dog, opts = {}) {
+  if (typeof document === 'undefined') return portraitSVG(dog, opts);
+  const url = portraitURL(dog, opts);
   const size = opts.size || 96;
   return `<img class="portrait" src="${url}" width="${size}" height="${size}" alt="${esc(dog.first)} the ${esc(BREEDS[dog.breed].label)}" draggable="false">`;
 }

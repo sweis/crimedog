@@ -8,11 +8,11 @@
 // Deal with the first two by ratting them out (it costs rep), setting them up, or
 // robbing them. All scene data lives on the scene, so it survives a save.
 import { KIT, SKILLS } from './data.js';
-import { money, addHeat, addRep, repNote, addRelation, book } from './util.js';
+import { money, addHeat, addRep, repNote, addRelation, book, addSabotage } from './util.js';
 import { genDog, shortName, displayName, feeFor } from './dogs.js';
 import { addHardness } from './repute.js';
 import { pushScene, answerScene } from './story.js';
-import { pinJob, keepPinned } from './heists.js';
+import { pinJob, keepPinned, beforeVault } from './heists.js';
 
 export const RIVALS = {
   jacks: {
@@ -105,7 +105,7 @@ const MOVES = {
     const kind = rng.weighted(kinds);
     let text;
     if (kind === 'tipoff') {
-      state.sabotage = (state.sabotage || 0) + 1;
+      addSabotage(state);
       text = 'The Jack Russells have been telling every security guard in town you\'re coming. Your next job starts on alert.';
     } else if (kind === 'gatecrash') {
       state.gatecrash = 'jacks';
@@ -366,9 +366,8 @@ export function gatecrash(state, job) {
   if (!id || !active(R[id]) || ['con', 'fix', 'hack', 'fraud', 'smash'].includes(job.type)) return null;
   let st = job.stages.find((x) => x.id === 'obs_rivals');
   if (!st) {
-    const at = job.stages.findIndex((x) => x.kind === 'vault');
     st = { id: 'obs_rivals', kind: 'obstacle', label: '', icon: '🦹', options: ['o_rivalfight', 'o_rivaldeal', 'o_rivalwait', 'o_rivalgrass'] };
-    job.stages.splice(at, 0, st);
+    beforeVault(job.stages, st);
   }
   st.label = RIVALS[id].name;
   st.icon = RIVALS[id].emblem;
