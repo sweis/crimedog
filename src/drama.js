@@ -335,6 +335,8 @@ function applyFx(state, arc, fx = {}, rng) {
     if (to) note.push(`${displayName(d)} is ${RARITY[to].label}: ✨ ${SIGNATURES[d.signature].name}.`);
   }
   if (fx.pound) sendDown(d, fx.pound + Math.floor(recordOf(d) / 2));
+  // Off to the pound or gone for good: no longer sat in the pub waiting to be hired.
+  if (fx.pound || fx.leave) state.pub = state.pub.filter((id) => id !== d.id);
   if (fx.leave) {
     d.status = 'gone';
     d.left = fx.leave;

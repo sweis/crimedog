@@ -1193,14 +1193,26 @@ console.log('1v. Planning in one place: the prep strip, the job\'s needs in the 
   const locked = await page.evaluate((sel) => [...document.querySelectorAll(sel)].map((e) => ({ ap: e.dataset.ap, stage: e.dataset.stage, rope: /Grappling Rope/.test(e.innerText) })), lockedSel);
   const rope = locked.find((x) => x.rope) || locked[0];
   check(!!rope, `the plan has a locked option (${locked.map((x) => x.ap).join(', ')})`);
+  rope.plan = await page.evaluate((st) => window.cd.live().job.plan[st] || null, rope.stage);
   await tap(page, `main .opt.locked[data-ap="${rope.ap}"][data-stage="${rope.stage}"]`);
+  check(/With it: .*\d+%|\?\?%/.test(await page.locator('.modal .unlock-odds').innerText()), 'the sheet says what the option would be worth');
   check(await page.locator('.modal [data-act="unlock-buy"], .modal [data-act="unlock-tip"], .modal [data-act="pick"]').count() >= 1, 'tapping it says how to unlock it, with the button right there');
   await page.evaluate(() => { document.getElementById('toast').innerHTML = ''; });
   await shot(page, 'unlock-sheet');
   const before = await page.evaluate(() => window.cd.live().cash);
   await tap(page, '.modal [data-act="unlock-buy"], .modal [data-act="unlock-tip"]');
-  const after = await page.evaluate(async (r) => { const E = await import('/src/engine.js'); const s = window.cd.live(); return { cash: s.cash, plan: s.job.plan[r.stage], best: E.bestDogFor(s, r.stage, r.ap), modal: !!document.querySelector('.modal') }; }, rope);
-  check(after.cash < before && after.plan?.approach === rope.ap && after.plan.dog === after.best && !after.modal, `unlocked, on the plan, with the best person on it (${JSON.stringify(after)})`);
+  const planBefore = rope.plan;
+  const after = await page.evaluate(async (r) => {
+    const E = await import('/src/engine.js');
+    const s = window.cd.live();
+    const best = E.bestDogFor(s, r.stage, r.ap);
+    const then = E.stepOdds(s, r.stage, r.ap, best);
+    const was = r.plan?.approach ? E.stepOdds(s, r.stage, r.plan.approach, r.plan.dog) : null;
+    return { cash: s.cash, plan: s.job.plan[r.stage], best, then: then && { p: then.p, known: then.known }, was: was && { p: was.p, known: was.known }, modal: !!document.querySelector('.modal'), toast: document.getElementById('toast').innerText };
+  }, rope);
+  const switched = after.plan?.approach === rope.ap && after.plan.dog === after.best;
+  const kept = after.was?.known && (!after.then.known || after.then.p < after.was.p) && after.plan?.approach === planBefore.approach && /Kept/.test(after.toast);
+  check(after.cash < before && !after.modal && (switched || kept), `unlocked: on the plan with the best person, or the better plan kept and said so (${JSON.stringify(after).slice(0, 300)})`);
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

@@ -17,7 +17,7 @@ import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
 import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
 import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
-import { simulate, approachAvailable, baseOdds, stageOptions, canDo, signatureFits, bestAssignment, planScore } from './sim.js';
+import { simulate, approachAvailable, baseOdds, stageOptions, canDo, signatureFits, bestAssignment, planScore, odds, oddsKnown } from './sim.js';
 
 export const MAX_CREW = 6;
 const START_CASH = 2500;
@@ -394,7 +394,7 @@ export function acceptOffer(state, offerId) {
   pubForJob(state);
   const who = p ? GROUPS[p.group].name : 'your own lead';
   news(state, `You took ${state.job.name} (${who}).`);
-  return done(p?.front ? `${state.job.name}: you're on. ${GROUPS[p.group].short} fronted you £${p.front}.` : `${state.job.name}: you're on.`);
+  return done(p?.front ? `${state.job.name}: you're on. ${GROUPS[p.group].short} fronted you ${money(p.front)}.` : `${state.job.name}: you're on.`);
 }
 
 export function digLeads(state) {
@@ -412,11 +412,17 @@ export function borrow(state) {
 export { payDebt } from './groups.js';
 export { chooseDrama };
 
+// Between jobs a scene or a deal can take rep to nothing or heat to the top: that
+// ends it there, not after one more job.
+const settle = (state, r) => {
+  if (state.phase === 'select' && (state.rep <= 0 || state.heat >= 100)) checkGameOver(state);
+  return r;
+};
 export const chooseInspector = (state, i) => answerInspector(state, i, rngOf(state));
 export const retireNow = (state) => retire(state, rngOf(state));
-export const makeAmends = (state, gid, how) => amendsWith(state, rngOf(state), gid, how);
+export const makeAmends = (state, gid, how) => settle(state, amendsWith(state, rngOf(state), gid, how));
 export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), { genJob });
-export const runnerAction = (state, dogId, effect) => actOnRunner(state, dogId, effect, rngOf(state), { genJob });
+export const runnerAction = (state, dogId, effect) => settle(state, actOnRunner(state, dogId, effect, rngOf(state), { genJob }));
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 // The scene at the front of the queue, answered by whoever's story it is.
@@ -424,7 +430,7 @@ export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { g
 const ANSWER = { inspector: chooseInspector, rival: chooseRival, runner: chooseRunner, drama: chooseDrama };
 export function chooseStory(state, i) {
   const answer = ANSWER[state.story[0]?.type];
-  if (answer) return answer(state, i);
+  if (answer) return settle(state, answer(state, i));
   state.story.shift();
   return done('');
 }
@@ -591,6 +597,7 @@ export const buyFakeIds = (state) => fixerService(state, 'fakeids');
 export const lineUpBuyer = (state) => fixerService(state, 'buyer');
 export const vetFence = (state) => fixerService(state, 'vet');
 export function layLow(state) {
+  if (state.heat <= 0) return fail('Nobody\'s looking for you. Nothing to lie low from.');
   const unpaid = payForDay(state, PRICES.layLow, 'fixer', `Lying low costs £${PRICES.layLow}.`);
   if (unpaid) return unpaid;
   const before = state.heat;
@@ -647,6 +654,14 @@ export function assignToStage(state, stageId, dogId) {
   }
   job.plan[stageId] = { approach, dog: dogId };
   return done(`${shortName(d)} is on ${stage.label}.`);
+}
+
+// A step's odds with a given approach and dog, and whether you'd know them.
+export function stepOdds(state, stageId, ap, dogId) {
+  const stage = state.job.stages.find((x) => x.id === stageId);
+  const d = state.dogs[dogId];
+  if (!stage || !ap || !d) return null;
+  return { p: odds(state, state.job, stage, ap, d, { crew: crewDogs(state) }).p, known: oddsKnown(d, ap), dog: d };
 }
 
 // Who on the crew looks best for an approach, on what you know of them
@@ -846,7 +861,7 @@ export function deliver(state) {
   const G = GROUPS[p.group];
   const item = inSentence(lootItem(state.job, p.want).name);
   if (p.deal === 'marker') return done(`${G.boss} takes ${item}. Your debt is squared.`);
-  return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the £${p.front} advance)` : ''}.`);
+  return done(`${G.boss} takes ${item} and pays ${money(pay)}${p.front ? ` (${money(p.fee)} less the ${money(p.front)} advance)` : ''}.`);
 }
 
 export function fenceRate(state, fenceId) {
@@ -882,7 +897,10 @@ export function fence(state, fenceId) {
   if (p?.cut) {
     a.patronCut = Math.min(got, Math.round((got * p.cut) / 100) + (p.front || 0)); // their cut, plus the advance back
     net -= a.patronCut;
-    msg += ` ${GROUPS[p.group].name} take their ${p.cut}%: ${money(a.patronCut)}.`;
+    const advance = Math.min(p.front || 0, a.patronCut);
+    msg += advance
+      ? ` ${GROUPS[p.group].name} take their ${p.cut}% and the ${money(advance)} advance back: ${money(a.patronCut)}.`
+      : ` ${GROUPS[p.group].name} take their ${p.cut}%: ${money(a.patronCut)}.`;
   }
   a.received += net;
   book(state, 'fence', net);
@@ -891,13 +909,24 @@ export function fence(state, fenceId) {
   return done(msg);
 }
 
+// Who's owed a share: everyone who got away, and everyone nicked (they kept quiet for it).
+export const owedCrew = (r) => r.crew.filter((id) => r.escaped.includes(id) || r.captured.some((c) => c.id === id));
+
 export function payCrew(state, pct) {
   const a = state.after;
   if (!a || a.step !== 'pay') return fail('Not now.');
   const cut = CUTS.find((c) => c.pct === pct);
   if (!cut) return fail('Pick a cut.');
   const r = state.result;
-  const owed = r.crew.filter((id) => r.escaped.includes(id) || r.captured.some((c) => c.id === id));
+  const owed = owedCrew(r);
+  // Nobody left to pay (they ran, or they're gone): you keep the lot, and nobody's stiffed.
+  if (!owed.length) {
+    a.cut = 30;
+    a.paid = 0;
+    finishGrade(state);
+    a.step = 'grade';
+    return done(a.received ? 'Nobody left to pay. You keep the lot.' : '');
+  }
   const share = Math.round((a.received * pct) / 100);
   if (share > state.cash) return fail('You can\'t cover that.');
   book(state, 'pay', -share);

@@ -3,8 +3,15 @@
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
 // A name as it reads mid-sentence: loot is named like a list item ("A solid gold
-// roulette ball"), so the first word drops its capital. Quoted titles keep theirs.
-export const inSentence = (name) => (/^[A-Z](?:[a-z-]|\s)/.test(name) ? name[0].toLowerCase() + name.slice(1) : name);
+// roulette ball"), so the first word drops its capital. Names keep theirs ("Brick
+// Bone's cash box", "Her Ladyship's tiara"), and so do quoted titles: a leading
+// "A", "An" or "The" always drops its capital, any other word only when the next
+// word is lower case, or there isn't one.
+export const inSentence = (name) => (/^(?:A|An|The)\s|^[A-Z][a-z'-]*(?:\s+[a-z0-9]|$)/.test(name) ? name[0].toLowerCase() + name.slice(1) : name);
+// "the Family" -> "The Family", for the start of a line.
+export const capFirst = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+// "a Skeleton Key", "an Oil Lamp", "The Little Black Ledger".
+export const withArticle = (name) => (/^the /i.test(name) ? name : `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`);
 export const money = (n) => `£${Math.round(n).toLocaleString('en-GB')}`;
 // £950, £1.2k, £16k. Rounded down, so £99,600 never reads as £100k.
 export const moneyShort = (n) => {
@@ -14,7 +21,8 @@ export const moneyShort = (n) => {
 };
 // A line of details ("Poodle · Charm · Solid"): each piece stays in one piece, so a
 // line breaks between them, never mid-phrase. Parts are HTML; empty ones are dropped.
-export const dots = (...parts) => parts.flat().filter(Boolean).map((p) => `<span class="bit">${p}</span>`).join(' · ');
+// The "·" rides at the end of the piece before it, so no line starts with one.
+export const dots = (...parts) => parts.flat().filter(Boolean).map((p, i, all) => `<span class="bit">${p}${i < all.length - 1 ? ' ·' : ''}</span>`).join(' ');
 // Fill a line's {placeholders} from `vars`. A placeholder with no value becomes
 // `missing` (pass null to leave it as written).
 export const fillIn = (text, vars, missing = '') => String(text).replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? (missing ?? m));

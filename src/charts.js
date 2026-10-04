@@ -79,7 +79,8 @@ export function lineChart(points, { h = 150, min = 0, max = 100, color = UP, ref
   const y = yScale(h, min, max);
   let s = '';
   for (const v of [min, (min + max) / 2, max]) s += rule(y(v)) + tick(pad.l - 4, y(v) + 3, String(v));
-  for (const r of refs) s += rule(y(r.y), MUTED, ' opacity=".6"') + tick(W - pad.r, y(r.y) - 3, r.label);
+  // Threshold names sit at the left, clear of the latest value's label on the right.
+  for (const r of refs) s += rule(y(r.y), MUTED, ' opacity=".6"') + tick(pad.l + 4, y(r.y) - 3, r.label, 'start');
   if (n) {
     const pts = points.map((p, i) => `${x(i).toFixed(1)},${y(p.value).toFixed(1)}`);
     s += `<path d="M${x(0)} ${y(min)} L${pts.join(' L')} L${x(n - 1)} ${y(min)} Z" fill="${color}" opacity=".1"/>`;

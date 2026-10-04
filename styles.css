@@ -580,7 +580,7 @@ button.stat { font: inherit; color: inherit; cursor: pointer; }
 .prep button.todo { border-style: dashed; }
 .prep button.here { box-shadow: 0 0 0 2px var(--paper); }
 .prep button[disabled] { opacity: .5; }
-.prep .days-left { display: grid; place-items: center; font-size: 13px; padding: 0 4px; color: var(--paper); }
+.prep .days-left { display: flex; align-items: center; gap: 2px; white-space: nowrap; font-size: 13px; padding: 0 2px; color: var(--paper); }
 body.prepping #toast { top: calc(104px + env(safe-area-inset-top, 0px)); }
 /* The pub while planning: the job's steps and how well the crew covers each. */
 .cover-card { padding: 10px 12px; }
@@ -616,3 +616,9 @@ body.prepping #toast { top: calc(104px + env(safe-area-inset-top, 0px)); }
 /* Crew chemistry: the label stays on one line; the verdict sits beside it or under it. */
 .chem > .row { flex-wrap: wrap; column-gap: 10px; row-gap: 2px; }
 .chem > .row > b { white-space: nowrap; }
+
+/* An assignee's name stays inside the tile. */
+.assignee .nm { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* "×1 in the lock-up" and the like stay in one piece. */
+.own { white-space: nowrap; }
+.board-actions .btn { flex: 1 1 100%; }

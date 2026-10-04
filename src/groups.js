@@ -1,8 +1,8 @@
 // The city's outfits: standing, job offers, deals, debts and grudges. Pure
 // logic over game state (no DOM), driven by engine.js.
 import { GROUPS, VENUE_OWNERS, VENUES } from './data.js';
-import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn, addSabotage } from './util.js';
-import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady, unknownIntel } from './heists.js';
+import { clamp, fail, done, money, addHeat, addRep, addRelation, book, roundTo, fillIn, addSabotage, inSentence } from './util.js';
+import { genJob, jobTier, revealIntel, totalLootValue, ownOffer, GRAND_TIER, grandReady, unknownIntel, lootItem } from './heists.js';
 import { makeTip } from './inspector.js';
 
 export const GROUP_IDS = Object.keys(GROUPS);
@@ -203,7 +203,9 @@ export function settleGroups(state) {
       }
       for (const rival of G.rivals) adjust(state, rival, -5, `Working for ${G.short}`, log);
     } else {
-      adjust(state, p.group, -15, 'Job botched', log);
+      // A commission is about the one thing: say so, if the rest went fine.
+      const why = p.want && a.securedValue > 0 ? `No ${inSentence(lootItem(job, p.want)?.name || 'goods')} for them` : 'Job botched';
+      adjust(state, p.group, -15, why, log);
       log[log.length - 1].quote = G.angry[state.stats.jobs % G.angry.length];
       if (p.deal === 'amends') g.amends = null;
       if (G.serious && p.deal !== 'amends' && !(p.deal === 'marker' && !g.debt)) {

@@ -1,7 +1,7 @@
 // DOM rendering. Every screen is a function of (state, ui) -> HTML string;
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
-import { esc, money, moneyShort, count, pickBy, inSentence, dots, coppersCame } from './util.js';
+import { esc, money, moneyShort, count, pickBy, inSentence, dots, coppersCame, capFirst } from './util.js';
 import { meter, tile, heatLevel } from './charts.js';
 import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS, VERDICTS, SIZES, SIZE_NEED, BREED_GROUPS, PRICES, FIXER } from './data.js';
 import { portraitSVG, portraitHTML, portraitURL, displayName, shortName, skillOf, relationLabel, band, isVisitor, specialty, roleLevel, capOf, sizeOf } from './dogs.js';
@@ -89,11 +89,12 @@ const TIPS = {
   job: 'Up top: crew, intel, plan. 🔎 Case the joint, 🐾 hire at the pub, 📋 plan it. Casing takes a day, and the days run out.',
   pub: 'Tap a step to see who\'d suit it. A stranger\'s skills stay a ? until they\'ve worked for you, or been tailed.',
   plan: 'Tap an option, then a face. Faded, dashed ones are locked: tap to see how to open them. ??% is a skill you haven\'t seen yet.',
-  aftermath: 'Fence the goods, then pay the crew. A fair cut keeps them loyal; stiff them and word gets round.',
+  aftermath: 'Hand over or fence the goods, then pay the crew. A fair cut keeps them loyal; stiff them and word gets round.',
 };
 function tipFor(G, screen) {
   const key = screen === 'aftermath' && G.state?.after?.step === 'grade' ? null : screen;
   if (!G.state || !TIPS[key] || G.ui.tipsSeen?.includes(key) || G.ui.modal) return '';
+  if (key === 'plan' && !G.state.crew.length) return ''; // nothing to tap yet: save it for when there is
   return `<div class="tip" role="note"><div class="tip-head"><span class="ico">👂</span><b>A word in your ear</b><button class="btn small ghost" data-act="tip-ok" data-tip="${key}">Got it</button></div><div>${esc(TIPS[key])}</div></div>`;
 }
 
@@ -200,7 +201,7 @@ function dealTerms(job) {
     if (p.front) chips.push(`<span class="chip warn">💰 ${money(p.front)} up front${G2.serious ? ' · fail = debt' : ''}</span>`);
     if (p.rivalHit) chips.push(`<span class="chip bad">⚔️ vs ${GROUPS[p.rivalHit].emblem} ${esc(GROUPS[p.rivalHit].short)}</span>`);
   }
-  if (job.owner && (!p || p.rivalHit !== job.owner)) chips.push(`<span class="chip bad">⚠️ ${GROUPS[job.owner].emblem} ${esc(GROUPS[job.owner].short)}'s place</span>`);
+  if (job.owner && (!p || p.rivalHit !== job.owner)) chips.push(`<span class="chip bad">⚠️ ${GROUPS[job.owner].emblem} ${esc(capFirst(GROUPS[job.owner].short))}'s place</span>`);
   return chips.join('');
 }
 
@@ -252,7 +253,7 @@ function selectScreen(G) {
       <div class="dm-chips">${jobTraits(job)}${dealTerms(job)}</div>
       <button class="btn block mt ${['marker', 'amends'].includes(o.kind) ? 'red' : ''}" data-act="take-offer" data-id="${o.id}">${o.kind === 'marker' ? 'Do them the favour' : o.kind === 'amends' ? 'Make amends' : 'Take the job'}</button></section>`;
   }
-  h += `<div class="btn-row"><button class="btn ghost" data-act="dig-leads" ${s.cash >= PRICES.leads ? '' : 'disabled'}>🍻 Buy a round for fresh leads · ${money(PRICES.leads)}</button>${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}</div>`;
+  h += `<div class="btn-row board-actions"><button class="btn ghost" data-act="dig-leads" ${s.cash >= PRICES.leads ? '' : 'disabled'}>🍻 Buy a round for fresh leads · ${money(PRICES.leads)}</button>${s.history.length ? `<button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button>` : ''}</div>`;
   if (s.cash < 200 && canBorrow(s)) h += `<div class="btn-row mt"><button class="btn red" data-act="borrow">🌹 Borrow £${LOAN.amount} from the Family · owe £${LOAN.owe}</button></div>`;
   return h;
 }
@@ -333,7 +334,8 @@ function jobScreen(G) {
   const stars = tierStars(job.tier);
   const intelKeys = Object.keys(job.intel);
   const known = intelKeys.filter((k) => job.intel[k]);
-  const days = Array.from({ length: 5 }, (_, i) => `<i class="${i >= job.daysLeft ? 'used' : ''}"></i>`).join('');
+  // A rush job only ever had two days.
+  const days = Array.from({ length: Math.max(job.daysLeft, job.twist === 'rush' ? 2 : 5) }, (_, i) => `<i class="${i >= job.daysLeft ? 'used' : ''}"></i>`).join('');
   const stake = job.intel.hz_stakeout ? `<p class="chip bad">🚓 Police stakeout at ${job.stakeoutTime === 'night' ? 'night' : 'daytime'}</p>` : '';
   return `
   <section class="card job-card">
@@ -481,8 +483,8 @@ const browsing = (s) => s.phase === 'select';
 const dogCards = (G, list, opts = {}, empty = '') => list.map((d) => dogCard(G, d, opts)).join('') || (empty ? `<p class="muted">${empty}</p>` : '');
 const askAround = (s) => `<div class="btn-row"><button class="btn ghost" data-act="ask-around" ${s.job.daysLeft ? '' : 'disabled'}>🗣️ Ask around for new faces (1 day)</button></div>`;
 
-// Old faces who could be hired now: free, in town, and not already in the pub or on the crew.
-const freeInBook = (s) => E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id) && !outOfTown(s, d));
+// Old faces who could be hired now: free, willing, in town, and not already in the pub or on the crew.
+const freeInBook = (s) => E.bookDogs(s).filter((d) => d.status === 'free' && !s.crew.includes(d.id) && !s.pub.includes(d.id) && !E.hireProblem(s, d));
 
 function pubScreen(G) {
   const s = G.state;
@@ -612,7 +614,7 @@ function fixerScreen(G) {
     ${service('fakeids')}
     ${service('buyer')}
     ${service('vet')}
-    ${svc('laylow', '🛋️', 'Lie low', 'Less heat.', priceTag(PRICES.layLow, true), '', !job.daysLeft)}
+    ${svc('laylow', '🛋️', 'Lie low', s.heat > 0 ? 'Less heat.' : 'Nobody\'s looking for you.', priceTag(PRICES.layLow, true), '', !job.daysLeft || s.heat <= 0)}
   </section>`;
 }
 
@@ -708,7 +710,7 @@ function planScreen(G) {
       const skill = APPROACHES[p.approach].skill;
       const size = APPROACHES[p.approach].size;
       const what = (d) => (size ? `<b>${esc(SIZES[sizeOf(d)])}</b>` : `<b>${knownSkill(d, skill)}</b> ${SKILL_INFO[skill].icon}`);
-      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitHTML(d, { size: 44 })}${esc(shortName(d))}${dramaMark(d)}<br>${what(d)}</button>`).join('')}${hireTile(st, skill, size)}</div>`;
+      h += `<div class="assignees">${crew.filter((d) => canDo(d, p.approach)).map((d) => `<button class="assignee ${p.dog === d.id ? 'on' : ''}" data-act="plan-dog" data-stage="${st.id}" data-id="${d.id}">${portraitHTML(d, { size: 44 })}<span class="nm">${esc(shortName(d))}${dramaMark(d)}</span>${what(d)}</button>`).join('')}${hireTile(st, skill, size)}</div>`;
       if (p.dog) {
         const d = s.dogs[p.dog];
         const o = odds(s, job, st, p.approach, d);
@@ -950,7 +952,7 @@ function aftermathScreen(G) {
   h += sec.length ? `<ul class="loot-list">${sec.map((l) => `<li><span>${LOOT_KINDS[l.kind].icon} ${esc(l.name)}</span><span class="v">${money(l.value)}</span></li>`).join('')}</ul>` : '<p>No loot. Not a sausage.</p>';
   const lines = [];
   for (const run of r.runners) lines.push(`💨 <b>${esc(shortName(s.dogs[run.id]))}</b> did a runner with ${esc(inSentence(lootItem(job, run.lootId).name))}.`);
-  for (const l of loot(r.dropped)) lines.push(`🚓 Lost to the police: ${esc(l.name)}.`);
+  for (const l of loot(r.dropped)) lines.push(`🚓 Lost to the police: ${esc(inSentence(l.name))}.`);
   for (const l of r.lost || []) lines.push(`🚜 <b>${esc(shortName(s.dogs[l.id]))}</b> has gone to live on a farm. For good.`);
   for (const h of r.hurt || []) {
     const d = s.dogs[h.id];
@@ -973,7 +975,7 @@ function aftermathScreen(G) {
   }
   if (r.setup) lines.push('🚨 <b>It was a setup.</b> The tip came from the Inspector.');
   for (const t of a.rivals || []) lines.push(esc(t));
-  if (a.noted?.length) lines.push(`📁 Into the Inspector's file: ${a.noted.map((ap) => esc(APPROACHES[ap].label.toLowerCase())).join('; ')}. Security will be ready.`);
+  if (a.noted?.length) lines.push(`📁 Into the Inspector's file: ${a.noted.map((ap) => esc(inSentence(APPROACHES[ap].label))).join('; ')}. Security will be ready.`);
   lines.push(`🕵️ Heat +${r.heatGain} (alarm peaked at ${r.alarmMax}/10, ${count(r.clues, 'clue')} left behind).`);
   h += `<div class="events mt">${lines.map((l) => `<p class="event">${l}</p>`).join('')}</div></section>`;
 
@@ -993,14 +995,14 @@ function aftermathScreen(G) {
     }
     h += '</section>';
   } else if (a.step === 'pay') {
-    const owed = r.crew.filter((id) => r.escaped.includes(id) || r.captured.some((c) => c.id === id));
+    const owed = E.owedCrew(r);
     h += `<section class="card"><h2>Pay the Crew</h2>`;
     if (a.sting) h += '<p class="chip bad">Francesca was a sting. The loot is gone.</p>';
-    if (!a.received) {
-      h += '<button class="fence-opt" data-act="pay" data-pct="0"><b>Nothing to split. Move on.</b></button></section>';
+    if (!a.received || !owed.length) {
+      h += `<button class="fence-opt" data-act="pay" data-pct="0"><b>${a.received ? `Nobody left to pay. Keep all ${money(a.received)}.` : 'Nothing to split. Move on.'}</b></button></section>`;
       return h;
     }
-    if (a.patronCut) h += `<p class="chip info">✂️ ${esc(GROUPS[p.group].name)} took their cut: ${money(a.patronCut)}</p>`;
+    if (a.patronCut) h += `<p class="chip info">✂️ ${esc(GROUPS[p.group].name)} took ${p.front ? 'their cut and the advance' : 'their cut'}: ${money(a.patronCut)}</p>`;
     h += `<p class="muted">${money(a.received)} to split · ${count(owed.length, 'dog')}</p><div class="stack">`;
     for (const c of CUTS) {
       const amt = Math.round((a.received * c.pct) / 100);
@@ -1104,6 +1106,12 @@ function unlockModal(G, m) {
   const st = job.stages.find((x) => x.id === m.stage);
   const days = job.daysLeft ? `${count(job.daysLeft, 'day')} left` : 'No days left';
   let h = `<h2>🔒 ${esc(a.label)}</h2><p class="muted">${st.icon} ${esc(st.label)} · ${SKILL_INFO[a.skill]?.icon || ''} ${SKILL_INFO[a.skill]?.label || ''}</p>`;
+  // What it would be worth: the best person on it, against the step as planned now.
+  const pct = (o) => (o.known ? `${Math.round(o.p * 100)}%` : '??%');
+  const then = E.stepOdds(s, m.stage, m.ap, E.bestDogFor(s, m.stage, m.ap));
+  const cur = job.plan[m.stage];
+  const now = cur?.approach && approachAvailable(s, job, cur.approach).ok ? E.stepOdds(s, m.stage, cur.approach, cur.dog) : null;
+  if (then) h += `<p class="unlock-odds">With it: <b>${esc(shortName(then.dog))} ${pct(then)}</b>${now ? ` · as planned now: ${esc(shortName(now.dog))} ${pct(now)}` : ''}</p>`;
   const btn = (act, label, extra = '', off = false, ghost = false) => `<button class="btn block ${ghost ? 'ghost' : ''}" data-act="${act}" ${extra} ${off ? 'disabled' : ''}>${label}</button>`;
   if (a.needKit && !(s.kit[a.needKit] > 0)) {
     const k = KIT[a.needKit];
@@ -1318,7 +1326,7 @@ function recapModal(G, i) {
   const T = JOB_TYPES[r.type] || JOB_TYPES.breakin;
   const crew = (r.crew || []).map((c) => `<div class="rc-dog">${portraitHTML(c, { size: 52 })}<div>${esc(c.nick ? c.nick.replace(/^The /, '') : c.first)}</div><small>${FATE_ICON[c.fate] || ''} ${esc(FATES[c.fate] || '')}</small></div>`).join('');
   const steps = (r.steps || []).map((st) => `<li><b>${st.icon} ${esc(st.label)}</b>${st.surprise ? ' <span class="chip bad">Surprise!</span>' : ''}
-    ${st.tries.map((t) => `<div class="rc-try ${t.ok ? 'ok' : 'fail'}">${t.ok ? '✓' : '✗'} <b>${esc(t.dog)}</b>${t.improv ? ' improvised' : ''}: ${esc(t.how.toLowerCase())}</div>`).join('')}</li>`).join('');
+    ${st.tries.map((t) => `<div class="rc-try ${t.ok ? 'ok' : 'fail'}">${t.ok ? '✓' : '✗'} <b>${esc(t.dog)}</b>${t.improv ? ' improvised' : ''}: ${esc(inSentence(t.how))}</div>`).join('')}</li>`).join('');
   return `<div class="rc-head">${gradeBadge(r.grade)}<div class="grow"><h2>${esc(r.name)}</h2><div class="muted">${T.icon} ${esc(T.label)} · ${esc(r.venue)}${r.district ? `, ${esc(r.district)}` : ''} · Day ${r.day}</div></div></div>
     ${r.headline ? `<div class="paper rc-paper"><div class="hl">${esc(r.headline)}</div></div>` : ''}
     <p><b>${money(r.take || 0)}</b>${r.score != null ? ` · ${r.score}/100` : ''}${r.alarmMax != null ? ` · alarm ${r.alarmMax}/10 · ${count(r.clues, 'clue')}` : ''}</p>

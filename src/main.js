@@ -4,6 +4,8 @@ import { render, renderModal, currentScreen, hiringFor, profileHTML, careerHTML 
 import { installDebug, updateOverlay } from './debug.js';
 import { approachAvailable } from './sim.js';
 import { visibleStages } from './heists.js';
+import { shortName } from './dogs.js';
+import { money } from './util.js';
 import { cardPNG, careerPNG, recapPNG, shareBlob } from './card.js';
 
 const SAVE_KEY = 'crimedog.save.v2';
@@ -35,7 +37,7 @@ G.hasSave = () => {
 G.save = () => {
   if (!G.state) return;
   try {
-    const json = JSON.stringify({ state: G.state, screen: G.ui.screen, heistI: G.ui.heist.i });
+    const json = JSON.stringify({ state: G.state, screen: G.ui.screen, heistI: G.ui.heist.i, heistPlaying: G.ui.heist.playing });
     localStorage.setItem(SAVE_KEY, json);
     G.stats.saveBytes = json.length;
   } catch { /* private mode etc. */ }
@@ -48,7 +50,7 @@ G.load = () => {
     if (!data.state || data.state.version !== 2) return false;
     G.state = data.state;
     G.ui.screen = data.screen || 'job';
-    G.ui.heist = { i: data.heistI || 0, playing: true };
+    G.ui.heist = { i: data.heistI || 0, playing: data.heistPlaying ?? true }; // paused stays paused
     return true;
   } catch { return false; }
 };
@@ -178,7 +180,15 @@ function useUnlocked() {
   G.ui.unlockFor = null;
   const s = G.state;
   if (!u || s?.phase !== 'plan' || !approachAvailable(s, s.job, u.ap).ok) return;
-  if (E.setPlan(s, u.stage, { approach: u.ap, dog: E.bestDogFor(s, u.stage, u.ap) || s.crew[0] }).ok) {
+  // Switch to it unless the step as planned is a known better bet.
+  const cur = s.job.plan[u.stage];
+  const now = cur?.approach && cur.approach !== u.ap && approachAvailable(s, s.job, cur.approach).ok ? E.stepOdds(s, u.stage, cur.approach, cur.dog) : null;
+  const then = E.stepOdds(s, u.stage, u.ap, E.bestDogFor(s, u.stage, u.ap));
+  if (now?.known && then && (!then.known || then.p < now.p)) {
+    toast(`Kept ${shortName(now.dog)} on it (${Math.round(now.p * 100)}%). The new way's there if you want it.`);
+    return;
+  }
+  if (E.setPlan(s, u.stage, { approach: u.ap, dog: then?.dog.id || s.crew[0] }).ok) {
     G.commit();
     const el = document.querySelector(`.plan-step[data-stage="${u.stage}"]`);
     el?.classList.add('flash');
@@ -294,7 +304,9 @@ const A = {
     run(E.retireNow);
   },
   'walk-away'(el) {
-    if (!confirmTap(el, 'Really walk away? (-3 rep) Tap again.')) return;
+    const p = G.state.job?.patron;
+    const owe = p?.front ? `, and the ${money(p.front)} advance goes back` : '';
+    if (!confirmTap(el, `Really walk away? (-3 rep${owe}) Tap again.`)) return;
     run(E.nextJob);
     show('job');
   },
@@ -362,6 +374,7 @@ const A = {
   },
   'plan-dog'(el) { run(E.setPlan, el.dataset.stage, { dog: el.dataset.id }); },
   'pull'() {
+    G.clearToasts(); // nothing from the planning should cover the job itself
     const r = E.pullJob(G.state);
     if (!r.ok) { toast(r.msg, true); return; }
     G.ui.heist = { i: 0, playing: true };
