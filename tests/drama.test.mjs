@@ -134,7 +134,8 @@ test('trouble follows a dog to work: it turns up in the heist and leaves clues',
   let seen = 0;
   let clues = 0;
   let base = 0;
-  for (let k = 1; k <= 40; k++) {
+  const N = 120;
+  for (let k = 1; k <= N; k++) {
     const { s, d } = withMate(k);
     takeJob(s);
     E.hire(s, d.id);
@@ -146,7 +147,7 @@ test('trouble follows a dog to work: it turns up in the heist and leaves clues',
     delete d.drama;
     base += simulate(s, s.job, makeRng({ s: k })).clues;
   }
-  assert.ok(seen >= 20, `trouble showed up in ${seen}/40`); // not when the job stops short of its step
+  assert.ok(seen >= 0.4 * N, `trouble showed up in ${seen}/${N}`); // not when the job stops short of its step (about 57% do)
   assert.ok(clues > base, `clues with trouble ${clues} vs ${base}`);
 });
 

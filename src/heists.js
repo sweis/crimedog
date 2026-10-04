@@ -17,12 +17,12 @@ const JOB_WORDS = {
 
 // Names that tell you what kind of job it is.
 const TYPE_NAMES = {
-  con: (w) => [`The ${w} Sting`, 'The Long Con', 'The Big Store', 'The Duke of Nowhere', 'House of Games', 'The Poodle Prisoner', 'The Tell'],
+  con: (w) => [`The ${w} Sting`, 'The Long Con', 'The Big Store', 'The Duke of Nowhere', 'House of Games', 'The Poodle Prisoner', 'The Tell', 'The Usual Suspects', 'Keyser Collie'],
   swap: (w, star) => [`The ${w} Switch`, 'The Old Switcheroo', `The Other ${star}`, 'The Thomas Crown Affair', 'The Real McCoy'],
   smash: (w, star, venue) => [`Smash & Grab at the ${venue}`, `The ${w} Smash`, 'Snatch', 'Gone in Sixty Seconds'],
-  van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`, 'Heat', 'The Wrath of the Van'],
-  hack: (w) => [`The ${w} Hack`, 'The Wire Job', 'Operation Firewall', 'The Bone-Coin Caper'],
-  fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch', 'Biscuits Are for Closers', 'Always Be Closing'],
+  van: (w) => [`The ${w} Van Job`, 'The Armoured Car Job', `The ${w} Snatch`, 'Heat', 'The Wrath of the Van', 'Blow the Bloody Doors Off', 'The Self-Preservation Society'],
+  hack: (w) => [`The ${w} Hack`, 'The Wire Job', 'Operation Firewall', 'The Bone-Coin Caper', 'Too Many Secrets', 'Setec Astronomy', 'The Conversation'],
+  fraud: (w) => ['The Paper Trail', `The ${w} Fiddle`, 'Cooking the Books', 'The Long Lunch', 'Kibble Is for Closers', 'Always Be Closing'],
   tunnel: (w) => [`The ${w} Tunnel`, 'The Long Dig', 'The Bank Holiday Job', 'Down Under'],
   roof: (w) => [`The ${w} Rooftop Job`, 'To Catch a Thief', 'Over the Top', 'The Cat Burglar Caper', 'Entrapment'],
   fix: (w) => ['The Fix', `The ${w} Fix`, 'Take a Dive', 'Bent as a Nine Bob Note', 'Down in the Fourth', 'One Punch Mickey'],

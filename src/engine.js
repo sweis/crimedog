@@ -1119,7 +1119,7 @@ export function checkGameOver(state) {
 
 export const GAME_OVER_TEXT = {
   inspector: { title: 'Knock Knock', text: 'The Inspector is at the door with a warrant, a smug grin and a very large file with your face on it. It\'s the pound for you, Guv\'nor.' },
-  nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Coffee\'s for closers, and you\'re not getting any.' },
+  nobody: { title: 'Nobody Will Work For You', text: 'Your name is mud. The pub goes quiet when you walk in. Even the Rookie won\'t return your calls. Kibble is for closers, and you\'re not getting any.' },
   retired: { title: 'Out of the Game', text: 'You did it. A villa on the Costa del Bone, a sun lounger, and nobody knocking at six in the morning. The Dog & Duck will tell stories about you for years.' },
   broke: { title: 'Skint', text: 'Not a penny to your name and not a soul to your name either. Time to get a proper job. Everybody needs money. That\'s why they call it money.' },
 };

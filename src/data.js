@@ -281,6 +281,9 @@ export const NICKNAMES = [
   'Slick', 'Snake Eyes', 'Ace', 'Sticky Paws', 'Long Shot', 'Clean Paws', 'The Closer', 'The Machine', 'Sheep-Counter',
   'Backup Plan', 'The Tell', 'Fleabag', 'Muttley', 'Hairball', 'Slobber', 'Whiskers', 'Rawhide', 'Pedigree', 'Rollover',
   'Walkies', 'Tennis Ball', 'Good Boy', 'Sausage Roll', 'Leash', 'Ruff', 'Drool', 'Bones', 'Gnasher', 'Nipper', 'Snapper',
+  // Wiretappers, black boxes, little cars, hard-nosed coppers and the usual suspects.
+  'Popeye', 'Cloudy', 'Frog One', 'Whistler', 'Mother', 'Crease', 'Cosmo', 'Fenster', 'Keyser', 'Croker',
+  'Camp Freddie', 'The Raincoat', 'The Saxophone', 'Mr Bridger',
 ];
 
 // Parody catchphrases, keyed loosely to archetypes.
@@ -314,7 +317,7 @@ export const ARCHETYPES = [
   { id: 'backup', label: 'The Careful One', line: 'I wouldn\'t clear my throat without a back-up plan.' },
   { id: 'confidence', label: 'The Con Artist', line: 'It\'s called a confidence game. You give me yours, I give you mine.' },
   { id: 'anybody', label: 'The Paranoid', line: 'Anybody could be anybody. Even you. Especially you.' },
-  { id: 'closer', label: 'The Closer', line: 'Always be closing. Biscuits are for closers.' },
+  { id: 'closer', label: 'The Closer', line: 'Always be closing. Kibble is for closers.' },
   { id: 'doubt', label: 'The Ronin', line: 'Whenever there is any doubt, there is no doubt. Also, I want a biscuit.' },
   { id: 'stupidity', label: 'The Cynic', line: 'Never underestimate the predictability of stupidity.' },
   { id: 'pedigree', label: 'The Boss\'s Boss', line: 'You\'re on thin ice, my pedigree chums.' },
@@ -324,16 +327,23 @@ export const ARCHETYPES = [
   { id: 'tricks', label: 'The Mystery', line: 'Greatest trick I ever pulled? Convincing the Inspector I was a cat.' },
   { id: 'lesson', label: 'The Teacher', line: 'Here endeth the lesson. Now, about my fee.' },
   { id: 'tail', label: 'The Shadow', line: 'Don\'t let the tail wag you. That\'s my whole philosophy.' },
+  { id: 'passport', label: 'The Voice', line: 'My bark is my passport. Verify me.' },
+  { id: 'secrets', label: 'The Hacker', line: 'No more secrets. Apart from where I buried the bone.' },
+  { id: 'recording', label: 'The Eavesdropper', line: 'I don\'t care what they\'re barking about. I just want a nice fat recording.' },
+  { id: 'hunch', label: 'The Hard Nose', line: 'Do you pick your paws in Puddlecombe?' },
+  { id: 'singer', label: 'The Singer', line: 'This is the self-preservation society! Everybody sing!' },
+  { id: 'suspect', label: 'The Usual Suspect', line: 'Hand over the keys, you dozy mutt. Sorry. Every time.' },
+  { id: 'oldlag', label: 'The Old Lag', line: 'Everybody in the pound knows my name. The warders bring me tea.' },
 ];
 
 // The grade card's verdict, mostly from a certain real-estate sales office.
 export const VERDICTS = {
-  S: ['First prize: a Cadillac. Well, a new collar.', 'Biscuits are for closers. Have a biscuit.', 'Nobody will ever know. That\'s the art of it.'],
+  S: ['First prize: a Cadillac. Well, a new collar.', 'Kibble is for closers. Have some kibble.', 'Nobody will ever know. That\'s the art of it.', 'And like that... they\'re gone.'],
   A: ['Always be closing. You closed.', 'Like a walk round the block.', 'Smooth. Very smooth.'],
   B: ['Second prize: a set of steak knives.', 'A decent night\'s work. Nothing to bark about.', 'Not bad. Not great. Not bad.'],
-  C: ['It went pear-shaped, but it\'s still a pear.', 'Here endeth the lesson.', 'You\'ll want to do better. The crew certainly do.'],
+  C: ['It went pear-shaped, but it\'s still a pear.', 'Here endeth the lesson.', 'You\'ll want to do better. The crew certainly do.', 'Hang on a minute, lads. I\'ve got a great idea.'],
   D: ['Third prize: you\'re fired.', 'Never underestimate the predictability of stupidity.', 'That was emotional.'],
-  F: ['Put that biscuit down. Biscuits are for closers.', 'You were only supposed to blow the bloody doors off.', 'Lock, stock and nothing at all.'],
+  F: ['Put that kibble down. Kibble is for closers.', 'You were only supposed to blow the bloody doors off.', 'Lock, stock and nothing at all.'],
 };
 
 // Reservoir colours: who's who on the night. Nobody wants to be Mr Pink.
@@ -433,6 +443,7 @@ export const APPROACHES = {
   g_barge: { label: 'Slow canal barge', skill: 'wheels', mod: -1, noise: 0, failNoise: 1, clues: -1, slow: true, ok: 'Chug... chug... chug. Nobody suspects a barge.', fail: 'The barge is overtaken by a jogger. Then a police boat.' },
   g_sniff: { label: 'Follow your nose through the back alleys', skill: 'nose', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: '{d} leads them home by the smell of the chip shop. Nobody follows.', fail: '{d} leads them home by the smell of the chip shop. So do the police.' },
   g_tyres: { label: 'Pop the patrol car\'s tyres and stroll off', skill: 'aim', mod: 1, noise: 1, failNoise: 2, clues: 1, kitBonus: 'slingshot', ok: 'Pfft. Pfft. The patrol car isn\'t going anywhere, and neither is the copper in it.', fail: 'Missed. The copper looks up from his sandwich.' },
+  g_traffic: { label: 'Jam every traffic light in town', skill: 'tech', mod: 0, noise: 0, failNoise: 2, clues: 0, kitBonus: 'laptop', ok: 'Every light in town goes red at once. Gridlock. Except one little lane, just for us.', fail: 'Every light in town goes red at once. Including the one in front of the getaway car.' },
   g_walk: { label: 'Walk. Casual. Whistle', skill: 'sneak', mod: 1, noise: 0, failNoise: 2, clues: 0, ok: 'Whistling a jaunty tune, they walk off into the night.', fail: 'The whistling is suspicious. Very suspicious.' },
   // ---- The Long Con (a confidence scam: no doors, no vault, just a mark)
   c_club: { label: 'Bump into the mark at their club', skill: 'charm', mod: 0, noise: 0, failNoise: 1, clues: 0, ok: '{d} spills a drink on the mark, apologises beautifully, and gets invited to dinner.', fail: 'The mark remembers {d} from somewhere. Not somewhere good.' },
@@ -571,7 +582,7 @@ export const APPROACHES = {
   s_blackout: { label: 'Black out the whole street', skill: 'tech', mod: -3, noise: 0, failNoise: 3, clues: 1, signature: 'blackout', ok: '{d} flips one switch. Every light on the street dies. "Power cut, innit."', fail: 'The whole street goes dark. Except, somehow, the alarm.' },
   s_juggernaut: { label: 'Take the door off its hinges', skill: 'muscle', mod: -3, noise: 2, failNoise: 4, clues: 1, signature: 'juggernaut', ok: '{d} takes hold of the vault door and simply... removes it.', fail: 'The door wins. First time ever. {d} is furious. Loudly.' },
   s_oldpals: { label: 'The head of security owes us one', skill: 'charm', mod: -4, noise: 0, failNoise: 2, clues: 0, signature: 'oldpals', ok: '"Evening, old friend." The guards take an early tea break. All of them.', fail: 'The head of security has a new job. The new one is nobody\'s old pal.' },
-  s_wheelman: { label: 'The storm-drain run', skill: 'wheels', mod: -3, noise: 0, failNoise: 2, clues: -1, signature: 'wheelman', ok: '{d} drops the motor into the storm drains. Out the far side of town in six minutes.', fail: 'The storm drain is flooded. So, now, is the motor.' },
+  s_wheelman: { label: 'Three little cars down the steps', skill: 'wheels', mod: -3, noise: 0, failNoise: 2, clues: -1, signature: 'wheelman', ok: 'Three little cars down the steps, through the arcade, along the storm drains and out the far side of town in six minutes. The police cars don\'t fit.', fail: 'Three little cars, one very narrow arcade. Now nobody fits.' },
   s_whisper: { label: 'Listen to the tumblers sing', skill: 'locks', mod: -4, noise: 0, failNoise: 1, clues: 0, signature: 'whisper', ok: '{d} puts an ear to the steel and hums along. The door swings open.', fail: 'The tumblers have gone off-key. {d} winces.' },
   s_faces: { label: 'Walk out dressed as the Inspector', skill: 'disguise', mod: -3, noise: 0, failNoise: 2, clues: -1, signature: 'faces', ok: '"Evening, lads. Nothing to see here." {d} marches the crew out, dressed as the Inspector.', fail: 'The real Inspector is standing right there. Awkward.' },
   s_rooftops: { label: 'Across the rooftops, no rope', skill: 'agility', mod: -3, noise: 0, failNoise: 2, clues: 0, signature: 'rooftops', ok: '{d} runs the rooftops like they\'re pavement.', fail: '{d} misjudges a gap. Only just.' },
@@ -807,6 +818,8 @@ export const TWISTS = {
   rush: { label: 'Moving Tomorrow', icon: '⏰', blurb: 'The goods move soon. Only two days to plan.' },
   bigger: { label: 'A Bigger Haul', icon: '💰', blurb: 'More in there than usual. More security too: every step +1.' },
   rivals: { label: 'Another Crew', icon: '🦹', blurb: 'Someone else is hitting it the same night. You\'ll have to deal with them.', types: ['breakin', 'swap', 'tunnel', 'roof', 'van', 'train'] },
+  gridlock: { label: 'Gridlock', icon: '🚦', blurb: 'Somebody\'s been at the traffic computer. Every road in town is jammed: hopeless on wheels, easy to slip away on foot.', types: ['breakin', 'swap', 'smash', 'van', 'tunnel', 'roof', 'train'], needs: 'getaway', mods: { skills: { wheels: 2, sneak: -1, disguise: -1 } } },
+  bugged: { label: 'Walls Have Ears', icon: '🎙️', blurb: 'A man in a plastic raincoat has bugged the place for somebody else. Every word on tape: talking your way through is harder.', types: ['breakin', 'swap', 'con', 'fraud', 'hack'], mods: { skills: { charm: 1, disguise: 1 } } },
   grudge: { label: 'An Inside Grudge', icon: '😤', blurb: 'Someone on the staff hates the boss. They\'ve already told you a thing or two.' },
 };
 
@@ -888,7 +901,7 @@ export const MARKS = ['Lord Woofington', 'Lady Fluffington', 'Sir Reginald Barkl
 
 export const ENTRY_POOL = ['e_pick', 'e_charm', 'e_staff', 'e_skylight', 'e_sewer', 'e_vent', 'e_delivery', 'e_ram', 'e_sniffkey', 'e_rod', 'e_insider'];
 export const EXIT_POOL = ['x_same', 'x_chute', 'x_front', 'x_wall', 'x_trolley', 'x_fireexit', 'x_roof'];
-export const GETAWAY_POOL = ['g_hotwire', 'g_van', 'g_moped', 'g_crowd', 'g_barge', 'g_sniff', 'g_tyres', 'g_walk'];
+export const GETAWAY_POOL = ['g_hotwire', 'g_van', 'g_moped', 'g_crowd', 'g_barge', 'g_sniff', 'g_tyres', 'g_walk', 'g_traffic'];
 
 // Loot kinds: cash fences easily; art is hard to shift; oddities are dog-themed
 // collector pieces. bulk = carry slots.
@@ -1017,6 +1030,8 @@ export const CHAOS = {
     'The guards are glued to the big fight on the radio. Third round. Nobody\'s moving.',
     'The night guard is on the phone to his mum. For forty minutes.',
     'A wedding party next door. Forty pugs doing the conga. Perfect cover.',
+    'Every traffic light in town has gone red at once. Somebody\'s been at the traffic computer. Nobody\'s chasing anybody tonight.',
+    'The guard swallows every word of the crew\'s story. Every name in it is off the noticeboard behind his head.',
   ],
   bad: [
     'A pizza delivery arrives. For the guards. Right now.',
@@ -1027,6 +1042,8 @@ export const CHAOS = {
     'Another crew turns up. Same night, same vault, same balaclavas. Awkward.',
     'The new night guard is a cat. Nobody planned for a cat.',
     'Someone\'s locked the getaway keys in the getaway van. With the engine running.',
+    'A man in a plastic raincoat is on a bench across the road with a microphone the size of a dustbin. Taping every word.',
+    'A copper in a pork-pie hat is stamping his feet on the corner. He\'s been there since teatime, and he\'s got a hunch.',
   ],
 };
 

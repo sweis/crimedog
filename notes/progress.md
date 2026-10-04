@@ -92,7 +92,17 @@ report 0 (DOM/SVG renderer), `renderer` is the WebGL renderer string, `contextLo
 - Job board venue illustrations; title skyline; blueprint with corridors, walked route, pulsing current room, red alarm wash, siren lights when the police arrive, and a drawing title block.
 - Before/after captures: `notes/captures/before-gfx/` vs `notes/captures/`.
 
-## Heist step headers on two lines (latest, 0.18.1)
+## More films: wiretaps, black boxes, little cars, hard-nosed coppers, the usual suspects (latest, 0.19.0)
+
+- **Kibble is for closers:** the game-over line, the Closer's catchphrase, two grade verdicts and a job name (was coffee / biscuits).
+- **Storylines:** drama arcs `tape` (a wiretap: "He'd grass us if he got the chance", and which word it leans on; forget it and the floorboards come up, saxophone in the wreckage) and `box` (a little black box that opens anything; sell it to an outfit, hand it to the man in the grey suit, or keep it: "My voice is my passport. Verify me." and a promotion; only crew with Tech 3+ find one). Inspector moves `lineup` (the usual suspects: up to five regulars in a line-up, "Hand over the keys, you dozy mutt", a night in the same cell, +15 bond each pair) and `strip` (your getaway van taken apart to the last bolt; rebuild for £250 or lose it). The tail scene gains "Lead him a merry dance": a sneak loses him on the train and waves goodbye through the window. Keeping quiet under questioning sometimes becomes a Keyser Collie yarn read off the noticeboard, limp straightening by the corner. The stakeout is now stamping feet in the cold while the manager eats a four-course dinner.
+- **On the job:** twists `gridlock` (someone's been at the traffic computer: wheels +2, sneak/disguise -1) and `bugged` (a man in a plastic raincoat: charm/disguise +1). Getaway `g_traffic` (jam every light in town, tech). The Wheelman's signature getaway is now three little cars down the steps.
+- **Flavour:** 7 catchphrases, 14 nicknames, 2 grade verdicts, 4 chaos lines, job names (Too Many Secrets, Setec Astronomy, The Conversation, The Usual Suspects, Keyser Collie, Blow the Bloody Doors Off, The Self-Preservation Society). No real places, nationalities or surnames (Poughkeepsie became Puddlecombe; Kobayashi left out).
+- **Balance:** the 150-career balance run moved (careful player's Inspector game-overs 15 → 25), which led to a long hunt. Over 900 careers, game-overs went 218 → 244; but adding a placebo getaway (a copy of an existing one) gave 251, and the original content with one extra RNG draw gave 247. Reordering the pool (same draws) gave 204. So it's RNG butterfly noise in a high-variance metric: this count swings ~±20 over 900 careers just from reshuffling, and grades were identical (S 308 vs 321, F 3205 vs 3245 over 8,000 jobs). Fixes made along the way stay: the box's heat is smaller (+6 sell, +4 keep, -8 hand back) and rarer; paying for the tape always pays off; the little cars are the Wheelman's (a common no-kit wheels getaway would put more crews at crash risk).
+- **Tests:** tests/films.test.mjs (8). drama.test's trouble test samples 120 jobs; roles.test's leader test counts runners per crew that reached the goods (a leader gets more crews that far).
+- **Not verified:** whether the references land for someone who's seen the films (needs a human read).
+
+## Heist step headers on two lines (0.18.1)
 
 - A step's beat ("🚪 Getting In: Biscuits — Pick the lock.") renders the step name on its own line in brass (`beatText` in ui.js, `.beat.stage .phase`). Display only: the beat text is unchanged, so tests and recaps are unaffected. Smoke 1 checks every step header on the real play-through has its own `.phase` line.
 

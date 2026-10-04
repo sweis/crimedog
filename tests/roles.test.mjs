@@ -45,9 +45,12 @@ test('a leader steadies everyone on every step, without a step of their own', ()
 });
 
 test('a leader keeps the crew together: fewer runners and fewer talkers', () => {
+  // Runners only happen once the goods are in hand, and a leader gets more crews that
+  // far, so count them per crew that reached the goods.
   const tally = (withLeader) => {
     let runners = 0;
     let talked = 0;
+    let reached = 0;
     for (let k = 1; k <= 150; k++) {
       const s = crewOf3(k);
       const crew = s.crew.map((id) => s.dogs[id]);
@@ -56,12 +59,13 @@ test('a leader keeps the crew together: fewer runners and fewer talkers', () => 
       const r = simulate(s, s.job, makeRng({ s: k }));
       runners += r.runners.length;
       talked += r.captured.filter((c) => c.talked).length;
+      if (r.beats.some((b) => b.stage === 'vault' && b.kind === 'ok')) reached++;
     }
-    return { runners, talked };
+    return { runners, talked, rate: runners / Math.max(1, reached) };
   };
   const without = tally(false);
   const withL = tally(true);
-  assert.ok(withL.runners < without.runners, `runners ${without.runners} -> ${withL.runners}`);
+  assert.ok(withL.rate < without.rate * 0.85, `runners per crew at the goods ${without.rate.toFixed(2)} -> ${withL.rate.toFixed(2)}`);
   assert.ok(withL.talked <= without.talked, `talked ${without.talked} -> ${withL.talked}`);
 });
 
