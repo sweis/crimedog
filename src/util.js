@@ -12,6 +12,9 @@ export const moneyShort = (n) => {
   const k = a < 1000 ? null : a < 10000 ? Math.floor(a / 100) / 10 : Math.floor(a / 1000);
   return `${n < 0 ? '−' : ''}£${k === null ? Math.round(a) : `${k}k`}`;
 };
+// A line of details ("Poodle · Charm · Solid"): each piece stays in one piece, so a
+// line breaks between them, never mid-phrase. Parts are HTML; empty ones are dropped.
+export const dots = (...parts) => parts.flat().filter(Boolean).map((p) => `<span class="bit">${p}</span>`).join(' · ');
 export const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // A stable pick for flavour text, so it doesn't use up a draw from the game's RNG.

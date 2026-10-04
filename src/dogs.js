@@ -524,14 +524,22 @@ export function portraitSVG(dog, opts = {}) {
 // Each image is its own document, so the ids can be fixed, which makes the SVG
 // for a given face and size the same string every time (the cache key).
 // Without a DOM (tests, tools) it falls back to inline SVG.
+// Keyed by what the picture is drawn from (breed, look, size, backdrop), so a
+// render that's seen the face before doesn't build its SVG at all.
 const portraitURLs = new Map();
+const lookKeys = new WeakMap();
+const lookKey = (look) => {
+  let k = lookKeys.get(look);
+  if (!k) lookKeys.set(look, (k = JSON.stringify(look)));
+  return k;
+};
 export function portraitHTML(dog, opts = {}) {
   if (typeof document === 'undefined') return portraitSVG(dog, opts);
-  const svg = portraitSVG(dog, { ...opts, uid: 'p' });
-  let url = portraitURLs.get(svg);
+  const key = `${dog.breed}|${lookKey(dog.look)}|${opts.size || ''}|${opts.bg || ''}|${opts.round || ''}`;
+  let url = portraitURLs.get(key);
   if (!url) {
-    url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    portraitURLs.set(svg, url);
+    url = URL.createObjectURL(new Blob([portraitSVG(dog, { ...opts, uid: 'p' })], { type: 'image/svg+xml' }));
+    portraitURLs.set(key, url);
   }
   const size = opts.size || 96;
   return `<img class="portrait" src="${url}" width="${size}" height="${size}" alt="${esc(dog.first)} the ${esc(BREEDS[dog.breed].label)}" draggable="false">`;

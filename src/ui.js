@@ -1,7 +1,7 @@
 // DOM rendering. Every screen is a function of (state, ui) -> HTML string;
 // clicks are routed through data-act attributes to the controller in main.js.
 import * as E from './engine.js';
-import { esc, money, moneyShort, count, pickBy, inSentence } from './util.js';
+import { esc, money, moneyShort, count, pickBy, inSentence, dots } from './util.js';
 import { meter, tile, heatLevel } from './charts.js';
 import { GROUPS, SKILLS, SKILL_INFO, TALENTS, QUIRKS, BREEDS, FACTIONS, KIT, APPROACHES, INTEL, FENCES, CUTS, INTRO, LOOT_KINDS, VENUE_LABELS, RARITY, SIGNATURES, JOB_TYPES, ROLES, TWISTS, VERDICTS, SIZES, SIZE_NEED, BREED_GROUPS } from './data.js';
 import { portraitSVG, portraitHTML, displayName, shortName, skillOf, relationLabel, band, isVisitor, specialty, roleLevel, capOf, sizeOf } from './dogs.js';
@@ -94,7 +94,7 @@ const TIPS = {
 function tipFor(G, screen) {
   const key = screen === 'aftermath' && G.state?.after?.step === 'grade' ? null : screen;
   if (!G.state || !TIPS[key] || G.ui.tipsSeen?.includes(key) || G.ui.modal) return '';
-  return `<div class="tip" role="note"><span class="ico">👂</span><div class="grow"><b>A word in your ear</b><div>${esc(TIPS[key])}</div></div><button class="btn small ghost" data-act="tip-ok" data-tip="${key}">Got it</button></div>`;
+  return `<div class="tip" role="note"><div class="tip-head"><span class="ico">👂</span><b>A word in your ear</b><button class="btn small ghost" data-act="tip-ok" data-tip="${key}">Got it</button></div><div>${esc(TIPS[key])}</div></div>`;
 }
 
 // Getting ready for a job, at a glance and a tap away: the crew, the intel, the plan.
@@ -467,7 +467,7 @@ function dogCard(G, d, opts = {}) {
     <div class="pic">${portraitHTML(d, { size: 64 })}</div>
     <div class="grow"><div class="name">${esc(displayName(d))}</div>
       <div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-      <div class="sub">${esc(b.label)} · ${specialtyText(d)} · ${esc(relationLabel(d))}</div>
+      <div class="sub">${dots(esc(b.label), specialtyText(d), esc(relationLabel(d)))}</div>
       ${d.signature && opts.fee ? `<div class="sig">✨ <b>${esc(SIGNATURES[d.signature].name)}</b></div>` : ''}
       ${[].concat(opts.skill || []).map((sk) => skillChip(d, sk)).join(' ')}
       ${flags.join(' ')}</div>
@@ -693,7 +693,7 @@ function planScreen(G) {
       if (a.clues >= 2) tags.push('🔍 Messy');
       if (a.swap) tags.push('🤫 They won\'t notice');
       // A locked option opens a sheet with the way to unlock it, right here.
-      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''} ${av.ok ? '' : 'locked'}" data-act="${av.ok ? 'plan-ap' : 'unlock'}" data-stage="${st.id}" data-ap="${ap}"><span class="ski">${a.size ? SIZE_NEED[a.size].split(' ')[0] : SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${a.size ? SIZE_NEED[a.size].replace(/^\S+ /, '') : SKILL_INFO[a.skill].label}${tags.length ? ' · ' + esc(tags.join(' · ')) : ''}</div></span></button>`;
+      h += `<button class="opt ${owner ? 'secret' : ''} ${p.approach === ap ? 'on' : ''} ${av.ok ? '' : 'locked'}" data-act="${av.ok ? 'plan-ap' : 'unlock'}" data-stage="${st.id}" data-ap="${ap}"><span class="ski">${a.size ? SIZE_NEED[a.size].split(' ')[0] : SKILL_INFO[a.skill].icon}</span><span class="grow">${esc(a.label)}<div class="tags">${dots(a.size ? SIZE_NEED[a.size].replace(/^\S+ /, '') : SKILL_INFO[a.skill].label, tags.map(esc))}</div></span></button>`;
     }
     h += '</div>';
     if (!p.approach) h += `<button class="hire-link" data-act="hire-for" data-stage="${st.id}">🍺 Hire someone for this step →</button>`;
@@ -1072,7 +1072,7 @@ const SCREEN_RENDER = {
 };
 
 // ------------------------------------------------------------------ modals
-function renderModal(G) {
+export function renderModal(G) {
   const root = document.getElementById('modal-root');
   let m = G.ui.modal;
   if (!m && G.state?.story?.length && currentScreen(G) === 'select') m = { type: 'story' };
@@ -1191,7 +1191,7 @@ export function profileHTML(G, d) {
   const record = (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
   return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitHTML(d, { size: 84 })}</div>
     <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-    <div class="dm-sub"><span title="${esc(b.note || '')}">${esc(b.label)} · ${esc(BREED_GROUPS[b.group])} · ${esc(SIZES[b.size])}</span>${[relationLabel(d), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : where].filter(Boolean).map((x) => ` · ${esc(x)}`).join('')}</div></div></div>
+    <div class="dm-sub" title="${esc(b.note || '')}">${dots(esc(b.label), esc(BREED_GROUPS[b.group]), esc(SIZES[b.size]), esc(relationLabel(d)), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : esc(where))}</div></div></div>
     <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>

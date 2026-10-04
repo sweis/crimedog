@@ -1,6 +1,6 @@
 // Boot, save/load, input routing and the frame loop.
 import * as E from './engine.js';
-import { render, currentScreen, hiringFor, profileHTML, careerHTML } from './ui.js';
+import { render, renderModal, currentScreen, hiringFor, profileHTML, careerHTML } from './ui.js';
 import { installDebug, updateOverlay } from './debug.js';
 import { approachAvailable } from './sim.js';
 import { visibleStages } from './heists.js';
@@ -75,6 +75,13 @@ G.render = () => {
   const ms = performance.now() - t0;
   G.stats.renderMs = ms;
   G.stats.renderMax = Math.max(G.stats.renderMax || 0, ms);
+};
+// Opening or closing a sheet changes nothing underneath it: redraw just the sheet.
+G.renderModal = () => {
+  const t0 = performance.now();
+  renderModal(G);
+  G.stats.renders++;
+  G.stats.renderMs = performance.now() - t0;
 };
 G.clearToasts = () => { document.getElementById('toast').innerHTML = ''; };
 G.showDiag = (on) => {
@@ -259,7 +266,7 @@ const A = {
   'unlock'(el) {
     G.ui.unlockFor = { stage: el.dataset.stage, ap: el.dataset.ap };
     G.ui.modal = { type: 'unlock', ...G.ui.unlockFor };
-    G.render();
+    G.renderModal();
   },
   'unlock-buy'(el) { unlockWith(E.buy, el.dataset.kit); },
   'unlock-tip'(el) { unlockWith(E.tipFor, el.dataset.k); pencilNew(); },
@@ -287,8 +294,8 @@ const A = {
     run(E.nextJob);
     show('job');
   },
-  'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.render(); },
-  'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.ui.unlockFor = null; G.render(); },
+  'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.renderModal(); },
+  'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.ui.unlockFor = null; G.renderModal(); },
   'hire'(el) {
     const id = el.dataset.id;
     const hf = hiringFor(G);
@@ -374,7 +381,7 @@ const OPENS = { pick: 'purpose', recruit: null, career: null, history: null, hel
 for (const [type, key] of Object.entries(OPENS)) {
   A[type] = (el) => {
     G.ui.modal = key ? { type, [key]: el.dataset[key] } : { type };
-    G.render();
+    G.renderModal();
   };
 }
 
