@@ -19,6 +19,7 @@ import { recordOf, recordLabel, minSentence, briefCost, INJURIES } from './justi
 import { runnerStatus, runnersList, loose as runnerLoose, HUNT_COST } from './runners.js';
 import { RIVALS, rivalDog, rivalsOf, rivalStatus } from './rivals.js';
 import { lastJobCost, lastJobProblem, lastJobNote, lastJobStory, LAST_JOB_LINE } from './lastjob.js';
+import { wantedFor } from './cases.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN, canMakeAmends, amendsCost } from './groups.js';
 
@@ -467,6 +468,8 @@ function dogCard(G, d, opts = {}) {
   }
   if (recordOf(d) >= 3 && d.met) flags.push(`<span class="chip">📁 ${recordOf(d)} previous</span>`);
   for (const inj of d.injuries || []) flags.push(`<span class="chip warn">🩹 ${esc(inj.text)}</span>`);
+  const wanted = wantedFor(s, d);
+  if (wanted >= 0.03) flags.push(`<span class="chip ${wanted >= 0.08 ? 'bad' : 'warn'}">🔎 On his list</span>`);
   if (d.lastJobDone) flags.push(`<span class="chip ${['away', 'ran'].includes(d.lastJobDone.fate) ? 'good' : 'bad'}">🎬 Last job: ${esc(LAST_FATE[d.lastJobDone.fate])}</span>`);
   if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
   flags.push(...dramaChips(d));
@@ -632,7 +635,7 @@ function fixerScreen(G) {
     ${service('fakeids')}
     ${service('buyer')}
     ${service('vet')}
-    ${svc('laylow', '🛋️', 'Lie low', s.heat > 0 ? 'Less heat.' : 'Nobody\'s looking for you.', priceTag(PRICES.layLow, true), '', !job.daysLeft || s.heat <= 0)}
+    ${svc('laylow', '🛋️', 'Lie low', s.heat > 0 || s.cases?.length ? 'Less heat; his old leads go colder.' : 'Nobody\'s looking for you.', priceTag(PRICES.layLow, true), '', !job.daysLeft || (s.heat <= 0 && !s.cases?.length))}
   </section>`;
 }
 
@@ -980,6 +983,7 @@ function aftermathScreen(G) {
   for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound${recordOf(s.dogs[c.id]) > 1 ? ` (${recordOf(s.dogs[c.id]) - 1} previous: the judge noticed)` : ''}.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
   for (const l of a.lastJobs || []) lines.push(esc(lastJobNote(s.dogs[l.id], l.fate, l.bust)));
+  if (a.caseFile) lines.push(`📁 The Inspector opens a file on it: ${count(a.caseFile.clues, 'clue')}${a.caseFile.seen.length ? `, and he has a description of ${a.caseFile.seen.map((id) => `<b>${esc(shortName(s.dogs[id]))}</b>`).join(' and ')}` : ''}. The trail goes colder every job.`);
   for (const t of a.bonds || []) lines.push(esc(t));
   if (a.prize) lines.push(`🎁 Kept: ${KIT[a.prize].icon} <b>${esc(KIT[a.prize].name)}</b>. ${esc(KIT[a.prize].blurb)}`);
   if (r.kitLost?.length) lines.push(`🔧 Lost on the job: ${r.kitLost.map((x) => `${KIT[x.kit].icon} <b>${esc(KIT[x.kit].name)}</b> (${x.why === 'broke' ? 'broken' : 'taken as evidence'})`).join(', ')}. The shop has more.`);
@@ -1184,6 +1188,7 @@ function sceneCast(s, st) {
   if (st.type === 'retire') return { cls: 'drama', pic: face(dog, 96), picCls: dog.rarity || '', who: `🎣 ${esc(displayName(dog))}` };
   // The Inspector's and the rivals' scenes can name one of your crew: their face goes alongside.
   const withDog = dog ? face(dog, 64) : '';
+  if (st.type === 'pinch') return { cls: 'inspector', pic: face(INSPECTOR.dog, 96), second: withDog, who: `🕵️ ${esc(INSPECTOR.name)}` };
   if (st.type === 'rival') return { cls: `rival ${st.rival}`, pic: rivalFace(s, st.rival, 96), second: withDog, who: `${RIVALS[st.rival].emblem} ${esc(RIVALS[st.rival].name)}` };
   if (st.type === 'inspector') return { cls: 'inspector', pic: face(INSPECTOR.dog, 96), second: withDog, who: `🕵️ ${esc(INSPECTOR.name)}` };
   return { cls: '', pic: bossFace(st.gid, 120), who: `${GROUPS[st.gid].emblem} ${esc(GROUPS[st.gid].name)}` };

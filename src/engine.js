@@ -17,6 +17,7 @@ import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
 import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
 import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
+import { openCase, investigate, coolCases } from './cases.js';
 import { crewRetirements, restOrFree, lastJobOff, settleLastJobs, gradeLastJobs, lastJobNote, oneLastJob as callBack } from './lastjob.js';
 import { simulate, approachAvailable, baseOdds, stageOptions, canDo, signatureFits, bestAssignment, planScore, odds, oddsKnown } from './sim.js';
 
@@ -509,6 +510,7 @@ export function caseJoint(state, who) {
   const cover = skillOf(d, 'sneak') >= skillOf(d, 'disguise') ? 'sneak' : 'disguise';
   d.known.skills[cover] = true;
   if (spotted) {
+    (job.seenCasing ||= {})[d.id] = (job.seenCasing[d.id] || 0) + 1; // a face the Inspector can put to it later
     raiseAlert(job, `${shortName(d)} was spotted casing the joint`);
     msg += ` · 👀 ${shortName(d)} was spotted! Security's on alert: every step +1 harder`;
   }
@@ -600,12 +602,13 @@ export const buyFakeIds = (state) => fixerService(state, 'fakeids');
 export const lineUpBuyer = (state) => fixerService(state, 'buyer');
 export const vetFence = (state) => fixerService(state, 'vet');
 export function layLow(state) {
-  if (state.heat <= 0) return fail('Nobody\'s looking for you. Nothing to lie low from.');
+  if (state.heat <= 0 && !state.cases?.length) return fail('Nobody\'s looking for you. Nothing to lie low from.');
   const unpaid = payForDay(state, PRICES.layLow, 'fixer', `Lying low costs £${PRICES.layLow}.`);
   if (unpaid) return unpaid;
   const before = state.heat;
   addHeat(state, -8);
-  return done(`You keep your head down. The Inspector's trail goes cold (-${before - state.heat} heat).`);
+  coolCases(state);
+  return done(`You keep your head down. The Inspector's trail goes cold (-${before - state.heat} heat), and his old leads go colder.`);
 }
 
 // ------------------------------------------------------------------ planning
@@ -810,6 +813,8 @@ export function resolveHeist(state) {
     d.known.undercover = true;
     leaveCrew(state, id);
   }
+  // Got away, but not clean: the Inspector opens a file on the job.
+  const caseFile = openCase(state, job, r);
   // Anyone on their one last job: how it went, and what the rest make of it.
   const lastJobs = settleLastJobs(state, job, r);
   for (const l of lastJobs) news(state, lastJobNote(state.dogs[l.id], l.fate, l.bust).replace(/^🎬 /, ''));
@@ -835,7 +840,7 @@ export function resolveHeist(state) {
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
-  state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [], lastJobs };
+  state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [], lastJobs, caseFile: caseFile && { clues: caseFile.clues, seen: Object.entries(caseFile.seen).filter(([, n]) => n).map(([id]) => id) } };
   state.after.headline = headline(state);
   state.after.bonds = bondNews;
   state.after.improved = improved;
@@ -1140,6 +1145,9 @@ export function nextJob(state) {
   state.job = null;
   state.result = null;
   state.after = null;
+  // The Inspector works his open cases: maybe a knock on someone's door.
+  const knock = investigate(state, rng);
+  if (knock) news(state, knock);
   if (!walkedAway) {
     const gone = crewRetirements(state, rng, released);
     if (gone) news(state, gone);

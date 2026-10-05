@@ -1358,6 +1358,80 @@ console.log('1y. Retirement and one last job: a scene, the pub, the sheet, the j
   await ctx.close();
 }
 
+console.log('1z. His open cases: a file on a job got away with, on his list, a knock on the door, the heat pane');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=12`);
+  await page.evaluate(() => localStorage.setItem('crimedog.tips', JSON.stringify(['select', 'job', 'pub', 'plan', 'aftermath'])));
+  await page.goto(`${BASE}?hooks=1&seed=12`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(12); window.cd.teleport('select'); const s = window.cd.live(); s.story = []; s.cash = 6000; window.cd.teleport('select'); });
+  await tap(page, 'main [data-act="take-offer"]');
+  await tap(page, '.nav [data-to="pub"]');
+  for (let h = 0; h < 2; h++) {
+    await tap(page, 'main .dog-card:not(.hired)');
+    if (await page.locator('.modal [data-act="hire"]').count()) await tap(page, '.modal [data-act="hire"]');
+    await tap(page, '.modal .close');
+  }
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  await tap(page, 'main [data-act="pull"]');
+  // Make sure the crew get away, but not clean: plenty of clues, and one of them seen.
+  const crew = await page.evaluate(() => {
+    const s = window.cd.live();
+    Object.assign(s.result, { escaped: s.result.crew.slice(), captured: [], hurt: [], lost: [], runners: [], exposed: [], tipped: [], clues: 9, seen: { [s.result.crew[0]]: 3 } });
+    return s.result.crew;
+  });
+  await tap(page, '[data-act="heist-skip"]');
+  await tap(page, '[data-act="resolve"]');
+  check(/The Inspector opens a file on it/.test(await page.locator('main').innerText()), 'getting away leaves a file on the job');
+  if (await page.locator('main [data-act="deliver"]').count()) await tap(page, 'main [data-act="deliver"]');
+  if (await page.locator('main [data-act="fence"]:not([disabled])').count()) await tap(page, 'main [data-act="fence"]:not([disabled])');
+  await tap(page, (await page.locator('main [data-act="pay"][data-pct="30"]').count()) ? 'main [data-act="pay"][data-pct="30"]' : 'main [data-act="pay"]');
+  await page.evaluate(() => { window.cd.live().heat = 70; });
+  await tap(page, 'main [data-act="next-job"]');
+  // (He may already have knocked on one door at the turnover. Keep a file open on someone still about.)
+  const seenId = await page.evaluate((ids) => {
+    const s = window.cd.live();
+    s.story = [];
+    const id = ids.find((x) => s.dogs[x].status === 'free') || ids[0];
+    s.dogs[id].status = 'free';
+    s.cases = [{ id: 'jx', name: 'The Jackpot Job', day: 1, clues: 9, seen: { [id]: 2 }, dogs: [id], age: 1, fakeIds: false }];
+    window.cd.teleport('select');
+    return id;
+  }, crew);
+  await tap(page, '.nav [data-to="crew"]');
+  check(await page.locator(`main .dog-card[data-id="${seenId}"] .chip:has-text("On his list")`).count() === 1, 'the one he got a look at is on his list');
+  await tap(page, '[data-act="pane"][data-pane="heat"]');
+  const pane = await page.locator('.modal').innerText();
+  check(/open cases/i.test(pane) && /\(seen\)/.test(pane), 'the heat pane lists his open cases and who was seen');
+  await page.waitForTimeout(400);
+  await page.locator('.modal h3:has-text("His open cases")').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await shot(page, 'cases-heat-pane');
+  await tap(page, '.modal .close');
+  // Work the file until someone gets the knock.
+  const knock = await page.evaluate(async () => {
+    const C = await import('/src/cases.js');
+    const { makeRng } = await import('/src/rng.js');
+    const s = window.cd.live();
+    s.story = [];
+    for (const c of s.cases) { c.clues = 20; c.age = 0; }
+    let note = null;
+    for (let k = 0; k < 200 && !note; k++) { for (const c of s.cases) c.age = 0; note = C.investigate(s, makeRng({ s: k })); }
+    window.cd.teleport('select');
+    return note;
+  });
+  check(!!knock && (await page.locator('.modal').innerText()).match(/never closed the file/), `a knock on the door, told as a scene (${knock})`);
+  await page.waitForTimeout(500);
+  await shot(page, 'cases-knock');
+  await tap(page, '.modal [data-act="drama"]');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
 console.log('1d. Hiring from a planning step returns to that step');
 {
   const ctx = await browser.newContext(phone);

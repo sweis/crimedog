@@ -53,6 +53,14 @@ export const MOVE_LABELS = {
 // (or null if it can't happen now). Scenes offer choices; the last is free.
 const regulars = (state) => Object.values(state.dogs).filter((d) => d.met && d.status === 'free' && !d.undercover && !d.rarity && d.jobs > 0);
 
+// Turned: they work for him now, and you don't know it (yet).
+export function flipDog(d) {
+  d.undercover = true;
+  d.flipped = true;
+  d.cleared = false;
+  d.known.undercover = false;
+}
+
 const MOVES = {
   plant: {
     heat: 0,
@@ -142,10 +150,7 @@ const MOVES = {
     run(state, rng) {
       const d = rng.pick(regulars(state).filter((x) => x.loyalty < 65 && !x.quirks.includes('nevergrass') && !x.quirks.includes('goodboy')));
       if (!d) return null;
-      d.undercover = true;
-      d.flipped = true;
-      d.cleared = false;
-      d.known.undercover = false;
+      flipDog(d);
       return {
         title: 'A Grass in the Pub',
         flipped: d.id,

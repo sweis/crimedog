@@ -218,6 +218,7 @@ export function simulate(state, job, rng) {
   const feeling = crewFeeling(state);
   const ctx = {
     said: {},
+    seen: {}, // times each dog was seen (spotted, or chased and got away): the Inspector's leads
     alarm: 0,
     alarmMax: 0,
     clues: 0,
@@ -407,6 +408,8 @@ export function simulate(state, job, rng) {
     return best && { approach: best.ap, dog: best.d, p: best.p };
   };
 
+  const seenBy = (dog) => { ctx.seen[dog.id] = (ctx.seen[dog.id] || 0) + 1; };
+
   // Back for one last job: the luck has nearly run out.
   const lastJob = (dog) => dog.lastJob === job.id;
 
@@ -447,6 +450,7 @@ export function simulate(state, job, rng) {
     if (risky && f.margin > (second ? 0.2 : 0.3) - (lastJob(f.dog) ? 0.12 : 0) && rng.chance(pLose)) loseDog(f.dog, stageId, a.skill);
     else if (rng.chance(second ? 0.55 : 0.12 + ctx.alarm * 0.04)) {
       beat({ kind: 'chaos', stage: stageId, dog: f.dog.id, text: `${shortName(f.dog)} has been spotted!` });
+      seenBy(f.dog);
       if (goingIn) addAlarm(1, stageId);
       else escapeCheck(f.dog, stageId);
     }
@@ -469,6 +473,7 @@ export function simulate(state, job, rng) {
     // Thirty seconds flat: nothing in their life they can't walk out on.
     if (dog.quirks.includes('thirtysec')) { p = Math.max(p, 0.9); learn(dog, 'quirks', 'thirtysec'); }
     if (rng.chance(p)) {
+      seenBy(dog); // away, but they got a good look
       beat({ kind: 'escape', stage: stageId, dog: dog.id, text: `${shortName(dog)} gives them the slip.` });
       return true;
     }
@@ -859,6 +864,7 @@ export function simulate(state, job, rng) {
     crew: crewIds,
     kitUsed: ctx.kitUsed,
     kitLost: ctx.kitLost,
+    seen: ctx.seen,
     learned: ctx.learned,
     practised: ctx.practised,
     heatGain,
@@ -874,7 +880,7 @@ function skillTalent(t, skill) {
 export function blankResult(crew, extra = {}) {
   return {
     beats: [], outcome: 'clean', secured: [], dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
-    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, kitLost: [], learned: {}, practised: {}, heatGain: 0,
+    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, kitLost: [], seen: {}, learned: {}, practised: {}, heatGain: 0,
     ...extra,
   };
 }

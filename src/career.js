@@ -87,7 +87,7 @@ export function careerOf(state) {
       failed: s.stats.busts,
       perfect: s.stats.perfect,
       earned: s.stats.earned,
-      arrests: tally(s, 'arrests'),
+      arrests: tally(s, 'arrests') + (s.stats.pinched || 0), // on the job, and picked up later
       runners: tally(s, 'runners'),
       lost: tally(s, 'lost'),
       hospital: tally(s, 'hospital'),
