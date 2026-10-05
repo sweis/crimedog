@@ -169,6 +169,8 @@ export const KIT_EVIDENCE = 0.5;
 
 // Stages on the way out, where a fumble gets dogs nicked rather than just noticed.
 const OUT = ['exit', 'getaway'];
+// One last job, on the way out.
+const TOO_OLD = ['{d} stops to catch their breath. Just for a second.', '{d} goes back for their reading glasses.', '{d}\'s knee goes on the last wall.', '{d} can\'t remember where the car is parked.'];
 // Fumbling these can cost a dog for good.
 const RISKY = new Set(['agility', 'muscle', 'wheels']);
 const LOSS_TEXT = {
@@ -216,6 +218,7 @@ export function simulate(state, job, rng) {
   const feeling = crewFeeling(state);
   const ctx = {
     said: {},
+    seen: {}, // times each dog was seen (spotted, or chased and got away): the Inspector's leads
     alarm: 0,
     alarmMax: 0,
     clues: 0,
@@ -405,6 +408,11 @@ export function simulate(state, job, rng) {
     return best && { approach: best.ap, dog: best.d, p: best.p };
   };
 
+  const seenBy = (dog) => { ctx.seen[dog.id] = (ctx.seen[dog.id] || 0) + 1; };
+
+  // Back for one last job: the luck has nearly run out.
+  const lastJob = (dog) => dog.lastJob === job.id;
+
   // Anything a dog was carrying on the way out is lost with them.
   const dropLoot = (stageId, how) => {
     // Half the time someone else grabs the bag first.
@@ -417,7 +425,7 @@ export function simulate(state, job, rng) {
   // A bad fall: usually hospital for a few jobs (sometimes with a lasting injury), now and then the farm.
   const loseDog = (dog, stageId, skill) => {
     const t = (LOSS_TEXT[skill] || LOSS_TEXT.other).replace('{d}', shortName(dog));
-    if (rng.chance(0.7)) {
+    if (rng.chance(lastJob(dog) ? 0.55 : 0.7)) {
       const inj = rollInjury(rng, skill);
       ctx.hurt.push({ id: dog.id, stage: stageId, ...inj });
       beat({ kind: 'hurt', stage: stageId, dog: dog.id, text: `${t} ${shortName(dog)} is carted off to hospital.` });
@@ -437,10 +445,12 @@ export function simulate(state, job, rng) {
     const a = APPROACHES[f.approachId];
     const risky = RISKY.has(a.skill) || ['drill', 'van', 'grapple'].includes(a.needKit);
     const goingIn = !ctx.vaultDone && ctx.alarm < 6;
-    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1) * (1 - 0.12 * roleLevel(active(), 'leader'));
-    if (risky && f.margin > (second ? 0.2 : 0.3) && rng.chance(pLose)) loseDog(f.dog, stageId, a.skill);
+    // On one last job the luck has run out: a bad fall is likelier, and from a smaller slip.
+    const pLose = (second ? 0.45 : 0.3) * (goingIn ? 0.5 : 1) * (1 - 0.12 * roleLevel(active(), 'leader')) * (lastJob(f.dog) ? 1.7 : 1);
+    if (risky && f.margin > (second ? 0.2 : 0.3) - (lastJob(f.dog) ? 0.12 : 0) && rng.chance(pLose)) loseDog(f.dog, stageId, a.skill);
     else if (rng.chance(second ? 0.55 : 0.12 + ctx.alarm * 0.04)) {
       beat({ kind: 'chaos', stage: stageId, dog: f.dog.id, text: `${shortName(f.dog)} has been spotted!` });
+      seenBy(f.dog);
       if (goingIn) addAlarm(1, stageId);
       else escapeCheck(f.dog, stageId);
     }
@@ -458,10 +468,12 @@ export function simulate(state, job, rng) {
     if (job.safehouse) p += 0.05;
     if (ctx.kitLeft.scanner > 0) p += KIT.scanner.escape;
     if (ctx.coppers) p -= 0.1;
+    if (lastJob(dog)) p -= 0.2; // not as quick as they were
     p = clamp(p, 0.08, 0.92);
     // Thirty seconds flat: nothing in their life they can't walk out on.
     if (dog.quirks.includes('thirtysec')) { p = Math.max(p, 0.9); learn(dog, 'quirks', 'thirtysec'); }
     if (rng.chance(p)) {
+      seenBy(dog); // away, but they got a good look
       beat({ kind: 'escape', stage: stageId, dog: dog.id, text: `${shortName(dog)} gives them the slip.` });
       return true;
     }
@@ -699,6 +711,7 @@ export function simulate(state, job, rng) {
 
   // ==== The job itself
   beat({ kind: 'intro', stage: null, text: `${String(job.hour).padStart(2, '0')}:00. ${job.venueName}, ${job.district}. The crew is in position.${codenames(job, active())}` });
+  for (const d of active().filter(lastJob)) beat({ kind: 'chaos', stage: null, dog: d.id, text: `${shortName(d)} is back for one last job.`, line: 'Just when I thought I was out, they pull me back in.' });
 
   // Undercover coppers in the crew.
   for (const u of crew.filter((d) => d.undercover)) {
@@ -774,6 +787,14 @@ export function simulate(state, job, rng) {
     else botch(stage);
   }
 
+  // One last job: on the way out, the years catch up with them.
+  for (const d of active().filter(lastJob)) {
+    if (ctx.aborted || !rng.chance(0.35)) continue;
+    beat({ kind: 'chaos', stage: 'getaway', dog: d.id, text: rng.pick(TOO_OLD).replace('{d}', shortName(d)), line: 'I\'m getting too old for this.' });
+    if (rng.chance(0.4)) loseDog(d, 'getaway', 'agility');
+    else escapeCheck(d, 'getaway');
+  }
+
   // Stakeout at the getaway
   if (!ctx.aborted && job.hazards.stakeout && job.time === job.stakeoutTime) {
     ctx.clues += 2;
@@ -843,6 +864,7 @@ export function simulate(state, job, rng) {
     crew: crewIds,
     kitUsed: ctx.kitUsed,
     kitLost: ctx.kitLost,
+    seen: ctx.seen,
     learned: ctx.learned,
     practised: ctx.practised,
     heatGain,
@@ -858,7 +880,7 @@ function skillTalent(t, skill) {
 export function blankResult(crew, extra = {}) {
   return {
     beats: [], outcome: 'clean', secured: [], dropped: [], alarmMax: 0, clues: 0, coppers: false, pearShaped: false, aborted: false, swap: false,
-    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, kitLost: [], learned: {}, practised: {}, heatGain: 0,
+    captured: [], rescues: [], lost: [], hurt: [], runners: [], exposed: [], tipped: [], escaped: crew.slice(), crew: crew.slice(), kitUsed: {}, kitLost: [], seen: {}, learned: {}, practised: {}, heatGain: 0,
     ...extra,
   };
 }

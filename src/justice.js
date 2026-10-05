@@ -6,6 +6,7 @@
 import { fail, done, money, clamp, addRelation, book } from './util.js';
 import { shortName } from './dogs.js';
 import { addGenerosity, addHardness } from './repute.js';
+import { restOrFree } from './lastjob.js';
 
 // ------------------------------------------------------------------ the record
 // Previous convictions a dog starts with: most have one or two, a few are clean, a few are notorious.
@@ -30,6 +31,7 @@ export function sentenceFor(d, rng, { coppers = false, talked = false } = {}) {
 
 // Off to the pound: the conviction goes on their record.
 export function sendDown(d, sentence) {
+  d.stints = (d.stints || 0) + 1; // times sent down: it weighs on whether they carry on
   d.status = 'pound';
   d.sentence = sentence;
   d.sentenceStart = sentence;
@@ -97,12 +99,12 @@ export function recover(d, jobId) {
   if (h.since === jobId) { h.since = null; return null; }
   h.jobs -= 1;
   if (h.jobs > 0) return null;
-  d.status = 'free';
+  restOrFree(d);
   d.hospital = null;
   if (!h.paid) {
     addRelation(d, -15);
     d.loyalty = clamp(d.loyalty - 8, 0, 100);
     return `${shortName(d)} is out of hospital, and still paying off the bill you left them with. They're not happy.`;
   }
-  return `${shortName(d)} is out of hospital${d.injuries?.length ? ` (${d.injuries.at(-1).text.toLowerCase()}, for good)` : ''} and back at the bar.`;
+  return `${shortName(d)} is out of hospital${d.injuries?.length ? ` (${d.injuries.at(-1).text.toLowerCase()}, for good)` : ''} and ${d.retired ? 'back to retirement' : 'back at the bar'}.`;
 }

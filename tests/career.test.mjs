@@ -32,11 +32,11 @@ test('the record adds up over real careers, and arrests and the rest are counted
     for (const k of ['arrests', 'runners', 'lost', 'hospital', 'farmed']) assert.ok(Number.isInteger(R[k]) && R[k] >= 0, `${k}: ${R[k]}`);
     // The counters agree with the rap sheet (it holds every job of a short career).
     const fates = s.history.flatMap((h) => h.crew.map((x) => x.fate));
-    assert.equal(R.arrests, fates.filter((f) => f === 'nicked').length, `seed ${seed} arrests`);
+    assert.equal(R.arrests - (s.stats.pinched || 0), fates.filter((f) => f === 'nicked').length, `seed ${seed} arrests (plus any picked up later)`);
     assert.equal(R.hospital, fates.filter((f) => f === 'hospital').length, `seed ${seed} hospital`);
     arrests += R.arrests;
     if (c.best && c.worst) assert.ok('SABCDF'.indexOf(c.best.grade) <= 'SABCDF'.indexOf(c.worst.grade), `seed ${seed}`);
-    if (c.closest) assert.ok(['free', 'crew', 'pound', 'hospital'].includes(s.dogs[c.closest.dog].status));
+    if (c.closest) assert.ok(['free', 'crew', 'pound', 'hospital', 'retired'].includes(s.dogs[c.closest.dog].status));
     if (s.over) assert.notEqual(c.status, 'Still at large');
   }
   assert.ok(arrests > 0, 'somebody got nicked somewhere');

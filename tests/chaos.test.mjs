@@ -6,7 +6,7 @@ import { chaosStats } from '../tools/chaos.mjs';
 // Heists should be chaotic: hazards turn up early, and pear-shaped jobs
 // regularly cost crew to the police or to the farm.
 test('chaos: hazards, arrests and losses are common from the first jobs', () => {
-  const early = chaosStats(60, 5);
+  const early = chaosStats(200, 5); // farm losses are rare: a big sample keeps the rate steady
   console.log(early);
   assert.equal(Number(early.jobsWithHazard), 1, 'every job hides a hazard');
   assert.ok(Number(early.jobsWithCat) >= 0.15, `cats ${early.jobsWithCat}`); // one hazard among many now

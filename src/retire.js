@@ -6,6 +6,7 @@ import { fail, done, money, inSentence, fillIn } from './util.js';
 import { displayName, shortName, closestMates, bestBase } from './dogs.js';
 import { rivalsOf, RIVALS } from './rivals.js';
 import { INSPECTOR } from './inspector.js';
+import { memorableLastJob, lastJobStory } from './lastjob.js';
 import { GRADE_ORDER } from './recap.js';
 
 export const RETIRE = { goal: 100000, place: 'the Costa del Bone' };
@@ -72,6 +73,12 @@ function starLine(state, d) {
   return { kind: 'star', icon: d.rarity === 'legendary' ? '🌟' : '⭐', dog: d.id, title: `${displayName(d)} drops in`, text: `${displayName(d)} turns up at your leaving do uninvited${sig ? `, does ${sig} on the drinks cabinet just to show they still can,` : ','} and leaves before the speeches. Nobody saw them go.` };
 }
 
+function lastJobLine(state, d) {
+  const L = d.lastJobDone;
+  const good = ['away', 'ran'].includes(L.fate);
+  return { kind: good ? 'close' : L.fate === 'farm' ? 'farm' : 'pound', icon: good ? '🎬' : '🥀', dog: d.id, title: good ? 'One last job' : 'One job too many', text: lastJobStory(d) };
+}
+const retireeLine = (state, d) => ({ kind: 'close', icon: '🎣', dog: d.id, title: `${displayName(d)}, retired`, text: `${displayName(d)} hung it up after ${d.retired.jobs} jobs and never came back. A postcard every Christmas: a marrow, a caravan, a very small fish. "Wish you were here. Don't come."` });
 const poundLine = (state, d) => ({ kind: 'pound', icon: '⚖️', dog: d.id, title: `${displayName(d)} is still inside`, text: `${displayName(d)} is still in the pound. You send a cake with a file in it. Old habits. They'll be out by summer, and there's a sun lounger with their name on it.` });
 const grassLine = (state, d) => ({ kind: 'grass', icon: '🐀', dog: d.id, title: 'A bungalow in Snufflebury', text: `${displayName(d)} is in witness protection, which means a bungalow in Snufflebury and a new moustache. You send a postcard of the villa. No return address.` });
 
@@ -102,12 +109,18 @@ export function epilogues(state, rng) {
   const pound = dogs.filter((d) => d.status === 'pound');
   // The closest mate gets the first word: they came too, or they're still inside.
   // (The Grey Ghost's goodbye comes with the rivals.)
+  // Somebody's one last job, if anybody did one: it's a story either way (and the
+  // better one, if it's the closest mate's).
+  const lastDog = memorableLastJob(state);
   const top = mates[0];
+  if (top && top === lastDog) add(top, lastJobLine);
   if (top && !top.ghost) add(top, top.status === 'pound' ? poundLine : close.includes(top) ? closeLine : null);
+  add(lastDog, lastJobLine);
   add(runners[0] || farmed[0] || grasses[0], runners[0] ? runnerLine : farmed[0] ? farmLine : grassLine);
   add(stars[0], starLine);
   // Fill up to three from whoever's left.
-  for (const [pool, fn] of [[farmed, farmLine], [runners, runnerLine], [close, closeLine], [pound, poundLine], [grasses, grassLine]]) {
+  const retirees = dogs.filter((d) => d.status === 'retired' && !d.lastJobDone && !d.undercover);
+  for (const [pool, fn] of [[farmed, farmLine], [runners, runnerLine], [close, closeLine], [pound, poundLine], [grasses, grassLine], [retirees, retireeLine]]) {
     for (const d of pool) if (out.length < 3) add(d, fn);
   }
   const rival = rivalLine(state);

@@ -290,6 +290,7 @@ export function relationLabel(dog) {
   if (dog.status === 'gone' && dog.left === 'poached') return 'Moved on';
   if (dog.status === 'gone' && dog.left === 'grass') return 'Grassed you up';
   if (dog.status === 'gone') return 'Did a runner';
+  if (dog.status === 'retired') return dog.lastJobDone ? 'Retired for good' : 'Retired';
   const r = dog.relation;
   if (dog.jobs === 0 && r === 0) return 'Unknown quantity';
   if (r >= 60) return 'Trusted associate';

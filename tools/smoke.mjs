@@ -151,9 +151,10 @@ console.log('1. Cold boot, real touch play-through');
     const b = document.querySelector('.beat[data-latest]').getBoundingClientRect();
     const head = document.querySelector('.heist-head').getBoundingClientRect();
     const ctl = document.querySelector('.heist-controls').getBoundingClientRect();
-    return { top: Math.round(b.top), bottom: Math.round(b.bottom), head: Math.round(head.bottom), ctl: Math.round(ctl.top), scrolled: scrollY };
+    return { top: Math.round(b.top), bottom: Math.round(b.bottom), head: Math.round(head.bottom), ctl: Math.round(ctl.top), scrolled: scrollY, fits: document.documentElement.scrollHeight <= innerHeight + 2 };
   });
-  check(seen.scrolled > 0 && seen.top >= seen.head - 2 && seen.bottom <= seen.ctl + 2, `latest beat in view after stepping (${JSON.stringify(seen)})`);
+  // (A short heist fits on the screen and needs no scrolling.)
+  check((seen.scrolled > 0 || seen.fits) && seen.top >= seen.head - 2 && seen.bottom <= seen.ctl + 2, `latest beat in view after stepping (${JSON.stringify(seen)})`);
   const phases = await page.evaluate(() => [...document.querySelectorAll('.beat.stage')].map((b) => ({ phase: b.querySelector('.phase')?.textContent, block: b.querySelector('.phase') && getComputedStyle(b.querySelector('.phase')).display })));
   check(phases.length > 0 && phases.every((x) => x.phase?.endsWith(':') && x.block === 'block'), `each step's name is on its own line (${phases.map((x) => x.phase).join(' | ')})`);
   await shot(page, '09-heist');
@@ -1283,6 +1284,150 @@ console.log('1x. Walking away takes two taps; anything in between starts over');
   await tap(page, 'main [data-act="walk-away"]');
   const after = await page.evaluate(() => ({ phase: window.cd.live().phase, rep: window.cd.live().rep }));
   check(after.phase === 'select' && after.rep < rep0, `two taps: walked away, rep ${rep0} -> ${after.rep}`);
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+console.log('1y. Retirement and one last job: a scene, the pub, the sheet, the job, the aftermath, the career card');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=9`);
+  await page.evaluate(() => localStorage.setItem('crimedog.tips', JSON.stringify(['select', 'job', 'pub', 'plan', 'aftermath'])));
+  await page.goto(`${BASE}?hooks=1&seed=9`);
+  await page.waitForFunction(() => window.cd);
+  const ids = await page.evaluate(async () => {
+    const L = await import('/src/lastjob.js');
+    const { makeRng } = await import('/src/rng.js');
+    window.cd.setSeed(9);
+    window.cd.teleport('select');
+    const s = window.cd.live();
+    s.story = [];
+    s.cash = 6000;
+    const [a, b] = s.pub.slice(-2).map((id) => s.dogs[id]);
+    Object.assign(a, { met: true, jobs: 11, stints: 1, relation: 35 });
+    Object.assign(b, { met: true, jobs: 6, stints: 2, relation: 20 });
+    s.pub = s.pub.filter((id) => id !== a.id);
+    a.status = 'retired';
+    a.retired = { day: 1, why: 'age', jobs: 11 };
+    for (let k = 0; k < 300 && !b.retired; k++) L.crewRetirements(s, makeRng({ s: k }), [b]);
+    window.cd.teleport('select');
+    return { a: a.id, b: b.id };
+  });
+  check((await page.locator('.modal').innerText()).includes('Raise a glass'), 'a regular retiring is a scene');
+  await tap(page, '.modal [data-act="drama"]');
+  await tap(page, 'main [data-act="take-offer"]');
+  await tap(page, '.nav [data-to="pub"]');
+  check(await page.locator(`main .dog-card[data-id="${ids.a}"]`).count() === 1, 'the pub lists retired crew who could come back');
+  await tap(page, `main .dog-card[data-id="${ids.a}"]`);
+  const fee = await page.evaluate((id) => window.cd.live().dogs[id].fee, ids.a);
+  const btn = await page.locator('.modal [data-act="last-job"]').innerText();
+  const price = Number(btn.replace(/[^0-9]/g, ''));
+  check(price >= 2 * fee, `one last job costs more (${price} vs a fee of ${fee})`);
+  await tap(page, '.modal [data-act="last-job"]');
+  check((await page.locator('#toast').innerText()).includes('Just when I thought I was out, they pull me back in.'), 'the line');
+  await tap(page, '.modal .close');
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  await tap(page, 'main [data-act="pull"]');
+  check(await page.evaluate((id) => window.cd.live().result.beats.some((b) => b.dog === id && /back for one last job/.test(b.text)), ids.a), 'the heist says they\'re back for one last job');
+  await tap(page, '[data-act="heist-skip"]');
+  await tap(page, '[data-act="resolve"]');
+  check(/one last job/.test(await page.locator('main').innerText()), 'the aftermath says how their last job went');
+  if (await page.locator('main [data-act="deliver"]').count()) await tap(page, 'main [data-act="deliver"]');
+  if (await page.locator('main [data-act="fence"]:not([disabled])').count()) await tap(page, 'main [data-act="fence"]:not([disabled])');
+  await tap(page, (await page.locator('main [data-act="pay"][data-pct="30"]').count()) ? 'main [data-act="pay"][data-pct="30"]' : 'main [data-act="pay"]');
+  await tap(page, 'main [data-act="next-job"]');
+  const after = await page.evaluate((id) => { const d = window.cd.live().dogs[id]; return { status: d.status, done: !!d.lastJobDone }; }, ids.a);
+  check(['retired', 'pound', 'hospital', 'farm', 'gone'].includes(after.status) && after.done, `after it: ${JSON.stringify(after)}`);
+  await page.evaluate(() => { window.cd.live().story = []; window.cd.teleport('select'); });
+  await tap(page, '.nav [data-to="crew"]');
+  if (after.status === 'retired') {
+    await tap(page, `main .dog-card[data-id="${ids.a}"]`);
+    check(await page.locator('.modal [data-act="last-job"]').count() === 0, 'no second last job');
+    await tap(page, '.modal .close');
+  }
+  await page.evaluate(() => { const b = document.createElement('button'); b.dataset.act = 'career'; document.body.appendChild(b); b.click(); b.remove(); });
+  check(/one last job/i.test(await page.locator('.modal').innerText()), 'the career card remembers it');
+  await page.waitForTimeout(500);
+  await page.locator('.modal h3:has-text("One last job")').evaluate((e) => e.scrollIntoView({ block: 'center' }));
+  await shot(page, 'last-job-career');
+  check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
+  await ctx.close();
+}
+
+console.log('1z. His open cases: a file on a job got away with, on his list, a knock on the door, the heat pane');
+{
+  const ctx = await browser.newContext(phone);
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto(`${BASE}?hooks=1&seed=12`);
+  await page.evaluate(() => localStorage.setItem('crimedog.tips', JSON.stringify(['select', 'job', 'pub', 'plan', 'aftermath'])));
+  await page.goto(`${BASE}?hooks=1&seed=12`);
+  await page.waitForFunction(() => window.cd);
+  await page.evaluate(() => { window.cd.setSeed(12); window.cd.teleport('select'); const s = window.cd.live(); s.story = []; s.cash = 6000; window.cd.teleport('select'); });
+  await tap(page, 'main [data-act="take-offer"]');
+  await tap(page, '.nav [data-to="pub"]');
+  for (let h = 0; h < 2; h++) {
+    await tap(page, 'main .dog-card:not(.hired)');
+    if (await page.locator('.modal [data-act="hire"]').count()) await tap(page, '.modal [data-act="hire"]');
+    await tap(page, '.modal .close');
+  }
+  await tap(page, '.nav [data-to="job"]');
+  await tap(page, 'main [data-act="go"][data-to="plan"]');
+  await tap(page, 'main [data-act="pull"]');
+  // Make sure the crew get away, but not clean: plenty of clues, and one of them seen.
+  const crew = await page.evaluate(() => {
+    const s = window.cd.live();
+    Object.assign(s.result, { escaped: s.result.crew.slice(), captured: [], hurt: [], lost: [], runners: [], exposed: [], tipped: [], clues: 9, seen: { [s.result.crew[0]]: 3 } });
+    return s.result.crew;
+  });
+  await tap(page, '[data-act="heist-skip"]');
+  await tap(page, '[data-act="resolve"]');
+  check(/The Inspector opens a file on it/.test(await page.locator('main').innerText()), 'getting away leaves a file on the job');
+  if (await page.locator('main [data-act="deliver"]').count()) await tap(page, 'main [data-act="deliver"]');
+  if (await page.locator('main [data-act="fence"]:not([disabled])').count()) await tap(page, 'main [data-act="fence"]:not([disabled])');
+  await tap(page, (await page.locator('main [data-act="pay"][data-pct="30"]').count()) ? 'main [data-act="pay"][data-pct="30"]' : 'main [data-act="pay"]');
+  await page.evaluate(() => { window.cd.live().heat = 70; });
+  await tap(page, 'main [data-act="next-job"]');
+  // (He may already have knocked on one door at the turnover. Keep a file open on someone still about.)
+  const seenId = await page.evaluate((ids) => {
+    const s = window.cd.live();
+    s.story = [];
+    const id = ids.find((x) => s.dogs[x].status === 'free') || ids[0];
+    s.dogs[id].status = 'free';
+    s.cases = [{ id: 'jx', name: 'The Jackpot Job', day: 1, clues: 9, seen: { [id]: 2 }, dogs: [id], age: 1, fakeIds: false }];
+    window.cd.teleport('select');
+    return id;
+  }, crew);
+  await tap(page, '.nav [data-to="crew"]');
+  check(await page.locator(`main .dog-card[data-id="${seenId}"] .chip:has-text("On his list")`).count() === 1, 'the one he got a look at is on his list');
+  await tap(page, '[data-act="pane"][data-pane="heat"]');
+  const pane = await page.locator('.modal').innerText();
+  check(/open cases/i.test(pane) && /\(seen\)/.test(pane), 'the heat pane lists his open cases and who was seen');
+  await page.waitForTimeout(400);
+  await page.locator('.modal h3:has-text("His open cases")').evaluate((e) => e.scrollIntoView({ block: 'start' }));
+  await shot(page, 'cases-heat-pane');
+  await tap(page, '.modal .close');
+  // Work the file until someone gets the knock.
+  const knock = await page.evaluate(async () => {
+    const C = await import('/src/cases.js');
+    const { makeRng } = await import('/src/rng.js');
+    const s = window.cd.live();
+    s.story = [];
+    for (const c of s.cases) { c.clues = 20; c.age = 0; }
+    let note = null;
+    for (let k = 0; k < 200 && !note; k++) { for (const c of s.cases) c.age = 0; note = C.investigate(s, makeRng({ s: k })); }
+    window.cd.teleport('select');
+    return note;
+  });
+  check(!!knock && (await page.locator('.modal').innerText()).match(/never closed the file/), `a knock on the door, told as a scene (${knock})`);
+  await page.waitForTimeout(500);
+  await shot(page, 'cases-knock');
+  await tap(page, '.modal [data-act="drama"]');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await ctx.close();
 }

@@ -5,6 +5,8 @@ import { inspectorLabel, starChance, masterChance } from './engine.js';
 import { columnChart, lineChart, meter, tile, heatLevel, UP, DOWN } from './charts.js';
 import { APPROACHES, GROUPS, RARITY } from './data.js';
 import { INSPECTOR, MOVE_LABELS, moFile } from './inspector.js';
+import { pinchChance, warmth } from './cases.js';
+import { shortName } from './dogs.js';
 import { RETIRE, canRetire, nestEggPct } from './retire.js';
 import { VERSION } from './version.js';
 import { generosityOf, hardnessOf, generosityBonus, generosityLabel, hardnessLabel, crewFeeling } from './repute.js';
@@ -99,6 +101,15 @@ const HEAT_LEVELS = [
   [60, '🚨', 'The police come running sooner'],
   [100, '🚔', 'The Inspector knocks. Game over'],
 ];
+// The jobs he's still working: what he has, and who he'd like a word with.
+const WARM_ICON = { hot: '🔥', warm: '♨️', 'going cold': '🧊' };
+function casesSection(s) {
+  const cases = (s.cases || []).map((c) => ({ c, who: c.dogs.map((id) => s.dogs[id]).filter(Boolean).map((d) => ({ d, p: pinchChance(s, c, d) })).filter((x) => x.p > 0) })).filter((x) => x.who.length);
+  if (!cases.length) return '<h3 class="dm-h">His open cases</h3><p class="muted">Nothing open. Every job that leaves clues, or where someone\'s seen, goes in his file.</p>';
+  return `<h3 class="dm-h">His open cases</h3><ul class="ledger">${cases.map(({ c, who }) => `<li><span><b>📁 ${esc(c.name)}</b> <span class="muted">${c.clues} clue${c.clues === 1 ? '' : 's'} · ${c.age ? `${c.age} job${c.age === 1 ? '' : 's'} ago` : 'just now'}</span><br>${who.map(({ d, p }) => `${WARM_ICON[warmth(p)]} ${esc(shortName(d))}${c.seen[d.id] ? ' (seen)' : ''}`).join(' · ')}</span><b>${esc(warmth(Math.max(...who.map((x) => x.p))))}</b></li>`).join('')}</ul>
+  <p class="muted">The more he has, the likelier a knock on someone's door. Every job that goes by, the trail goes colder; lying low cools it faster. Picked up, they go down, or come back "without charge"...</p>`;
+}
+
 function heatPane(s) {
   const t = s.timeline || [];
   const file = moFile(s);
@@ -112,6 +123,7 @@ function heatPane(s) {
     <h3 class="dm-h">His file on your methods</h3>
     ${file.length ? `<ul class="ledger">${file.map((f) => `<li><span>📁 ${esc(APPROACHES[f.ap].label)}</span><b class="out">+${f.pen}</b></li>`).join('')}</ul><p class="muted">Security has been briefed on these. Mix it up and the file goes stale.</p>` : '<p class="muted">Nothing on your methods yet. Vary your tricks and keep it that way.</p>'}
     ${moves.length ? `<h3 class="dm-h">His moves</h3><ul class="news">${moves.map((m) => `<li><b>Day ${m.day}</b> ${esc(MOVE_LABELS[m.move])}</li>`).join('')}</ul>` : ''}
+    ${casesSection(s)}
     <h3 class="dm-h">Cooling off</h3>
     <p class="muted">Clues, alarms, the Old Bill turning up and crew who talk all add heat. It cools a little after every job; lying low (the fixer), a safehouse and fake IDs help.</p>`;
 }
@@ -132,6 +144,8 @@ const HELP = [
   ['🔁 A turn', `<b>Job board</b>: pick a job (your own leads, or offers from the city's outfits once you've a name). <b>Plan</b>: hire at the pub, case the joint, buy kit, see the fixer, then choose who does each step and how. <b>The heist</b>: watch it unfold. <b>Aftermath</b>: hand over or fence the goods, pay the crew, get graded.`],
   ['⭐ Reputation', `Your score is your track record plus how generous you are with the crew's cut. The bigger your name, the harder it grows: good jobs add less, and people expect more. Separately, the way you treat people makes you soft or hard: hard masterminds are feared (fewer runners and grasses) but harder to love; soft ones are liked, and easier to cross. Tap ⭐ to see where you stand.`],
   ['🐾 Crew', `Each dog has skills (only the ones you've seen are shown), talents and quirks. Breed matters: hounds have the noses, sporting types the charm, the quick ones the agility, and anyone can be good at aim, tech, wheels or locks. Size matters too: the small are never strong, the big are never sneaky, a Dalmatian can't hide in a crowd, and some steps want someone small enough to fit or big enough to weigh down a lift. Work together and you learn more; get on and they get better, even rare or legendary. 👑 Leaders steady everyone; 🃏 wildcards bring chaos, good and bad. ★ Stars drift through town with secret moves.`],
+  ['📁 His open cases', `Get away with it and the Inspector still opens a file on the job: every clue left, every time one of the crew was seen (spotted, chased off, seen casing the joint). Between jobs he works his cases, and now and then someone gets a knock on the door: more clues and more sightings, likelier; the hotter he is on you, likelier still. Every job that goes by the trail goes colder, and lying low cools it faster. Picked up, they go to the pound (and might talk), or come back "released without charge", which is either good luck, or they're working for him now. Tail them to find out. The 🕵️ heat pane lists his open cases.`],
+  ['🎣 Retirement', `Regulars hang it up in the end: the more jobs they've done, the likelier, and a stretch in the pound makes it likelier still. A retired dog can be talked into 🎬 one last job ("Just when I thought I was out, they pull me back in."): it costs a lot more, and their luck's nearly out, so they're likelier to be collared, hurt or end up on the farm. If one goes wrong, word gets round and the next costs more. After it, they're retired for good, and it's a story worth telling at the end.`],
   ['🤝 Crew chemistry', `Crew who pull off jobs together get closer; bungled steps and busts sour things. 💚 Friends lift each other's odds, 💢 people who can't stand each other drag them down (a leader takes the edge off), and the plan shows who's who. When someone's collared, a brave mate who likes them may go back for them.`],
   ['📋 Planning', `Casing finds intel and hidden hazards: a good nose smells things out, a hacker finds the systems, a sneak watches the patrols. Get spotted and security goes on alert. The odds on each step are shown for skills you know. Kit and intel open new ways through: a faded option on the plan is locked, and tapping it offers the way to open it (buy the kit, case the joint, a tipster who sells just that, an inside dog, a bribe). The bar along the top keeps count of your crew, intel and plan, and the pub lists every step the job needs. Gear wears out: it can break on a botched step, and anyone collared loses what they were carrying.`],
   ['💥 When it goes wrong', `A fumbled step goes pear-shaped: someone improvises, alarms ring, the Old Bill may arrive. Crew can get nicked, end up on the farm, do a runner, or turn out to be undercover coppers.`],

@@ -169,6 +169,21 @@ function confirmTap(el, ask) {
   return false;
 }
 
+// Hire someone (or bring them out of retirement). Hired for a step from the plan:
+// on that step, and back to the plan.
+function hireAs(fn, id) {
+  const hf = hiringFor(G);
+  const r = fn(G.state, id);
+  if (!r.ok || !hf) {
+    toast(r.msg, !r.ok);
+    G.commit();
+    return;
+  }
+  E.assignToStage(G.state, hf.stage.id, id);
+  toast(`${r.msg} On step ${hf.n}: ${hf.stage.label}.`);
+  returnToPlan(hf.stage.id);
+}
+
 // Unlocking an option from the plan: do it, then put the option on the plan if it's open now.
 function unlockWith(fn, ...args) {
   G.ui.modal = null;
@@ -312,19 +327,9 @@ const A = {
   },
   'dog'(el) { G.ui.modal = { type: 'dog', id: el.dataset.id }; G.ui.confirmFarm = null; G.renderModal(); },
   'close-modal'() { G.ui.modal = null; G.ui.confirmFarm = null; G.ui.unlockFor = null; G.renderModal(); },
-  'hire'(el) {
-    const id = el.dataset.id;
-    const hf = hiringFor(G);
-    const r = E.hire(G.state, id);
-    if (!r.ok || !hf) {
-      toast(r.msg, !r.ok);
-      G.commit();
-      return;
-    }
-    E.assignToStage(G.state, hf.stage.id, id);
-    toast(`${r.msg} On step ${hf.n}: ${hf.stage.label}.`);
-    returnToPlan(hf.stage.id);
-  },
+  'hire'(el) { hireAs(E.hire, el.dataset.id); },
+  // Out of retirement, for one last job.
+  'last-job'(el) { hireAs(E.oneLastJob, el.dataset.id); },
   // Hired to case the joint: back to the casing list, with them on it.
   'recruit-case'(el) {
     const r = E.hire(G.state, el.dataset.id);
