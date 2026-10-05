@@ -36,7 +36,7 @@ test('the record adds up over real careers, and arrests and the rest are counted
     assert.equal(R.hospital, fates.filter((f) => f === 'hospital').length, `seed ${seed} hospital`);
     arrests += R.arrests;
     if (c.best && c.worst) assert.ok('SABCDF'.indexOf(c.best.grade) <= 'SABCDF'.indexOf(c.worst.grade), `seed ${seed}`);
-    if (c.closest) assert.ok(['free', 'crew', 'pound', 'hospital'].includes(s.dogs[c.closest.dog].status));
+    if (c.closest) assert.ok(['free', 'crew', 'pound', 'hospital', 'retired'].includes(s.dogs[c.closest.dog].status));
     if (s.over) assert.notEqual(c.status, 'Still at large');
   }
   assert.ok(arrests > 0, 'somebody got nicked somewhere');

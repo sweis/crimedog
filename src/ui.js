@@ -18,6 +18,7 @@ import { RETIRE } from './retire.js';
 import { recordOf, recordLabel, minSentence, briefCost, INJURIES } from './justice.js';
 import { runnerStatus, runnersList, loose as runnerLoose, HUNT_COST } from './runners.js';
 import { RIVALS, rivalDog, rivalsOf, rivalStatus } from './rivals.js';
+import { lastJobCost, lastJobProblem, lastJobNote, lastJobStory, LAST_JOB_LINE } from './lastjob.js';
 import { venueSVG, skylineSVG } from './art.js';
 import { GROUP_IDS, standingLabel, hireBlocked, hireCost, canBorrow, LOAN, canMakeAmends, amendsCost } from './groups.js';
 
@@ -438,6 +439,9 @@ function dramaChips(d) {
 const dramaMark = (d) => (d.drama?.trouble ? ' ⚠️' : d.drama?.edge > 0 ? ' 🔥' : d.drama?.edge < 0 ? ' 😟' : '');
 
 // opts: fee (show hire cost), skill (show that skill), act/extra (tap action; default opens the profile)
+// How someone's one last job ended, in a word or two.
+const LAST_FATE = { away: 'got away', nicked: 'nicked', hospital: 'hospital', farm: 'the farm', ran: 'did a runner' };
+
 function dogCard(G, d, opts = {}) {
   const s = G.state;
   const b = BREEDS[d.breed];
@@ -446,6 +450,7 @@ function dogCard(G, d, opts = {}) {
   let right = '';
   if (opts.fee && away) right = '<div class="chip">Out of town</div>';
   else if (opts.fee) right = `<div class="fee">${money(hireCost(s, d))}</div>${hireBlocked(s, d) ? '<div class="chip bad">Won\'t work for you</div>' : ''}${d.minRep > s.rep && d.relation < 30 ? `<div class="chip warn">Rep ${d.minRep}+</div>` : ''}`;
+  if (d.status === 'retired') right = !d.lastJobDone && s.phase === 'plan' && opts.fee ? `<div class="fee">${money(lastJobCost(s, d))}</div><div class="chip">🎬 One last job</div>` : '<div class="chip">🎣 Retired</div>';
   if (d.status === 'pound') right = `<div class="chip bad">Pound: ${d.sentence} job${d.sentence > 1 ? 's' : ''}</div>`;
   if (d.status === 'hospital') right = `<div class="chip warn">🏥 ${count(d.hospital.jobs, 'job')}</div>`;
   if (d.known.undercover && d.undercover) right = '<div class="chip bad">COPPER</div>';
@@ -462,6 +467,7 @@ function dogCard(G, d, opts = {}) {
   }
   if (recordOf(d) >= 3 && d.met) flags.push(`<span class="chip">📁 ${recordOf(d)} previous</span>`);
   for (const inj of d.injuries || []) flags.push(`<span class="chip warn">🩹 ${esc(inj.text)}</span>`);
+  if (d.lastJobDone) flags.push(`<span class="chip ${['away', 'ran'].includes(d.lastJobDone.fate) ? 'good' : 'bad'}">🎬 Last job: ${esc(LAST_FATE[d.lastJobDone.fate])}</span>`);
   if ((s.arcs || []).some((x) => x.dog === d.id)) flags.push('<span class="chip info">📖 Story</span>');
   flags.push(...dramaChips(d));
   flags.push(...crewBonds(s, d));
@@ -508,17 +514,28 @@ function pubScreen(G) {
       <p>${need}</p>
       <button class="btn ghost small" data-act="hire-back">← Back to the plan</button></section>
       ${book.length ? `<h2>Your Little Black Book</h2>${dogCards(G, sort(book), opts)}` : ''}
+      ${retiredSection(G, sort(E.bookDogs(s).filter((d) => d.status === 'retired' && !lastJobProblem(s, d))))}
       <h2 class="mt">At the Dog &amp; Duck</h2>
       ${dogCards(G, sort(pub), opts, 'The pub is empty. Ask around.')}
       ${askAround(s)}`;
   }
   // Old faces who are free come first: no need to go through the book on the Crew page.
   const book = freeInBook(s);
+  const retired = E.bookDogs(s).filter((d) => d.status === 'retired' && !lastJobProblem(s, d));
   return `${stepsToCover(G)}
   ${book.length ? `<h2>Free in Your Little Black Book</h2>${dogCards(G, book, { fee: true })}` : ''}
   <h2 class="mt">The Dog &amp; Duck</h2>
   ${dogCards(G, pub, { fee: true }, 'The pub is empty. Ask around.')}
+  ${retiredSection(G, retired)}
   ${askAround(s)}`;
+}
+
+// Retired crew. While planning, the ones who'd come back say what it would take.
+function retiredSection(G, list) {
+  if (!list.length) return '';
+  const s = G.state;
+  const callable = s.phase === 'plan' && list.some((d) => !lastJobProblem(s, d));
+  return `<h2 class="mt">Retired</h2>${callable ? `<p class="muted">"${esc(LAST_JOB_LINE)}" One last job costs more, and their luck's nearly out.</p>` : ''}${dogCards(G, list, { fee: true })}`;
 }
 
 function crewScreen(G) {
@@ -540,6 +557,7 @@ function crewScreen(G) {
   ${section('Out of Town', away)}
   ${section('In Hospital', where('hospital'))}
   ${section('In the Pound', where('pound'))}
+  ${retiredSection(G, where('retired'))}
   ${section('Gone', gone)}
   ${s.history.length ? `<div class="btn-row mt"><button class="btn ghost" data-act="history">📜 Rap sheet (${s.history.length})</button></div>` : ''}`;
 }
@@ -961,6 +979,7 @@ function aftermathScreen(G) {
   }
   for (const c of r.captured) lines.push(`🚓 <b>${esc(shortName(s.dogs[c.id]))}</b> was nicked — ${c.mumbled ? 'mumbled incoherently for hours' : c.talked ? '<b>talked</b>' : 'said nothing'}. ${count(c.sentence, 'job')} in the pound${recordOf(s.dogs[c.id]) > 1 ? ` (${recordOf(s.dogs[c.id]) - 1} previous: the judge noticed)` : ''}.`);
   for (const id of [...r.exposed, ...r.tipped]) lines.push(`👮 <b>${esc(shortName(s.dogs[id]))}</b> was an undercover copper!`);
+  for (const l of a.lastJobs || []) lines.push(esc(lastJobNote(s.dogs[l.id], l.fate, l.bust)));
   for (const t of a.bonds || []) lines.push(esc(t));
   if (a.prize) lines.push(`🎁 Kept: ${KIT[a.prize].icon} <b>${esc(KIT[a.prize].name)}</b>. ${esc(KIT[a.prize].blurb)}`);
   if (r.kitLost?.length) lines.push(`🔧 Lost on the job: ${r.kitLost.map((x) => `${KIT[x.kit].icon} <b>${esc(KIT[x.kit].name)}</b> (${x.why === 'broke' ? 'broken' : 'taken as evidence'})`).join(', ')}. The shop has more.`);
@@ -1162,6 +1181,7 @@ function sceneCast(s, st) {
   const dog = st.dog && s.dogs[st.dog];
   if (st.type === 'drama') return { cls: 'drama', pic: face(dog, 96), picCls: dog.rarity || '', who: `📖 ${esc(displayName(dog))}` };
   if (st.type === 'runner') return { cls: 'rival runner', pic: face(dog, 96), who: `💨 ${esc(displayName(dog))}` };
+  if (st.type === 'retire') return { cls: 'drama', pic: face(dog, 96), picCls: dog.rarity || '', who: `🎣 ${esc(displayName(dog))}` };
   // The Inspector's and the rivals' scenes can name one of your crew: their face goes alongside.
   const withDog = dog ? face(dog, 64) : '';
   if (st.type === 'rival') return { cls: `rival ${st.rival}`, pic: rivalFace(s, st.rival, 96), second: withDog, who: `${RIVALS[st.rival].emblem} ${esc(RIVALS[st.rival].name)}` };
@@ -1207,7 +1227,7 @@ export function profileHTML(G, d) {
   const record = (d.injuries || []).map((i) => `<span class="chip warn">🩹 ${esc(i.text)}: ${SKILL_INFO[i.skill].icon} −1</span>`).join('');
   return `<div class="dm-head ${d.rarity || ''}"><div class="portrait-big">${portraitHTML(d, { size: 84 })}</div>
     <div class="grow"><h2 class="dm-name ${displayName(d).length > 22 ? 'long' : ''}">${esc(displayName(d))}</h2><div class="faction">${rarityBadge(d)}${esc(FACTIONS[d.faction].label)}</div>
-    <div class="dm-sub" title="${esc(b.note || '')}">${dots(esc(b.label), esc(BREED_GROUPS[b.group]), esc(SIZES[b.size]), esc(relationLabel(d)), d.jobs ? count(d.jobs, 'job') : '', d.status === 'free' ? '' : esc(where))}</div></div></div>
+    <div class="dm-sub" title="${esc(b.note || '')}">${dots(esc(b.label), esc(BREED_GROUPS[b.group]), esc(SIZES[b.size]), esc(relationLabel(d)), d.jobs ? count(d.jobs, 'job') : '', ['free', 'retired'].includes(d.status) ? '' : esc(where))}</div></div></div>
     <div class="quote dm-quote">"${esc(d.catchphrase)}"</div>
     <h3 class="dm-h">Skills</h3><div class="skill-grid dm-skills">${skills}</div>
     <h3 class="dm-h">Talents</h3><div class="dm-chips">${talents}</div>
@@ -1241,6 +1261,13 @@ function dogModal(G, d) {
   const why = planning && d.status === 'free' && !inCrew ? E.hireProblem(s, d) : null;
   if (planning && d.status === 'free' && !inCrew) primary.push(why ? `<span class="chip warn">${esc(why)}</span>` : `<button class="btn" data-act="hire" data-id="${d.id}">${hf ? `Hire for step ${hf.n}` : 'Hire'} · ${money(hireCost(s, d))}</button>`);
   if (planning && inCrew) primary.push(`<button class="btn ghost" data-act="dismiss" data-id="${d.id}">Drop from crew</button>`);
+  // Retired: one last job, once, for a price. After that, retired for good.
+  if (d.status === 'retired') {
+    const no = lastJobProblem(s, d);
+    if (d.lastJobDone) primary.push(`<span class="chip">🎣 ${esc(lastJobStory(d))}</span>`);
+    else if (no) primary.push(`<span class="chip">🎣 Retired. ${esc(no)}</span>`);
+    else primary.push(`<button class="btn" data-act="last-job" data-id="${d.id}" ${s.cash >= lastJobCost(s, d) ? '' : 'disabled'}>🎬 One last job${hf ? ` (step ${hf.n})` : ''} · ${money(lastJobCost(s, d))}</button>`);
+  }
   // A brief cuts a job off a sentence, never more than half of it.
   if (d.status === 'pound') primary.push(d.sentence > minSentence(d) ? `<button class="btn" data-act="lawyer" data-id="${d.id}" ${s.cash >= briefCost(d) ? '' : 'disabled'}>⚖️ A brief: one job off · ${money(briefCost(d))}</button>` : `<span class="chip">⚖️ They'll serve ${count(d.sentence, 'more job')}. No brief can shorten it.</span>`);
   if (d.status === 'hospital') primary.push(d.hospital.paid ? '<span class="chip good">🏥 Bill paid</span>' : `<button class="btn" data-act="pay-hospital" data-id="${d.id}" ${s.cash >= d.hospital.bill ? '' : 'disabled'}>🏥 Pay the hospital bill · ${money(d.hospital.bill)}</button>`);
@@ -1297,6 +1324,7 @@ export function careerHTML(G) {
       ${stat('🚓 Arrests', R.arrests, 'bad')}${stat('💨 Runners', R.runners, 'bad')}${stat('🏥 Hospital', R.hospital, 'bad')}
       ${stat('🌾 Lost on jobs', R.lost, 'bad')}${stat('🚜 Farmed', R.farmed, 'bad')}${stat('💷 Earned', R.earned >= 10000 ? moneyShort(R.earned) : money(R.earned))}</div>
     ${c.best ? `<h3 class="dm-h">Best and worst</h3>${job('🏆', c.best)}${job('🤦', c.worst)}` : ''}
+    ${c.lastJob ? `<h3 class="dm-h">One last job</h3>${who(c.lastJob.good ? '🎬' : '🥀', portraitHTML(s.dogs[c.lastJob.dog], { size: 40 }), c.lastJob.name, c.lastJob.text)}` : ''}
     <h3 class="dm-h">Friends and enemies</h3>
     ${c.closest ? who('🤝', portraitHTML(s.dogs[c.closest.dog], { size: 40 }), c.closest.name, `${c.closest.relation} · ${count(c.closest.jobs, 'job')} together`) : '<p class="muted">No close mates yet.</p>'}
     ${e ? who('⚔️', enemyFace, `${e.emblem} ${e.name}`, e.why) : '<p class="muted">No enemies yet. Give it time.</p>'}

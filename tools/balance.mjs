@@ -116,6 +116,7 @@ export function career(seed, policy, maxJobs = 10, onResult = null) {
     // Careful players patch things up with outfits that have turned on them.
     if (policy === 'smart') for (const gid of Object.keys(s.groups)) if (s.groups[gid].standing <= -40 && s.cash > amendsCost(s, gid) + 3000) E.makeAmends(s, gid, 'pay');
     answerStories(s, policy);
+    if (s.over) break; // a scene between jobs can end it
     pickOffer(s, policy);
     if (policy === 'smart') smartJob(s);
     else if (s.pub.length) { const d = s.dogs[s.pub[0]]; if (d.fee <= s.cash) E.hire(s, d.id); }

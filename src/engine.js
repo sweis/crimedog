@@ -17,6 +17,7 @@ import { buildRecap, HISTORY_MAX } from './recap.js';
 import { addGenerosity, addHardness, crewFeeling, CUT_REPUTE } from './repute.js';
 import { sendDown, hireBrief, admit, recover, payHospital } from './justice.js';
 import { newRunner, runnersBetweenJobs, runnersAfterJob, chooseRunner as answerRunner, runnerAction as actOnRunner, tookRunnerJob } from './runners.js';
+import { crewRetirements, restOrFree, lastJobOff, settleLastJobs, gradeLastJobs, lastJobNote, oneLastJob as callBack } from './lastjob.js';
 import { simulate, approachAvailable, baseOdds, stageOptions, canDo, signatureFits, bestAssignment, planScore, odds, oddsKnown } from './sim.js';
 
 export const MAX_CREW = 6;
@@ -341,7 +342,8 @@ export function dismiss(state, id) {
   const d = state.dogs[id];
   if (!state.crew.includes(id) || state.phase !== 'plan') return fail('Not on the crew.');
   leaveCrew(state, id);
-  d.status = 'free';
+  lastJobOff(d);
+  restOrFree(d);
   addRelation(d, -3);
   for (const [k, p] of Object.entries(state.job.plan)) if (p && p.dog === id) delete state.job.plan[k];
   if (state.job.insider === id) state.job.insider = null;
@@ -423,6 +425,7 @@ export const retireNow = (state) => retire(state, rngOf(state));
 export const makeAmends = (state, gid, how) => settle(state, amendsWith(state, rngOf(state), gid, how));
 export const chooseRunner = (state, i) => answerRunner(state, i, rngOf(state), { genJob });
 export const runnerAction = (state, dogId, effect) => settle(state, actOnRunner(state, dogId, effect, rngOf(state), { genJob }));
+export const oneLastJob = (state, id) => callBack(state, id);
 export const chooseRival = (state, i) => answerRival(state, i, rngOf(state), { genJob });
 
 // The scene at the front of the queue, answered by whoever's story it is.
@@ -807,6 +810,9 @@ export function resolveHeist(state) {
     d.known.undercover = true;
     leaveCrew(state, id);
   }
+  // Anyone on their one last job: how it went, and what the rest make of it.
+  const lastJobs = settleLastJobs(state, job, r);
+  for (const l of lastJobs) news(state, lastJobNote(state.dogs[l.id], l.fate, l.bust).replace(/^🎬 /, ''));
   // Crew who've made a name for themselves move up: rare, then legendary.
   const promoted = [];
   for (const id of r.escaped) {
@@ -829,7 +835,7 @@ export function resolveHeist(state) {
   const securedValue = r.secured.reduce((s, id) => s + lootItem(job, id).value, 0);
   const want = job.patron?.want;
   const step = want && r.secured.includes(want) ? 'deliver' : r.secured.length ? 'fence' : 'pay';
-  state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [] };
+  state.after = { step, securedValue, received: 0, gross: 0, fence: null, sting: false, cut: null, grade: null, repDelta: 0, delivered: null, patronCut: 0, relations: [], lastJobs };
   state.after.headline = headline(state);
   state.after.bonds = bondNews;
   state.after.improved = improved;
@@ -990,6 +996,7 @@ function finishGrade(state) {
   const a = state.after;
   const g = gradeJob(state);
   a.grade = g;
+  gradeLastJobs(state, state.job, g.letter);
   a.expected = repExpected(state.rep);
   let rep = REP_FOR[g.letter] - a.expected;
   if (state.result.runners.length) rep -= 2;
@@ -1083,16 +1090,21 @@ export function nextJob(state) {
   if (state.heat >= 100 && checkGameOver(state)) return done('Knock knock.');
   const walkedAway = state.phase === 'plan';
   const rng = rngOf(state);
-  for (const id of state.crew) state.dogs[id].status = 'free';
+  for (const id of state.crew) {
+    lastJobOff(state.dogs[id]); // walked away: their last job is still to come
+    restOrFree(state.dogs[id]);
+  }
   state.crew = [];
+  const released = [];
   for (const d of Object.values(state.dogs)) {
     if (d.status === 'pound' && !walkedAway) {
       if (d.caughtJob === state.job?.id) { d.caughtJob = null; continue; }
       d.sentence -= 1;
       if (d.sentence <= 0) {
-        d.status = 'free';
+        restOrFree(d);
         d.sentence = 0;
-        news(state, `${displayName(d)} is out of the pound${d.talked ? '. Nobody buys them a drink.' : ' and back at the bar.'}`);
+        released.push(d);
+        news(state, `${displayName(d)} is out of the pound${d.talked ? '. Nobody buys them a drink.' : d.retired ? ' and back to retirement.' : ' and back at the bar.'}`);
       }
     }
     if (d.status === 'hospital' && !walkedAway) {
@@ -1128,6 +1140,10 @@ export function nextJob(state) {
   state.job = null;
   state.result = null;
   state.after = null;
+  if (!walkedAway) {
+    const gone = crewRetirements(state, rng, released);
+    if (gone) news(state, gone);
+  }
   for (const e of betweenJobs(state, rng)) news(state, e.replace(/\{\w+\}/g, '').trim());
   advanceArcs(state, rng);
   genOffers(state, rng);

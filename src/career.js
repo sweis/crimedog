@@ -5,9 +5,10 @@ import { GROUPS } from './data.js';
 import { RETIRE, nestEggPct } from './retire.js';
 import { RIVALS, rivalsOf } from './rivals.js';
 import { runnersList, loose } from './runners.js';
-import { displayName, relationLabel, closestMates } from './dogs.js';
+import { displayName, shortName, relationLabel, closestMates } from './dogs.js';
 import { standingLabel } from './groups.js';
 import { inSentence } from './util.js';
+import { memorableLastJob, lastJobStory } from './lastjob.js';
 import { GRADE_ORDER } from './recap.js';
 
 
@@ -64,6 +65,12 @@ function biggestEnemy(state) {
   return out.sort((a, b) => b.score - a.score)[0] || null;
 }
 
+// The one last job worth remembering, good or bad.
+function lastJobMemory(state) {
+  const d = memorableLastJob(state);
+  return d ? { dog: d.id, name: displayName(d), text: lastJobStory(d, shortName(d)), good: ['away', 'ran'].includes(d.lastJobDone.fate) } : null;
+}
+
 export function careerOf(state) {
   const s = state;
   const jobs = s.stats.jobs;
@@ -89,6 +96,7 @@ export function careerOf(state) {
     best,
     worst,
     closest: closestMate(s),
+    lastJob: lastJobMemory(s),
     enemy: biggestEnemy(s),
   };
 }
